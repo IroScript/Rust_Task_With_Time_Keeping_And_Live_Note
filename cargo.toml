@@ -1,0 +1,37 @@
+[package]
+name = "daily-motivation"
+version = "0.1.0"
+edition = "2021"
+description = "Daily Motivation App - Pure Rust GUI with winit, wgpu, and egui"
+authors = ["AI Assistant"]
+
+[dependencies]
+# Window and event handling
+winit = "0.30"
+
+# GPU rendering
+wgpu = "22.1"
+
+# Immediate mode GUI (with serde feature for Color32 serialization)
+egui = { version = "0.29", features = ["serde"] }
+egui-winit = "0.29"
+egui-wgpu = "0.29"
+
+# Async runtime for wgpu initialization
+pollster = "0.3"
+
+# Windows API for window topmost (Windows only)
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+
+# For file operations (saving/loading)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# For time tracking
+chrono = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true

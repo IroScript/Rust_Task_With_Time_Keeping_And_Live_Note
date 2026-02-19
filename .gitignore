@@ -1,0 +1,10 @@
+target/
+debug.log
+settings.json
+quotes_export.json
+.gemini/
+*.png
+*.txt
+*.exe
+*.pdb
+*.lock
