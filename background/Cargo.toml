@@ -7,7 +7,7 @@ edition = "2021"
 # Bevy 3D Engine for pure Rust GUI and 3D rendering
 bevy = "0.13"
 rand = "0.8"
-windows = { version = "0.52", features = ["Win32_UI_WindowsAndMessaging"] }
+windows = { version = "0.52", features = ["Win32_System_Com", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.52", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi"] }

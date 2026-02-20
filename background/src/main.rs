@@ -379,37 +379,54 @@ fn sync_window_process(
             if tracking.hwnd != 0 {
                 use windows::core::s;
                 use windows::Win32::Foundation::HWND;
+                use windows::Win32::System::Com::{
+                    CoCreateInstance, CoInitialize, CLSCTX_INPROC_SERVER,
+                };
+                use windows::Win32::UI::Shell::{ITaskbarList, TaskbarList};
                 use windows::Win32::UI::WindowsAndMessaging::{
-                    FindWindowA, GetWindowRect, SetWindowLongPtrA, GWLP_HWNDPARENT,
+                    FindWindowA, GetWindowRect, IsIconic,
                 };
 
                 let main_hwnd = HWND(tracking.hwnd);
 
                 unsafe {
-                    // Show after a few frames to let rendering initialize perfectly
-                    if tracking.frames == 5 {
-                        window.visible = true;
+                    let is_minimized = IsIconic(main_hwnd).as_bool();
 
-                        // Bind the 3D Background to the Main Window
-                        // This removes the 2nd taskbar icon AND automatically handles minimize/restore natively!
+                    if is_minimized {
+                        window.visible = false;
+                    } else if tracking.frames >= 5 {
+                        window.visible = true;
+                    }
+
+                    if tracking.frames == 5 {
                         let std_title = s!("Year 50,000 - Quantum Logo (Pure Rust)");
                         let hwnd_self = FindWindowA(windows::core::PCSTR::null(), std_title);
                         if hwnd_self.0 != 0 {
-                            SetWindowLongPtrA(hwnd_self, GWLP_HWNDPARENT, tracking.hwnd);
+                            // Hide from taskbar using COM ITaskbarList
+                            CoInitialize(None).ok();
+                            if let Ok(taskbar) = CoCreateInstance::<_, ITaskbarList>(
+                                &TaskbarList,
+                                None,
+                                CLSCTX_INPROC_SERVER,
+                            ) {
+                                let _ = taskbar.HrInit();
+                                let _ = taskbar.DeleteTab(hwnd_self);
+                            }
                         }
                     }
 
-                    // Constantly sync position to the main window
-                    let mut rect = windows::Win32::Foundation::RECT::default();
-                    if GetWindowRect(main_hwnd, &mut rect).is_ok() {
-                        let width = (rect.right - rect.left) as f32;
-                        let height = (rect.bottom - rect.top) as f32;
+                    if !is_minimized {
+                        let mut rect = windows::Win32::Foundation::RECT::default();
+                        if GetWindowRect(main_hwnd, &mut rect).is_ok() {
+                            let width = (rect.right - rect.left) as f32;
+                            let height = (rect.bottom - rect.top) as f32;
 
-                        let x = rect.left;
-                        let y = rect.top;
+                            let x = rect.left;
+                            let y = rect.top;
 
-                        window.position = bevy::window::WindowPosition::At(IVec2::new(x, y));
-                        window.resolution.set(width, height);
+                            window.position = bevy::window::WindowPosition::At(IVec2::new(x, y));
+                            window.resolution.set(width, height);
+                        }
                     }
                 }
             } else if tracking.frames == 5 {
