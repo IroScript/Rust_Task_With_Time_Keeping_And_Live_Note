@@ -41,7 +41,7 @@ use std::collections::HashMap;
 
 const TITLE_BAR_HEIGHT: f32 = 20.0;
 const DEFAULT_WINDOW_SIZE: (u32, u32) = (1100, 750);
-const MIN_WINDOW_SIZE: (u32, u32) = (800, 600);
+const MIN_WINDOW_SIZE: (u32, u32) = (1, 1);
 const CONTROL_PANEL_WIDTH: f32 = 310.0; // Increased to fix right side cutoff
 
 // ── FUTURISTIC COLOR PALETTE ──────────────────────────
@@ -93,6 +93,7 @@ pub struct ThemeConfig {
     pub gradient_angle: i32,
     pub gradient_colors: Vec<Color32>,
     pub solid_color: Color32,
+    pub apply_to_entire_window: bool,
 }
 
 impl Default for ThemeConfig {
@@ -106,6 +107,7 @@ impl Default for ThemeConfig {
                 Color32::from_rgb(240, 147, 251), // #f093fb
             ],
             solid_color: Color32::from_rgb(102, 126, 234),
+            apply_to_entire_window: true,
         }
     }
 }
@@ -334,6 +336,10 @@ pub struct AppState {
 
     // Activity tracking for auto-hide
     pub last_interaction: Instant,
+
+    // Custom manual resize state
+    // (ResizeDirection, initial_cursor_x, initial_cursor_y, initial_window_x, initial_window_y, initial_width, initial_height)
+    pub manual_resize_start: Option<(winit::window::ResizeDirection, i32, i32, i32, i32, u32, u32)>,
 }
 
 impl Default for AppState {
@@ -360,6 +366,7 @@ impl Default for AppState {
                 subtitle_editing: false,
                 subtitle_edit_buffer: String::new(),
                 confirm_clear_pending: false,
+                manual_resize_start: None,
             }
         } else {
             // Default initialization if no config found
@@ -432,6 +439,7 @@ impl Default for AppState {
                 subtitle_editing: false,
                 subtitle_edit_buffer: String::new(),
                 confirm_clear_pending: false,
+                manual_resize_start: None,
             }
         }
     }
@@ -617,9 +625,15 @@ pub fn render_title_bar(
 
     let mut actions = Vec::new();
 
+    let titlebar_bg = if state.theme.apply_to_entire_window {
+        Color32::TRANSPARENT
+    } else {
+        TITLEBAR_BG
+    };
+
     TopBottomPanel::top("title_bar")
         .exact_height(TITLE_BAR_HEIGHT)
-        .frame(Frame::none().fill(TITLEBAR_BG))
+        .frame(Frame::none().fill(titlebar_bg))
         .show(ctx, |ui| {
             // Title bar top accent line
             let rect = ui.max_rect();
@@ -919,13 +933,19 @@ pub fn render_main_content(
     )>,
 ) {
     // RIGHT SIDE PANEL — must be declared BEFORE CentralPanel
+    let right_panel_bg = if state.theme.apply_to_entire_window {
+        Color32::TRANSPARENT
+    } else {
+        CONTROL_PANEL_BG
+    };
+
     if state.title_bar_state.control_panel_visible {
         egui::SidePanel::right("control_panel")
             .exact_width(CONTROL_PANEL_WIDTH)
             .resizable(false)
             .frame(
                 Frame::none()
-                    .fill(CONTROL_PANEL_BG)
+                    .fill(right_panel_bg)
                     .inner_margin(egui::Margin {
                         left: 10.0,
                         right: 10.0,
@@ -939,9 +959,121 @@ pub fn render_main_content(
     }
 
     // MAIN CANVAS — CentralPanel takes remaining space automatically
+    let central_bg = if state.theme.apply_to_entire_window {
+        Color32::TRANSPARENT // Draw background across entire screen behind panels
+    } else {
+        match state.theme.mode {
+            ThemeMode::Solid => state.theme.solid_color,
+            ThemeMode::Gradient => Color32::TRANSPARENT, // We will manually draw gradient
+        }
+    };
+
     egui::CentralPanel::default()
-        .frame(Frame::none().fill(state.get_background_color()))
+        .frame(Frame::none().fill(central_bg))
         .show(ctx, |ui| {
+            // Draw gradient background manually if needed
+            if state.theme.apply_to_entire_window || state.theme.mode == ThemeMode::Gradient {
+                let rect = if state.theme.apply_to_entire_window {
+                    ctx.screen_rect()
+                } else {
+                    ui.max_rect()
+                };
+
+                if state.theme.mode == ThemeMode::Solid {
+                    ui.painter_at(rect)
+                        .rect_filled(rect, Rounding::ZERO, state.theme.solid_color);
+                } else if !state.theme.gradient_colors.is_empty() {
+                    let angle_rad = (state.theme.gradient_angle as f32).to_radians();
+
+                    // Quick radial to corners approximation
+                    let dir = egui::Vec2::new(angle_rad.cos(), angle_rad.sin());
+
+                    use egui::epaint::{Mesh, Vertex};
+                    let mut mesh = Mesh::default();
+
+                    let c0 = rect.min;
+                    let c1 = egui::pos2(rect.max.x, rect.min.y);
+                    let c2 = egui::pos2(rect.min.x, rect.max.y);
+                    let c3 = rect.max;
+
+                    // Project corners onto gradient direction line
+                    let center = rect.center();
+                    let project = |p: egui::Pos2| -> f32 {
+                        let v = p - center;
+                        v.x * dir.x + v.y * dir.y
+                    };
+
+                    let p0 = project(c0);
+                    let p1 = project(c1);
+                    let p2 = project(c2);
+                    let p3 = project(c3);
+
+                    let min_p = p0.min(p1).min(p2).min(p3);
+                    let max_p = p0.max(p1).max(p2).max(p3);
+                    let range = (max_p - min_p).max(0.1);
+
+                    let calc_color = |p: f32| -> Color32 {
+                        let t = ((p - min_p) / range).clamp(0.0, 1.0);
+                        let colors = &state.theme.gradient_colors;
+
+                        if colors.is_empty() {
+                            return Color32::TRANSPARENT;
+                        }
+                        if colors.len() == 1 {
+                            return colors[0];
+                        }
+
+                        let n_segments = (colors.len() - 1) as f32;
+                        let scaled_t = t * n_segments;
+                        let mut index = scaled_t.floor() as usize;
+                        index = index.min(colors.len() - 2);
+                        let fract = scaled_t - index as f32;
+
+                        let c1 = colors[index];
+                        let c2 = colors[index + 1];
+
+                        let r = (c1.r() as f32 * (1.0 - fract) + c2.r() as f32 * fract) as u8;
+                        let g = (c1.g() as f32 * (1.0 - fract) + c2.g() as f32 * fract) as u8;
+                        let b = (c1.b() as f32 * (1.0 - fract) + c2.b() as f32 * fract) as u8;
+                        let a = (c1.a() as f32 * (1.0 - fract) + c2.a() as f32 * fract) as u8;
+
+                        Color32::from_rgba_premultiplied(r, g, b, a)
+                    };
+
+                    let steps_x = 32;
+                    let steps_y = 32;
+
+                    for yi in 0..=steps_y {
+                        let ty = yi as f32 / steps_y as f32;
+                        for xi in 0..=steps_x {
+                            let tx = xi as f32 / steps_x as f32;
+                            let p = rect.min + egui::vec2(rect.width() * tx, rect.height() * ty);
+
+                            let proj = project(p);
+
+                            mesh.vertices.push(Vertex {
+                                pos: p,
+                                uv: egui::pos2(tx, ty),
+                                color: calc_color(proj),
+                            });
+                        }
+                    }
+
+                    for yi in 0..steps_y {
+                        for xi in 0..steps_x {
+                            let i0 = yi * (steps_x + 1) + xi;
+                            let i1 = i0 + 1;
+                            let i2 = (yi + 1) * (steps_x + 1) + xi;
+                            let i3 = i2 + 1;
+
+                            mesh.indices.extend_from_slice(&[i0, i1, i2, i1, i3, i2]);
+                        }
+                    }
+
+                    ui.painter_at(rect).add(egui::Shape::mesh(mesh));
+                }
+            }
+
             ui.vertical_centered(|ui| {
                 ui.add_space(80.0);
 
@@ -1892,6 +2024,20 @@ pub fn render_theme_modal(ctx: &Context, state: &mut AppState) {
                 }
             });
 
+            ui.add_space(10.0);
+
+            ui.horizontal(|ui| {
+                if ui
+                    .checkbox(
+                        &mut state.theme.apply_to_entire_window,
+                        "Apply to Entire Window",
+                    )
+                    .changed()
+                {
+                    state.save();
+                }
+            });
+
             ui.add_space(15.0);
 
             if state.theme.mode == ThemeMode::Gradient {
@@ -2178,6 +2324,23 @@ impl<'a> WgpuRenderState<'a> {
 // =============================================================================
 // MAIN ENTRY POINT
 // =============================================================================
+
+#[cfg(windows)]
+fn get_global_cursor() -> Option<(i32, i32)> {
+    use windows::Win32::Foundation::POINT;
+    use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
+    let mut pt = POINT::default();
+    if unsafe { GetCursorPos(&mut pt) }.is_ok() {
+        Some((pt.x, pt.y))
+    } else {
+        None
+    }
+}
+
+#[cfg(not(windows))]
+fn get_global_cursor() -> Option<(i32, i32)> {
+    None
+}
 
 fn log_to_file(msg: &str) {
     if let Ok(mut file) = OpenOptions::new()
@@ -2642,50 +2805,123 @@ impl AppRunner {
                 app_state.last_interaction = Instant::now();
             }
 
+            let mut is_resizing = false;
+            // Handle active manual resizing
+            if let Some((dir, start_cx, start_cy, start_wx, start_wy, start_w, start_h)) =
+                app_state.manual_resize_start
+            {
+                is_resizing = true;
+                if ctx.input(|i| i.pointer.primary_down()) {
+                    if let Some((cx, cy)) = get_global_cursor() {
+                        let dx = cx - start_cx;
+                        let dy = cy - start_cy;
+
+                        let mut new_w = start_w as i32;
+                        let mut new_h = start_h as i32;
+                        let mut new_x = start_wx;
+                        let mut new_y = start_wy;
+
+                        use winit::window::ResizeDirection;
+                        match dir {
+                            ResizeDirection::East => new_w += dx,
+                            ResizeDirection::West => {
+                                new_w -= dx;
+                                new_x += dx;
+                            }
+                            ResizeDirection::South => new_h += dy,
+                            ResizeDirection::North => {
+                                new_h -= dy;
+                                new_y += dy;
+                            }
+                            ResizeDirection::SouthEast => {
+                                new_w += dx;
+                                new_h += dy;
+                            }
+                            ResizeDirection::SouthWest => {
+                                new_w -= dx;
+                                new_x += dx;
+                                new_h += dy;
+                            }
+                            ResizeDirection::NorthEast => {
+                                new_w += dx;
+                                new_h -= dy;
+                                new_y += dy;
+                            }
+                            ResizeDirection::NorthWest => {
+                                new_w -= dx;
+                                new_x += dx;
+                                new_h -= dy;
+                                new_y += dy;
+                            }
+                        }
+
+                        let new_w = new_w.max(0) as u32;
+                        let new_h = new_h.max(0) as u32;
+
+                        window.set_outer_position(winit::dpi::PhysicalPosition::new(new_x, new_y));
+                        let _ =
+                            window.request_inner_size(winit::dpi::PhysicalSize::new(new_w, new_h));
+                    }
+                } else {
+                    app_state.manual_resize_start = None;
+                }
+            }
+
             // Handle window resizing via borders since it's frameless
             let border = 8.0;
             let screen_rect = ctx.screen_rect();
-            if let Some(pos) = ctx.input(|i| i.pointer.hover_pos()) {
-                let left = pos.x < border;
-                let right = pos.x > screen_rect.max.x - border;
-                let top = pos.y < border;
-                let bottom = pos.y > screen_rect.max.y - border;
+            if !is_resizing {
+                if let Some(pos) = ctx.input(|i| i.pointer.hover_pos()) {
+                    let left = pos.x < border;
+                    let right = pos.x > screen_rect.max.x - border;
+                    let top = pos.y < border;
+                    let bottom = pos.y > screen_rect.max.y - border;
 
-                if left || right || top || bottom {
-                    if top && left {
-                        ctx.set_cursor_icon(egui::CursorIcon::ResizeNwSe);
-                    } else if top && right {
-                        ctx.set_cursor_icon(egui::CursorIcon::ResizeNeSw);
-                    } else if bottom && left {
-                        ctx.set_cursor_icon(egui::CursorIcon::ResizeNeSw);
-                    } else if bottom && right {
-                        ctx.set_cursor_icon(egui::CursorIcon::ResizeNwSe);
-                    } else if top || bottom {
-                        ctx.set_cursor_icon(egui::CursorIcon::ResizeVertical);
-                    } else if left || right {
-                        ctx.set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
-                    }
-
-                    if ctx.input(|i| i.pointer.primary_pressed()) {
-                        use winit::window::ResizeDirection;
-                        let dir = if top && left {
-                            ResizeDirection::NorthWest
+                    if left || right || top || bottom {
+                        if top && left {
+                            ctx.set_cursor_icon(egui::CursorIcon::ResizeNwSe);
                         } else if top && right {
-                            ResizeDirection::NorthEast
+                            ctx.set_cursor_icon(egui::CursorIcon::ResizeNeSw);
                         } else if bottom && left {
-                            ResizeDirection::SouthWest
+                            ctx.set_cursor_icon(egui::CursorIcon::ResizeNeSw);
                         } else if bottom && right {
-                            ResizeDirection::SouthEast
-                        } else if top {
-                            ResizeDirection::North
-                        } else if bottom {
-                            ResizeDirection::South
-                        } else if left {
-                            ResizeDirection::West
-                        } else {
-                            ResizeDirection::East
-                        };
-                        let _ = window.drag_resize_window(dir);
+                            ctx.set_cursor_icon(egui::CursorIcon::ResizeNwSe);
+                        } else if top || bottom {
+                            ctx.set_cursor_icon(egui::CursorIcon::ResizeVertical);
+                        } else if left || right {
+                            ctx.set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+                        }
+
+                        if ctx.input(|i| i.pointer.primary_pressed()) {
+                            use winit::window::ResizeDirection;
+                            let dir = if top && left {
+                                ResizeDirection::NorthWest
+                            } else if top && right {
+                                ResizeDirection::NorthEast
+                            } else if bottom && left {
+                                ResizeDirection::SouthWest
+                            } else if bottom && right {
+                                ResizeDirection::SouthEast
+                            } else if top {
+                                ResizeDirection::North
+                            } else if bottom {
+                                ResizeDirection::South
+                            } else if left {
+                                ResizeDirection::West
+                            } else {
+                                ResizeDirection::East
+                            };
+
+                            if let (Some((cx, cy)), Ok(wpos)) =
+                                (get_global_cursor(), window.outer_position())
+                            {
+                                let size = window.inner_size();
+                                app_state.manual_resize_start =
+                                    Some((dir, cx, cy, wpos.x, wpos.y, size.width, size.height));
+                            } else {
+                                let _ = window.drag_resize_window(dir);
+                            }
+                        }
                     }
                 }
             }

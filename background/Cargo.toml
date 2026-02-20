@@ -1,0 +1,9 @@
+[package]
+name = "quantum_logo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Bevy 3D Engine for pure Rust GUI and 3D rendering
+bevy = "0.13"
+rand = "0.8"
