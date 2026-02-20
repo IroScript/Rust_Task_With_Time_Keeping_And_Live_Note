@@ -33,29 +33,38 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 // =============================================================================
 // CONSTANTS
 // =============================================================================
 
-const TITLE_BAR_HEIGHT: f32 = 32.0;
-const DEFAULT_WINDOW_SIZE: (i32, i32) = (900, 650);
-const MIN_WINDOW_SIZE: (i32, i32) = (600, 400);
-const CONTROL_PANEL_WIDTH: f32 = 280.0;
+const TITLE_BAR_HEIGHT: f32 = 20.0;
+const DEFAULT_WINDOW_SIZE: (u32, u32) = (1100, 750);
+const MIN_WINDOW_SIZE: (u32, u32) = (800, 600);
+const CONTROL_PANEL_WIDTH: f32 = 310.0; // Increased to fix right side cutoff
 
-// Color constants (RGB values)
-const TITLEBAR_BG: Color32 = Color32::from_rgb(102, 126, 234); // Purple header (matching HTML)
-const TITLEBAR_FG: Color32 = Color32::WHITE; // White text
+// ── FUTURISTIC COLOR PALETTE ──────────────────────────
+// Deep space background
+const BG_DEEP: Color32 = Color32::from_rgb(4, 8, 18); // #040812
+const BG_PANEL: Color32 = Color32::from_rgb(8, 16, 32); // #081020
+                                                        // Neon accents
+const CYAN_DIM: Color32 = Color32::from_rgb(0, 100, 140); // #00648c
+
+// Title bar
+const TITLEBAR_BG: Color32 = Color32::from_rgb(6, 12, 28); // Dark navy
+const TITLEBAR_FG: Color32 = Color32::from_rgb(0, 200, 255); // Cyan text
 
 // Button style colors
-const BTN_NORMAL_BG: Color32 = Color32::from_rgb(64, 64, 64); // Dark gray
-const BTN_ACTIVE_BG: Color32 = Color32::from_rgb(100, 200, 255); // Active blue
-const BTN_ACTIVE_FG: Color32 = Color32::from_rgb(30, 30, 30); // Dark text for active
-const BTN_WARNING_BG: Color32 = Color32::from_rgb(255, 68, 68); // Red for close
+const BTN_NORMAL_BG: Color32 = Color32::from_rgb(12, 22, 44);
+const BTN_ACTIVE_BG: Color32 = CYAN_DIM;
+const BTN_ACTIVE_FG: Color32 = Color32::WHITE;
+
+// Hover colors are handled inside the drawing function directly
 
 // Canvas backgrounds
-const CANVAS_BG: Color32 = Color32::from_rgb(30, 30, 30);
-const CONTROL_PANEL_BG: Color32 = Color32::from_rgb(40, 40, 50);
+const CANVAS_BG: Color32 = BG_DEEP;
+const CONTROL_PANEL_BG: Color32 = BG_PANEL;
 
 // =============================================================================
 // DATA STRUCTURES
@@ -143,14 +152,21 @@ pub struct TitleBarIcon {
     pub symbol: &'static str,
     pub tooltip: &'static str,
     pub width: f32,
+    pub font_size: f32,
 }
 
 impl TitleBarIcon {
-    pub const fn new(symbol: &'static str, tooltip: &'static str, width: f32) -> Self {
+    pub const fn new(
+        symbol: &'static str,
+        tooltip: &'static str,
+        width: f32,
+        font_size: f32,
+    ) -> Self {
         Self {
             symbol,
             tooltip,
             width,
+            font_size,
         }
     }
 }
@@ -158,32 +174,19 @@ impl TitleBarIcon {
 pub mod icons {
     use super::TitleBarIcon;
 
-    /// App icon
-    pub const APP_ICON: TitleBarIcon = TitleBarIcon::new("💪", "Daily Motivation", 28.0);
-
-    /// Theme button
-    pub const THEME: TitleBarIcon = TitleBarIcon::new("🎨", "Change Theme", 28.0);
-
-    /// Zoom in button
-    pub const ZOOM_IN: TitleBarIcon = TitleBarIcon::new("🔍+", "Zoom In", 32.0);
-
-    /// Zoom out button
-    pub const ZOOM_OUT: TitleBarIcon = TitleBarIcon::new("🔍-", "Zoom Out", 32.0);
-
-    /// Toggle panel button
-    pub const TOGGLE_PANEL: TitleBarIcon = TitleBarIcon::new("☰", "Toggle Panel", 28.0);
-
-    /// Minimize button
-    pub const MINIMIZE: TitleBarIcon = TitleBarIcon::new("−", "Minimize", 28.0);
-
-    /// Close button
-    pub const CLOSE: TitleBarIcon = TitleBarIcon::new("✕", "Close", 28.0);
-
-    /// HIDE Header button
-    pub const HIDE_HEADER: TitleBarIcon = TitleBarIcon::new("▲", "Hide Header", 28.0);
-
-    /// SHOW Header button
-    pub const SHOW_HEADER: TitleBarIcon = TitleBarIcon::new("∧", "Show Header", 28.0);
+    pub const APP_ICON: TitleBarIcon =
+        TitleBarIcon::new("\u{f135}", "Daily Motivation", 20.0, 24.0);
+    pub const THEME: TitleBarIcon = TitleBarIcon::new("\u{eb5c}", "Change Theme", 20.0, 12.0);
+    pub const EXPORT: TitleBarIcon = TitleBarIcon::new("\u{f0207}", "Export Quotes", 20.0, 13.2);
+    pub const ZOOM_IN: TitleBarIcon = TitleBarIcon::new("\u{f120d}", "Zoom In", 20.0, 16.8);
+    pub const ZOOM_OUT: TitleBarIcon = TitleBarIcon::new("\u{f06ec}", "Zoom Out", 20.0, 16.8);
+    pub const TOGGLE_PANEL: TitleBarIcon =
+        TitleBarIcon::new("\u{f0c9}", "Toggle Panel", 20.0, 24.0);
+    pub const MINIMIZE: TitleBarIcon = TitleBarIcon::new("\u{f2d1}", "Minimize", 20.0, 11.2);
+    pub const MAXIMIZE: TitleBarIcon = TitleBarIcon::new("\u{f2d0}", "Maximize", 20.0, 10.0);
+    pub const CLOSE: TitleBarIcon = TitleBarIcon::new("\u{f110a}", "Close", 20.0, 13.2);
+    pub const HIDE_HEADER: TitleBarIcon = TitleBarIcon::new("\u{f102}", "Hide Header", 20.0, 17.5);
+    pub const SHOW_HEADER: TitleBarIcon = TitleBarIcon::new("\u{f103}", "Show Header", 20.0, 24.0);
 }
 
 // =============================================================================
@@ -195,10 +198,12 @@ pub mod icons {
 pub struct TitleBarState {
     // Button hover states
     pub theme_btn_hovered: bool,
+    pub export_btn_hovered: bool,
     pub zoom_out_btn_hovered: bool,
     pub zoom_in_btn_hovered: bool,
     pub toggle_panel_btn_hovered: bool,
     pub minimize_btn_hovered: bool,
+    pub maximize_btn_hovered: bool,
     pub close_btn_hovered: bool,
 
     // Panel visibility
@@ -217,10 +222,12 @@ impl Default for TitleBarState {
     fn default() -> Self {
         Self {
             theme_btn_hovered: false,
+            export_btn_hovered: false,
             zoom_out_btn_hovered: false,
             zoom_in_btn_hovered: false,
             toggle_panel_btn_hovered: false,
             minimize_btn_hovered: false,
+            maximize_btn_hovered: false,
             close_btn_hovered: false,
 
             control_panel_visible: true,
@@ -238,10 +245,12 @@ impl Default for TitleBarState {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TitleBarAction {
     ThemeClicked,
+    ExportClicked,
     ZoomIn,
     ZoomOut,
     TogglePanel,
     MinimizeClicked,
+    MaximizeClicked,
     CloseClicked,
     ShowHeader,
     HideHeader,
@@ -519,35 +528,30 @@ pub fn draw_icon_button(
     fg_color: Color32,
     _hovered: bool,
 ) -> egui::Response {
-    let size = Vec2::new(icon.width, TITLE_BAR_HEIGHT - 4.0);
+    // Slightly wider bounding box for bigger icons
+    let size = Vec2::new(icon.width + 4.0, TITLE_BAR_HEIGHT - 4.0);
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
 
-    // Determine background color based on hover state
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+
+    // Determine background color based on hover state: Custom bg default, Pink/Purple on hover
     let bg = if response.hovered() {
-        bg_color.linear_multiply(1.3)
+        Color32::from_rgb(220, 80, 220) // Pink/Purple hover color
     } else {
         bg_color
     };
 
     // Draw button background with rounded corners
-    ui.painter().rect_filled(rect, Rounding::same(4.0), bg);
-
-    // Draw border for active state
-    if response.hovered() {
-        ui.painter().rect_stroke(
-            rect,
-            Rounding::same(4.0),
-            Stroke::new(1.0, Color32::WHITE.gamma_multiply(0.3)),
-        );
-    }
+    ui.painter().rect_filled(rect, Rounding::same(6.0), bg);
 
     // Draw icon text centered
-    let font_size = if icon.symbol.len() > 3 { 12.0 } else { 16.0 };
     ui.painter().text(
         rect.center(),
         egui::Align2::CENTER_CENTER,
         icon.symbol,
-        FontId::proportional(font_size),
+        FontId::proportional(icon.font_size),
         fg_color,
     );
 
@@ -564,6 +568,10 @@ pub fn draw_text_button(
 ) -> egui::Response {
     let size = Vec2::new(width, height);
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
 
     let bg = if response.hovered() {
         bg_color.linear_multiply(1.2)
@@ -613,6 +621,13 @@ pub fn render_title_bar(
         .exact_height(TITLE_BAR_HEIGHT)
         .frame(Frame::none().fill(TITLEBAR_BG))
         .show(ctx, |ui| {
+            // Title bar top accent line
+            let rect = ui.max_rect();
+            ui.painter().line_segment(
+                [rect.left_top(), rect.right_top()],
+                egui::Stroke::new(1.0, Color32::from_rgb(0, 200, 255)), // CYAN_BRIGHT
+            );
+
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                 ui.spacing_mut().item_spacing = Vec2::new(4.0, 0.0);
                 ui.add_space(8.0);
@@ -620,26 +635,12 @@ pub fn render_title_bar(
                 // ----- App Icon -----
                 ui.label(RichText::new(icons::APP_ICON.symbol).size(16.0));
 
-                // ----- Title Text -----
-                let title_response = ui.label(
+                let _title_response = ui.label(
                     RichText::new("Daily Motivation")
                         .color(TITLEBAR_FG)
                         .strong()
                         .size(14.0),
                 );
-
-                // Handle title bar dragging - actually move the window
-                if title_response.dragged() {
-                    let delta = title_response.drag_delta();
-                    if delta.x != 0.0 || delta.y != 0.0 {
-                        if let Ok(pos) = window.outer_position() {
-                            let scale = window.scale_factor();
-                            let new_x = pos.x + (delta.x as f64 * scale) as i32;
-                            let new_y = pos.y + (delta.y as f64 * scale) as i32;
-                            window.set_outer_position(PhysicalPosition::new(new_x, new_y));
-                        }
-                    }
-                }
 
                 ui.add_space(12.0);
 
@@ -656,106 +657,152 @@ pub fn render_title_bar(
                     );
                 }
 
-                // Spacer to push buttons to the right
-                ui.add_space((ui.available_width() - 220.0).max(0.0));
+                // Allocate the empty space (drag area) dynamically taking all remaining central space
 
-                // ===== BUTTON GROUP =====
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.spacing_mut().item_spacing = Vec2::new(4.0, 0.0);
+                    // Add a tiny bit of padding on the absolute right edge
+                    ui.add_space(4.0);
 
-                // ----- Theme Button -----
-                let response = draw_icon_button(
-                    ui,
-                    &icons::THEME,
-                    BTN_NORMAL_BG,
-                    Color32::WHITE,
-                    state.title_bar_state.theme_btn_hovered,
-                );
-                state.title_bar_state.theme_btn_hovered = response.hovered();
+                    // ===== BUTTON GROUP (Right Side) - MUST BE DRAWN IN REVERSE ORDER =====
 
-                if response.clicked() {
-                    actions.push(TitleBarAction::ThemeClicked);
-                }
-                response.on_hover_text_at_pointer(icons::THEME.tooltip);
+                    // 1. Close
+                    let response = draw_icon_button(
+                        ui,
+                        &icons::CLOSE,
+                        Color32::TRANSPARENT,
+                        Color32::WHITE,
+                        state.title_bar_state.close_btn_hovered,
+                    );
+                    state.title_bar_state.close_btn_hovered = response.hovered();
 
-                // ----- Zoom Out Button -----
-                let response = draw_icon_button(
-                    ui,
-                    &icons::ZOOM_OUT,
-                    BTN_NORMAL_BG,
-                    Color32::WHITE,
-                    state.title_bar_state.zoom_out_btn_hovered,
-                );
-                state.title_bar_state.zoom_out_btn_hovered = response.hovered();
+                    if response.clicked() {
+                        actions.push(TitleBarAction::CloseClicked);
+                    }
+                    response.on_hover_text_at_pointer(icons::CLOSE.tooltip);
 
-                if response.clicked() {
-                    actions.push(TitleBarAction::ZoomOut);
-                }
-                response.on_hover_text_at_pointer(icons::ZOOM_OUT.tooltip);
+                    // 2. Maximize
+                    let response = draw_icon_button(
+                        ui,
+                        &icons::MAXIMIZE,
+                        Color32::TRANSPARENT,
+                        Color32::WHITE,
+                        state.title_bar_state.maximize_btn_hovered,
+                    );
+                    state.title_bar_state.maximize_btn_hovered = response.hovered();
 
-                // ----- Zoom In Button -----
-                let response = draw_icon_button(
-                    ui,
-                    &icons::ZOOM_IN,
-                    BTN_NORMAL_BG,
-                    Color32::WHITE,
-                    state.title_bar_state.zoom_in_btn_hovered,
-                );
-                state.title_bar_state.zoom_in_btn_hovered = response.hovered();
+                    if response.clicked() {
+                        actions.push(TitleBarAction::MaximizeClicked);
+                    }
+                    response.on_hover_text_at_pointer(icons::MAXIMIZE.tooltip);
 
-                if response.clicked() {
-                    actions.push(TitleBarAction::ZoomIn);
-                }
-                response.on_hover_text_at_pointer(icons::ZOOM_IN.tooltip);
+                    // 3. Minimize
+                    let response = draw_icon_button(
+                        ui,
+                        &icons::MINIMIZE,
+                        Color32::TRANSPARENT,
+                        Color32::WHITE,
+                        state.title_bar_state.minimize_btn_hovered,
+                    );
+                    state.title_bar_state.minimize_btn_hovered = response.hovered();
 
-                // ----- Toggle Panel Button -----
-                // ----- Hide Header Button -----
-                // Replaces Toggle Panel in the header bar
-                let response = draw_icon_button(
-                    ui,
-                    &icons::HIDE_HEADER,
-                    BTN_NORMAL_BG,
-                    Color32::WHITE,
-                    false, // Simple hover
-                );
+                    if response.clicked() {
+                        actions.push(TitleBarAction::MinimizeClicked);
+                    }
+                    response.on_hover_text_at_pointer(icons::MINIMIZE.tooltip);
 
-                if response.clicked() {
-                    actions.push(TitleBarAction::HideHeader);
-                }
-                response.on_hover_text_at_pointer(icons::HIDE_HEADER.tooltip);
+                    // 3. Hide Header
+                    let response = draw_icon_button(
+                        ui,
+                        &icons::HIDE_HEADER,
+                        Color32::TRANSPARENT,
+                        Color32::WHITE,
+                        false,
+                    );
 
-                // Spacer before window controls
-                ui.add_space(12.0);
+                    if response.clicked() {
+                        actions.push(TitleBarAction::HideHeader);
+                    }
+                    response.on_hover_text_at_pointer(icons::HIDE_HEADER.tooltip);
 
-                // ===== WINDOW CONTROL BUTTONS =====
+                    ui.add_space(8.0);
 
-                // ----- Minimize Button -----
-                let response = draw_icon_button(
-                    ui,
-                    &icons::MINIMIZE,
-                    BTN_NORMAL_BG,
-                    Color32::WHITE,
-                    state.title_bar_state.minimize_btn_hovered,
-                );
-                state.title_bar_state.minimize_btn_hovered = response.hovered();
+                    // 4. Zoom In
+                    let response = draw_icon_button(
+                        ui,
+                        &icons::ZOOM_IN,
+                        Color32::TRANSPARENT,
+                        Color32::WHITE,
+                        state.title_bar_state.zoom_in_btn_hovered,
+                    );
+                    state.title_bar_state.zoom_in_btn_hovered = response.hovered();
 
-                if response.clicked() {
-                    actions.push(TitleBarAction::MinimizeClicked);
-                }
-                response.on_hover_text_at_pointer(icons::MINIMIZE.tooltip);
+                    if response.clicked() {
+                        actions.push(TitleBarAction::ZoomIn);
+                    }
+                    response.on_hover_text_at_pointer(icons::ZOOM_IN.tooltip);
 
-                // ----- Close Button -----
-                let response = draw_icon_button(
-                    ui,
-                    &icons::CLOSE,
-                    BTN_WARNING_BG,
-                    Color32::WHITE,
-                    state.title_bar_state.close_btn_hovered,
-                );
-                state.title_bar_state.close_btn_hovered = response.hovered();
+                    // 5. Zoom Out
+                    let response = draw_icon_button(
+                        ui,
+                        &icons::ZOOM_OUT,
+                        Color32::TRANSPARENT,
+                        Color32::WHITE,
+                        state.title_bar_state.zoom_out_btn_hovered,
+                    );
+                    state.title_bar_state.zoom_out_btn_hovered = response.hovered();
 
-                if response.clicked() {
-                    actions.push(TitleBarAction::CloseClicked);
-                }
-                response.on_hover_text_at_pointer(icons::CLOSE.tooltip);
+                    if response.clicked() {
+                        actions.push(TitleBarAction::ZoomOut);
+                    }
+                    response.on_hover_text_at_pointer(icons::ZOOM_OUT.tooltip);
+
+                    ui.add_space(8.0);
+
+                    // 6. Export
+                    let response = draw_icon_button(
+                        ui,
+                        &icons::EXPORT,
+                        Color32::TRANSPARENT,
+                        Color32::WHITE,
+                        state.title_bar_state.export_btn_hovered,
+                    );
+                    state.title_bar_state.export_btn_hovered = response.hovered();
+
+                    if response.clicked() {
+                        actions.push(TitleBarAction::ExportClicked);
+                    }
+                    response.on_hover_text_at_pointer(icons::EXPORT.tooltip);
+
+                    // 7. Theme
+                    let response = draw_icon_button(
+                        ui,
+                        &icons::THEME,
+                        Color32::TRANSPARENT,
+                        Color32::WHITE,
+                        state.title_bar_state.theme_btn_hovered,
+                    );
+                    state.title_bar_state.theme_btn_hovered = response.hovered();
+
+                    if response.clicked() {
+                        actions.push(TitleBarAction::ThemeClicked);
+                    }
+                    response.on_hover_text_at_pointer(icons::THEME.tooltip);
+
+                    // Re-calculate how much remaining space there is for the draggable area between text and icons
+                    let drag_area_width = ui.available_width();
+                    if drag_area_width > 0.0 {
+                        let (_rect, resp) = ui.allocate_exact_size(
+                            Vec2::new(drag_area_width, TITLE_BAR_HEIGHT),
+                            Sense::drag(),
+                        );
+
+                        // Make the empty space draggable for moving the window
+                        if resp.drag_started() {
+                            let _ = window.drag_window();
+                        }
+                    }
+                });
             });
         });
 
@@ -862,7 +909,15 @@ fn render_floating_buttons(ctx: &Context, state: &mut AppState) -> Vec<TitleBarA
 // =============================================================================
 
 /// Render the main content area with quote display
-pub fn render_main_content(ctx: &Context, state: &mut AppState) {
+pub fn render_main_content(
+    ctx: &Context,
+    state: &mut AppState,
+    shaper: &mut Option<(
+        &mut cosmic_text::FontSystem,
+        &mut cosmic_text::SwashCache,
+        &mut HashMap<u64, egui::TextureHandle>,
+    )>,
+) {
     // RIGHT SIDE PANEL — must be declared BEFORE CentralPanel
     if state.title_bar_state.control_panel_visible {
         egui::SidePanel::right("control_panel")
@@ -871,10 +926,15 @@ pub fn render_main_content(ctx: &Context, state: &mut AppState) {
             .frame(
                 Frame::none()
                     .fill(CONTROL_PANEL_BG)
-                    .inner_margin(Vec2::new(15.0, 15.0)),
+                    .inner_margin(egui::Margin {
+                        left: 10.0,
+                        right: 10.0,
+                        top: 15.0,
+                        bottom: 15.0,
+                    }),
             )
             .show(ctx, |ui| {
-                render_control_panel_contents(ui, state);
+                render_control_panel_contents(ui, state, shaper);
             });
     }
 
@@ -919,48 +979,80 @@ pub fn render_main_content(ctx: &Context, state: &mut AppState) {
                     );
                 } else {
                     // 1. MAIN TEXT
-                    // Calculate opacity for fade-in (only if not previewing)
-                    let opacity = if is_preview {
-                        1.0
-                    } else {
-                        (state.last_rotation.elapsed().as_secs_f32() / 0.8).min(1.0)
-                    };
-                    // Request repaint if fading
-                    if opacity < 1.0 {
-                        ui.ctx().request_repaint();
-                    }
-
                     let main_color = if is_preview && state.main_text_input.is_empty() {
                         Color32::WHITE.linear_multiply(0.6)
                     } else {
-                        state.text_style.main_text_color.linear_multiply(opacity)
+                        state.text_style.main_text_color
                     };
                     let main_size =
                         state.text_style.main_text_size * state.title_bar_state.zoom_level;
 
-                    let main_resp = ui.add(
-                        egui::Label::new(
-                            RichText::new(&main_text)
-                                .color(main_color)
-                                .size(main_size)
-                                .strong(),
-                        )
-                        .sense(if is_preview {
-                            egui::Sense::hover()
+                    // Try cosmic-text shaped rendering for Bengali
+                    // Use base color (without opacity) for cache efficiency
+                    let base_main_color = state.text_style.main_text_color;
+                    let used_shaped = if contains_bengali(&main_text) {
+                        if let Some((ref mut fs, ref mut sc, ref mut tc)) = shaper {
+                            if let Some((tex_id, size)) = render_shaped_text(
+                                ctx,
+                                fs,
+                                sc,
+                                &main_text,
+                                main_size,
+                                base_main_color,
+                                tc,
+                            ) {
+                                let resp = ui.add(
+                                    egui::Image::new(egui::load::SizedTexture::new(tex_id, size))
+                                        .sense(if is_preview {
+                                            egui::Sense::hover()
+                                        } else {
+                                            egui::Sense::click()
+                                        }),
+                                );
+                                if !is_preview && resp.double_clicked() {
+                                    state.main_text_input = main_text.clone();
+                                    state.sub_text_input = sub_text.clone();
+                                    state.title_bar_state.control_panel_visible = true;
+                                    state.rotation_enabled = false;
+                                    state.delete_quote(state.current_quote_index);
+                                    state.save();
+                                }
+                                true
+                            } else {
+                                false
+                            }
                         } else {
-                            egui::Sense::click()
-                        }),
-                    );
+                            false
+                        }
+                    } else {
+                        false
+                    };
 
-                    if !is_preview && main_resp.double_clicked() {
-                        // Double click: Edit & Remove
-                        state.main_text_input = main_text.clone();
-                        state.sub_text_input = sub_text.clone();
-                        state.title_bar_state.control_panel_visible = true;
-                        state.rotation_enabled = false;
-                        state.delete_quote(state.current_quote_index);
-                        state.save();
-                    }
+                    if !used_shaped {
+                        let main_resp = ui.add(
+                            egui::Label::new(
+                                RichText::new(&main_text)
+                                    .color(main_color)
+                                    .size(main_size)
+                                    .strong(),
+                            )
+                            .sense(if is_preview {
+                                egui::Sense::hover()
+                            } else {
+                                egui::Sense::click()
+                            }),
+                        );
+
+                        if !is_preview && main_resp.double_clicked() {
+                            // Double click: Edit & Remove
+                            state.main_text_input = main_text.clone();
+                            state.sub_text_input = sub_text.clone();
+                            state.title_bar_state.control_panel_visible = true;
+                            state.rotation_enabled = false;
+                            state.delete_quote(state.current_quote_index);
+                            state.save();
+                        }
+                    } // end if !used_shaped
 
                     ui.add_space(state.text_style.between_gap);
 
@@ -989,38 +1081,91 @@ pub fn render_main_content(ctx: &Context, state: &mut AppState) {
                         let sub_color = if is_preview && state.sub_text_input.is_empty() {
                             Color32::TRANSPARENT
                         } else {
-                            state.text_style.sub_text_color.linear_multiply(opacity)
+                            state.text_style.sub_text_color
                         };
 
                         if !sub_text.is_empty() || is_preview {
                             let sub_size =
                                 state.text_style.sub_text_size * state.title_bar_state.zoom_level;
-                            let sub_resp = ui.add(
-                                egui::Label::new(
-                                    RichText::new(&sub_text).color(sub_color).size(sub_size),
-                                )
-                                .sense(if is_preview {
-                                    egui::Sense::hover()
-                                } else {
-                                    egui::Sense::click()
-                                }),
-                            );
 
-                            if !is_preview {
-                                if sub_resp.double_clicked() {
-                                    // Double click: Edit & Remove
-                                    state.main_text_input = main_text;
-                                    state.sub_text_input = sub_text.clone();
-                                    state.title_bar_state.control_panel_visible = true;
-                                    state.rotation_enabled = false;
-                                    state.delete_quote(state.current_quote_index);
-                                    state.save();
-                                } else if sub_resp.clicked() {
-                                    // Single click: Inline Edit
-                                    state.subtitle_editing = true;
-                                    state.subtitle_edit_buffer = sub_text;
+                            // Try cosmic-text shaped rendering for Bengali subtitle
+                            let base_sub_color = state.text_style.sub_text_color;
+                            let used_shaped_sub = if contains_bengali(&sub_text) {
+                                if let Some((ref mut fs, ref mut sc, ref mut tc)) = shaper {
+                                    if let Some((tex_id, size)) = render_shaped_text(
+                                        ctx,
+                                        fs,
+                                        sc,
+                                        &sub_text,
+                                        sub_size,
+                                        base_sub_color,
+                                        tc,
+                                    ) {
+                                        let sub_resp =
+                                            ui.add(
+                                                egui::Image::new(egui::load::SizedTexture::new(
+                                                    tex_id, size,
+                                                ))
+                                                .sense(if is_preview {
+                                                    egui::Sense::hover()
+                                                } else {
+                                                    egui::Sense::click()
+                                                }),
+                                            );
+                                        if !is_preview {
+                                            if sub_resp.double_clicked() {
+                                                // Double click: Edit & Remove
+                                                state.main_text_input = main_text.clone();
+                                                state.sub_text_input = sub_text.clone();
+                                                state.title_bar_state.control_panel_visible = true;
+                                                state.rotation_enabled = false;
+                                                state.delete_quote(state.current_quote_index);
+                                                state.save();
+                                            } else if sub_resp.clicked() {
+                                                // Single click: Inline Edit
+                                                state.subtitle_editing = true;
+                                                state.subtitle_edit_buffer = sub_text.clone();
+                                            }
+                                        }
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                } else {
+                                    false
                                 }
-                            }
+                            } else {
+                                false
+                            };
+
+                            if !used_shaped_sub {
+                                let sub_resp = ui.add(
+                                    egui::Label::new(
+                                        RichText::new(&sub_text).color(sub_color).size(sub_size),
+                                    )
+                                    .sense(if is_preview {
+                                        egui::Sense::hover()
+                                    } else {
+                                        egui::Sense::click()
+                                    }),
+                                );
+
+                                if !is_preview {
+                                    if sub_resp.double_clicked() {
+                                        // Double click: Edit & Remove
+                                        state.main_text_input = main_text;
+                                        state.sub_text_input = sub_text.clone();
+                                        state.title_bar_state.control_panel_visible = true;
+                                        state.rotation_enabled = false;
+                                        state.delete_quote(state.current_quote_index);
+                                        state.save();
+                                    } else if sub_resp.clicked() {
+                                        // Single click: Inline Edit
+                                        state.subtitle_editing = true;
+                                        state.subtitle_edit_buffer = sub_text;
+                                    }
+                                }
+                            } // end if !used_shaped_sub
                         }
                     }
                 }
@@ -1062,12 +1207,22 @@ pub fn render_main_content(ctx: &Context, state: &mut AppState) {
 // =============================================================================
 
 /// Render the control panel contents (inside SidePanel)
-pub fn render_control_panel_contents(ui: &mut egui::Ui, state: &mut AppState) {
+pub fn render_control_panel_contents(
+    ui: &mut egui::Ui,
+    state: &mut AppState,
+    shaper: &mut Option<(
+        &mut cosmic_text::FontSystem,
+        &mut cosmic_text::SwashCache,
+        &mut HashMap<u64, egui::TextureHandle>,
+    )>,
+) {
+    ui.set_max_width(ui.available_width()); // Prevent horizontal overflow
     egui::ScrollArea::vertical()
         .auto_shrink([false, false])
+        .enable_scrolling(true)
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
-            ui.add_space(8.0);
+
             // ===== Add Custom Text Section =====
             render_section(ui, "ADD CUSTOM TEXT", |ui| {
                 // --- Main text input with A+/A-/color buttons to the right ---
@@ -1250,8 +1405,14 @@ pub fn render_control_panel_contents(ui: &mut egui::Ui, state: &mut AppState) {
 
                 // Add button
                 let add_btn_color = Color32::from_rgb(76, 175, 80);
-                if draw_text_button(ui, "+ Add Text", add_btn_color, ui.available_width(), 32.0)
-                    .clicked()
+                if draw_text_button(
+                    ui,
+                    "+ Add Text",
+                    add_btn_color,
+                    ui.available_width() - 8.0,
+                    32.0,
+                )
+                .clicked()
                 {
                     if !state.main_text_input.is_empty() {
                         state
@@ -1273,22 +1434,30 @@ pub fn render_control_panel_contents(ui: &mut egui::Ui, state: &mut AppState) {
                             .color(Color32::from_rgba_unmultiplied(255, 255, 255, 230))
                             .size(11.0),
                     );
-                    if ui
-                        .add(
-                            egui::Slider::new(&mut state.text_style.main_line_gap, 1.0..=3.0)
-                                .step_by(0.1)
-                                .text(""),
-                        )
-                        .changed()
-                    {
-                        state.save();
-                    }
-                    ui.label(
-                        RichText::new(format!("{:.1}", state.text_style.main_line_gap))
-                            .color(Color32::from_rgb(100, 200, 255))
-                            .size(11.0)
-                            .strong(),
-                    );
+
+                    // Add flexible space to push the label to the right
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(
+                            RichText::new(format!("{:.1}", state.text_style.main_line_gap))
+                                .color(Color32::from_rgb(100, 200, 255))
+                                .size(11.0)
+                                .strong(),
+                        );
+
+                        // The slider takes the remaining width
+                        let slider_width = ui.available_width();
+                        if ui
+                            .add_sized(
+                                [slider_width, ui.available_height()],
+                                egui::Slider::new(&mut state.text_style.main_line_gap, 1.0..=3.0)
+                                    .step_by(0.1)
+                                    .text(""),
+                            )
+                            .changed()
+                        {
+                            state.save();
+                        }
+                    });
                 });
 
                 ui.horizontal(|ui| {
@@ -1297,22 +1466,27 @@ pub fn render_control_panel_contents(ui: &mut egui::Ui, state: &mut AppState) {
                             .color(Color32::from_rgba_unmultiplied(255, 255, 255, 230))
                             .size(11.0),
                     );
-                    if ui
-                        .add(
-                            egui::Slider::new(&mut state.text_style.sub_line_gap, 1.0..=3.0)
-                                .step_by(0.1)
-                                .text(""),
-                        )
-                        .changed()
-                    {
-                        state.save();
-                    }
-                    ui.label(
-                        RichText::new(format!("{:.1}", state.text_style.sub_line_gap))
-                            .color(Color32::from_rgb(100, 200, 255))
-                            .size(11.0)
-                            .strong(),
-                    );
+
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(
+                            RichText::new(format!("{:.1}", state.text_style.sub_line_gap))
+                                .color(Color32::from_rgb(100, 200, 255))
+                                .size(11.0)
+                                .strong(),
+                        );
+                        let slider_width = ui.available_width();
+                        if ui
+                            .add_sized(
+                                [slider_width, ui.available_height()],
+                                egui::Slider::new(&mut state.text_style.sub_line_gap, 1.0..=3.0)
+                                    .step_by(0.1)
+                                    .text(""),
+                            )
+                            .changed()
+                        {
+                            state.save();
+                        }
+                    });
                 });
 
                 ui.horizontal(|ui| {
@@ -1321,22 +1495,27 @@ pub fn render_control_panel_contents(ui: &mut egui::Ui, state: &mut AppState) {
                             .color(Color32::from_rgba_unmultiplied(255, 255, 255, 230))
                             .size(11.0),
                     );
-                    if ui
-                        .add(
-                            egui::Slider::new(&mut state.text_style.between_gap, 0.0..=50.0)
-                                .step_by(1.0)
-                                .text(""),
-                        )
-                        .changed()
-                    {
-                        state.save();
-                    }
-                    ui.label(
-                        RichText::new(format!("{:.0} px", state.text_style.between_gap))
-                            .color(Color32::from_rgb(100, 200, 255))
-                            .size(11.0)
-                            .strong(),
-                    );
+
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(
+                            RichText::new(format!("{:.0} px", state.text_style.between_gap))
+                                .color(Color32::from_rgb(100, 200, 255))
+                                .size(11.0)
+                                .strong(),
+                        );
+                        let slider_width = ui.available_width();
+                        if ui
+                            .add_sized(
+                                [slider_width, ui.available_height()],
+                                egui::Slider::new(&mut state.text_style.between_gap, 0.0..=50.0)
+                                    .step_by(1.0)
+                                    .text(""),
+                            )
+                            .changed()
+                        {
+                            state.save();
+                        }
+                    });
                 });
             });
 
@@ -1366,7 +1545,7 @@ pub fn render_control_panel_contents(ui: &mut egui::Ui, state: &mut AppState) {
                     ui,
                     "Set Interval",
                     Color32::from_rgb(33, 150, 243),
-                    ui.available_width(),
+                    ui.available_width() - 8.0,
                     28.0,
                 )
                 .clicked()
@@ -1388,8 +1567,14 @@ pub fn render_control_panel_contents(ui: &mut egui::Ui, state: &mut AppState) {
                     ("▶ Resume Rotation", Color32::from_rgb(76, 175, 80))
                 };
 
-                if draw_text_button(ui, toggle_text, toggle_color, ui.available_width(), 28.0)
-                    .clicked()
+                if draw_text_button(
+                    ui,
+                    toggle_text,
+                    toggle_color,
+                    ui.available_width() - 8.0,
+                    28.0,
+                )
+                .clicked()
                 {
                     state.rotation_enabled = !state.rotation_enabled;
                     if state.rotation_enabled {
@@ -1422,42 +1607,149 @@ pub fn render_control_panel_contents(ui: &mut egui::Ui, state: &mut AppState) {
                             Color32::from_rgba_unmultiplied(255, 255, 255, 50),
                         ))
                         .show(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                // Left content area (flex 1)
-                                ui.vertical(|ui| {
-                                    // Line 1: N. [main quote text]
-                                    let text_response = ui.label(
-                                        RichText::new(format!("{}. {}", idx + 1, &quote.main_text))
-                                            .color(Color32::WHITE)
-                                            .size(9.0),
+                            // Let the text flexibly fill space
+                            // Delete button goes on the very right
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    // Delete button
+                                    let del_btn = ui.add(
+                                        egui::Button::new(
+                                            RichText::new("Delete").color(Color32::WHITE).size(9.0),
+                                        )
+                                        .fill(Color32::from_rgb(255, 70, 70))
+                                        .min_size(Vec2::new(40.0, 18.0)),
                                     );
-
-                                    // Line 2: 💬 [supporting text]
-                                    ui.label(
-                                        RichText::new(format!("💬 {}", &quote.sub_text))
-                                            .color(Color32::from_rgba_unmultiplied(
-                                                255, 255, 255, 200,
-                                            ))
-                                            .size(9.0),
-                                    );
-
-                                    if text_response.clicked() {
-                                        to_select = Some(idx);
+                                    if del_btn.clicked() {
+                                        to_delete = Some(idx);
                                     }
-                                });
 
-                                // Delete button
-                                let del_btn = ui.add(
-                                    egui::Button::new(
-                                        RichText::new("Delete").color(Color32::WHITE).size(9.0),
-                                    )
-                                    .fill(Color32::from_rgb(255, 70, 70))
-                                    .min_size(Vec2::new(40.0, 18.0)),
-                                );
-                                if del_btn.clicked() {
-                                    to_delete = Some(idx);
-                                }
-                            });
+                                    // Text Area takes remaining space
+                                    ui.with_layout(
+                                        egui::Layout::left_to_right(egui::Align::Min),
+                                        |ui| {
+                                            ui.vertical(|ui| {
+                                                // Line 1: N. [main quote text]
+                                                let display_main =
+                                                    format!("{}. {}", idx + 1, &quote.main_text);
+                                                let clicked_main;
+                                                if contains_bengali(&quote.main_text) {
+                                                    if let Some((
+                                                        ref mut fs,
+                                                        ref mut sc,
+                                                        ref mut tc,
+                                                    )) = shaper
+                                                    {
+                                                        if let Some((tex_id, size)) =
+                                                            render_shaped_text(
+                                                                ui.ctx(),
+                                                                fs,
+                                                                sc,
+                                                                &display_main,
+                                                                9.0,
+                                                                Color32::WHITE,
+                                                                tc,
+                                                            )
+                                                        {
+                                                            let resp = ui.add(
+                                                                egui::Image::new(
+                                                                    egui::load::SizedTexture::new(
+                                                                        tex_id, size,
+                                                                    ),
+                                                                )
+                                                                .sense(egui::Sense::click()),
+                                                            );
+                                                            clicked_main = resp.clicked();
+                                                        } else {
+                                                            let resp = ui.label(
+                                                                RichText::new(&display_main)
+                                                                    .color(Color32::WHITE)
+                                                                    .size(9.0),
+                                                            );
+                                                            clicked_main = resp.clicked();
+                                                        }
+                                                    } else {
+                                                        let resp = ui.label(
+                                                            RichText::new(&display_main)
+                                                                .color(Color32::WHITE)
+                                                                .size(9.0),
+                                                        );
+                                                        clicked_main = resp.clicked();
+                                                    }
+                                                } else {
+                                                    let resp = ui.label(
+                                                        RichText::new(&display_main)
+                                                            .color(Color32::WHITE)
+                                                            .size(9.0),
+                                                    );
+                                                    clicked_main = resp.clicked();
+                                                }
+
+                                                // Line 2: 💬 [supporting text]
+                                                let display_sub = format!("💬 {}", &quote.sub_text);
+                                                if contains_bengali(&quote.sub_text) {
+                                                    if let Some((
+                                                        ref mut fs,
+                                                        ref mut sc,
+                                                        ref mut tc,
+                                                    )) = shaper
+                                                    {
+                                                        if let Some((tex_id, size)) =
+                                                            render_shaped_text(
+                                                                ui.ctx(),
+                                                                fs,
+                                                                sc,
+                                                                &display_sub,
+                                                                9.0,
+                                                                Color32::from_rgba_unmultiplied(
+                                                                    255, 255, 255, 200,
+                                                                ),
+                                                                tc,
+                                                            )
+                                                        {
+                                                            ui.add(egui::Image::new(
+                                                                egui::load::SizedTexture::new(
+                                                                    tex_id, size,
+                                                                ),
+                                                            ));
+                                                        } else {
+                                                            ui.label(
+                                                    RichText::new(&display_sub)
+                                                        .color(Color32::from_rgba_unmultiplied(
+                                                            255, 255, 255, 200,
+                                                        ))
+                                                        .size(9.0),
+                                                );
+                                                        }
+                                                    } else {
+                                                        ui.label(
+                                                            RichText::new(&display_sub)
+                                                                .color(
+                                                                    Color32::from_rgba_unmultiplied(
+                                                                        255, 255, 255, 200,
+                                                                    ),
+                                                                )
+                                                                .size(9.0),
+                                                        );
+                                                    }
+                                                } else {
+                                                    ui.label(
+                                                        RichText::new(&display_sub)
+                                                            .color(Color32::from_rgba_unmultiplied(
+                                                                255, 255, 255, 200,
+                                                            ))
+                                                            .size(9.0),
+                                                    );
+                                                }
+
+                                                if clicked_main {
+                                                    to_select = Some(idx);
+                                                }
+                                            });
+                                        },
+                                    );
+                                },
+                            );
                         });
 
                     ui.add_space(4.0);
@@ -1783,26 +2075,6 @@ pub fn render_theme_modal(ctx: &Context, state: &mut AppState) {
                 }
 
                 if ui
-                    .button(
-                        RichText::new("📊 Export Report")
-                            .color(Color32::WHITE)
-                            .size(12.0),
-                    )
-                    .clicked()
-                {
-                    // Export quotes to JSON file
-                    if let Ok(json) = serde_json::to_string_pretty(&state.quotes) {
-                        let mut file = OpenOptions::new()
-                            .create(true)
-                            .write(true)
-                            .truncate(true)
-                            .open("quotes_export.json")
-                            .unwrap();
-                        let _ = file.write_all(json.as_bytes());
-                    }
-                }
-
-                if ui
                     .button(RichText::new("✕").color(Color32::WHITE).size(14.0))
                     .clicked()
                 {
@@ -1965,6 +2237,10 @@ fn main() {
         app_state: None,
         egui_ctx: None,
         egui_state: None,
+        font_system: Some(cosmic_text::FontSystem::new()),
+        swash_cache: Some(cosmic_text::SwashCache::new()),
+        shaped_text_textures: HashMap::new(),
+        should_close: false,
     };
 
     log_to_file("Running event loop");
@@ -1978,35 +2254,165 @@ fn setup_fonts(ctx: &Context) {
     let mut fonts = egui::FontDefinitions::default();
 
     // Try common Bengali fonts on Windows + local fallbacks
+    // Nirmala.ttc is the standard TrueType Collection on Windows 10/11
     let font_paths = [
+        "C:\\Windows\\Fonts\\Nirmala.ttc",
         "C:\\Windows\\Fonts\\Vrinda.ttf",
+        "C:\\Windows\\Fonts\\Siyamrupali.ttf",
         "C:\\Windows\\Fonts\\ShonarBangla.ttf",
         "C:\\Windows\\Fonts\\Shonar.ttf",
         "C:\\Windows\\Fonts\\NotoSansBengali-Regular.ttf",
         "C:\\Windows\\Fonts\\arialuni.ttf",
-        // Local fallbacks (next to .exe or in assets/)
         "NotoSansBengali-Regular.ttf",
         "assets/NotoSansBengali-Regular.ttf",
     ];
 
+    let mut loaded = false;
     for path in font_paths {
         if let Ok(data) = std::fs::read(path) {
+            // Note: egui uses ab_glyph which supports .ttf, .otf, and .ttc
+            // For .ttc, it will use the first font in the collection
             fonts
                 .font_data
                 .insert("bengali".to_owned(), egui::FontData::from_owned(data));
-            // Insert at position 0 so Bengali glyphs are tried first
+
+            // Priority 0: Always put our support font first in families
             if let Some(family) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
                 family.insert(0, "bengali".to_owned());
             }
             if let Some(family) = fonts.families.get_mut(&egui::FontFamily::Monospace) {
-                family.push("bengali".to_owned());
+                family.insert(0, "bengali".to_owned());
             }
-            log_to_file(&format!("Loaded Bengali font: {}", path));
+
+            log_to_file(&format!("Loaded Bengali font from: {}", path));
+            loaded = true;
             break;
         }
     }
 
+    if !loaded {
+        log_to_file("WARNING: No Bengali fonts found. Bangla text rendering will likely fail.");
+    }
+
+    // Initialize nerdfonts
+    fonts.font_data.insert(
+        "nerdfonts".to_owned(),
+        egui::FontData::from_static(include_bytes!("../assets/nerdfonts_regular.ttf")),
+    );
+    if let Some(family) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
+        family.push("nerdfonts".to_owned());
+    }
+
     ctx.set_fonts(fonts);
+}
+
+/// Check if a string contains Bengali/Bangla characters
+fn contains_bengali(text: &str) -> bool {
+    text.chars().any(|c| matches!(c, '\u{0980}'..='\u{09FF}'))
+}
+
+/// Render shaped text using cosmic-text and return an egui texture.
+/// This properly handles complex scripts like Bengali through rustybuzz (HarfBuzz port).
+fn render_shaped_text(
+    ctx: &Context,
+    font_system: &mut cosmic_text::FontSystem,
+    swash_cache: &mut cosmic_text::SwashCache,
+    text: &str,
+    font_size: f32,
+    color: Color32,
+    tex_cache: &mut HashMap<u64, egui::TextureHandle>,
+) -> Option<(egui::TextureId, Vec2)> {
+    if text.is_empty() {
+        return None;
+    }
+
+    // Create a cache key from the text, size, and color
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    text.hash(&mut hasher);
+    font_size.to_bits().hash(&mut hasher);
+    color.to_array().hash(&mut hasher);
+    let cache_key = hasher.finish();
+
+    // Return cached texture if available
+    if let Some(handle) = tex_cache.get(&cache_key) {
+        let size = handle.size();
+        return Some((handle.id(), Vec2::new(size[0] as f32, size[1] as f32)));
+    }
+
+    // Create cosmic-text buffer for shaping
+    let metrics = cosmic_text::Metrics::new(font_size, font_size * 1.3);
+    let mut buffer = cosmic_text::Buffer::new(font_system, metrics);
+
+    // Set a wide width so it doesn't wrap
+    buffer.set_size(font_system, Some(2000.0), None);
+
+    let attrs = cosmic_text::Attrs::new().family(cosmic_text::Family::Name("Nirmala UI"));
+    buffer.set_text(font_system, text, attrs, cosmic_text::Shaping::Advanced);
+    buffer.shape_until_scroll(font_system, false);
+
+    // Calculate dimensions from layout runs
+    let mut max_width: f32 = 0.0;
+    let mut total_height: f32 = 0.0;
+    for run in buffer.layout_runs() {
+        max_width = max_width.max(run.line_w);
+        total_height += run.line_height;
+    }
+
+    if max_width <= 0.0 || total_height <= 0.0 {
+        return None;
+    }
+
+    let width = (max_width.ceil() as usize).max(1);
+    let height = (total_height.ceil() as usize).max(1);
+
+    // Create pixel buffer (RGBA)
+    let mut pixels = vec![Color32::TRANSPARENT; width * height];
+
+    // Draw glyphs using swash cache
+    let text_color = cosmic_text::Color::rgba(color.r(), color.g(), color.b(), color.a());
+
+    buffer.draw(
+        font_system,
+        swash_cache,
+        text_color,
+        |x, y, _w, _h, drawn_color| {
+            // drawn_color is the blended color for this pixel
+            let px = x as usize;
+            let py = y as usize;
+            if px < width && py < height && x >= 0 && y >= 0 {
+                let alpha = drawn_color.a();
+                if alpha > 0 {
+                    let idx = py * width + px;
+                    // Alpha-blend the glyph pixel onto the transparent background
+                    pixels[idx] = Color32::from_rgba_premultiplied(
+                        drawn_color.r(),
+                        drawn_color.g(),
+                        drawn_color.b(),
+                        alpha,
+                    );
+                }
+            }
+        },
+    );
+
+    // Create egui texture
+    let image = egui::ColorImage {
+        size: [width, height],
+        pixels,
+    };
+
+    let texture = ctx.load_texture(
+        format!("shaped_{}", cache_key),
+        image,
+        egui::TextureOptions::LINEAR,
+    );
+
+    let size = Vec2::new(width as f32, height as f32);
+    let tex_id = texture.id();
+    tex_cache.insert(cache_key, texture);
+
+    Some((tex_id, size))
 }
 
 // Implement winit::application::ApplicationHandler for the new API
@@ -2019,6 +2425,11 @@ struct AppRunner {
     app_state: Option<AppState>,
     egui_ctx: Option<Context>,
     egui_state: Option<egui_winit::State>,
+    // cosmic-text for proper Bengali/Indic text shaping
+    font_system: Option<cosmic_text::FontSystem>,
+    swash_cache: Option<cosmic_text::SwashCache>,
+    shaped_text_textures: HashMap<u64, egui::TextureHandle>,
+    should_close: bool,
 }
 
 impl ApplicationHandler for AppRunner {
@@ -2076,6 +2487,15 @@ impl ApplicationHandler for AppRunner {
                         style.visuals = egui::Visuals::dark();
                         style.visuals.window_fill = CANVAS_BG;
                         style.visuals.panel_fill = CONTROL_PANEL_BG;
+
+                        // Add global hover effects for buttons
+                        let mut visuals = style.visuals.clone();
+                        visuals.widgets.hovered.bg_fill = Color32::from_rgb(80, 80, 90);
+                        visuals.widgets.hovered.bg_stroke =
+                            egui::Stroke::new(1.0, Color32::WHITE.gamma_multiply(0.5));
+                        visuals.widgets.active.bg_fill = Color32::from_rgb(100, 100, 110);
+                        style.visuals = visuals;
+
                         egui_ctx.set_style(style);
 
                         let egui_state = egui_winit::State::new(
@@ -2158,10 +2578,20 @@ impl ApplicationHandler for AppRunner {
         }
     }
 
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if self.should_close {
+            event_loop.exit();
+            return;
+        }
+
         // Render if we have a window and render state
         if let Some(window) = self.window {
             self.render(&window);
+        }
+
+        if self.should_close {
+            event_loop.exit();
+            return;
         }
 
         // Smart sleep: use shorter delay only when egui needs repainting,
@@ -2181,6 +2611,11 @@ impl ApplicationHandler for AppRunner {
 
 impl AppRunner {
     fn render(&mut self, window: &Window) {
+        // Take cosmic-text state out of self before entering the closure
+        let mut font_system = self.font_system.take();
+        let mut swash_cache = self.swash_cache.take();
+        let mut tex_cache = std::mem::take(&mut self.shaped_text_textures);
+
         let (app_state, egui_ctx, egui_state, render_state) = match (
             self.app_state.as_mut(),
             self.egui_ctx.as_ref(),
@@ -2190,7 +2625,13 @@ impl AppRunner {
             (Some(app_state), Some(egui_ctx), Some(egui_state), Some(render_state)) => {
                 (app_state, egui_ctx, egui_state, render_state)
             }
-            _ => return,
+            _ => {
+                // Restore cosmic-text state on early return
+                self.font_system = font_system;
+                self.swash_cache = swash_cache;
+                self.shaped_text_textures = tex_cache;
+                return;
+            }
         };
 
         let raw_input = egui_state.take_egui_input(window);
@@ -2201,11 +2642,71 @@ impl AppRunner {
                 app_state.last_interaction = Instant::now();
             }
 
+            // Handle window resizing via borders since it's frameless
+            let border = 8.0;
+            let screen_rect = ctx.screen_rect();
+            if let Some(pos) = ctx.input(|i| i.pointer.hover_pos()) {
+                let left = pos.x < border;
+                let right = pos.x > screen_rect.max.x - border;
+                let top = pos.y < border;
+                let bottom = pos.y > screen_rect.max.y - border;
+
+                if left || right || top || bottom {
+                    if top && left {
+                        ctx.set_cursor_icon(egui::CursorIcon::ResizeNwSe);
+                    } else if top && right {
+                        ctx.set_cursor_icon(egui::CursorIcon::ResizeNeSw);
+                    } else if bottom && left {
+                        ctx.set_cursor_icon(egui::CursorIcon::ResizeNeSw);
+                    } else if bottom && right {
+                        ctx.set_cursor_icon(egui::CursorIcon::ResizeNwSe);
+                    } else if top || bottom {
+                        ctx.set_cursor_icon(egui::CursorIcon::ResizeVertical);
+                    } else if left || right {
+                        ctx.set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+                    }
+
+                    if ctx.input(|i| i.pointer.primary_pressed()) {
+                        use winit::window::ResizeDirection;
+                        let dir = if top && left {
+                            ResizeDirection::NorthWest
+                        } else if top && right {
+                            ResizeDirection::NorthEast
+                        } else if bottom && left {
+                            ResizeDirection::SouthWest
+                        } else if bottom && right {
+                            ResizeDirection::SouthEast
+                        } else if top {
+                            ResizeDirection::North
+                        } else if bottom {
+                            ResizeDirection::South
+                        } else if left {
+                            ResizeDirection::West
+                        } else {
+                            ResizeDirection::East
+                        };
+                        let _ = window.drag_resize_window(dir);
+                    }
+                }
+            }
+
             let actions = render_title_bar(ctx, app_state, window);
 
             for action in actions {
                 match action {
                     TitleBarAction::ThemeClicked => app_state.theme_modal_open = true,
+                    TitleBarAction::ExportClicked => {
+                        if let Ok(json) = serde_json::to_string_pretty(&app_state.quotes) {
+                            if let Ok(mut file) = OpenOptions::new()
+                                .create(true)
+                                .write(true)
+                                .truncate(true)
+                                .open("quotes_export.json")
+                            {
+                                let _ = file.write_all(json.as_bytes());
+                            }
+                        }
+                    }
                     TitleBarAction::ZoomIn => {
                         app_state.title_bar_state.zoom_level =
                             (app_state.title_bar_state.zoom_level + 0.1).min(2.0);
@@ -2221,8 +2722,11 @@ impl AppRunner {
                     TitleBarAction::MinimizeClicked => {
                         window.set_minimized(true);
                     }
+                    TitleBarAction::MaximizeClicked => {
+                        window.set_maximized(!window.is_maximized());
+                    }
                     TitleBarAction::CloseClicked => {
-                        // Will be handled by CloseRequested event
+                        self.should_close = true;
                     }
                     TitleBarAction::HideHeader => {
                         app_state.title_bar_state.header_visible = false;
@@ -2240,7 +2744,13 @@ impl AppRunner {
                 app_state.next_quote();
             }
 
-            render_main_content(ctx, app_state);
+            // Build shaper tuple from cosmic-text state
+            let mut shaper = match (font_system.as_mut(), swash_cache.as_mut()) {
+                (Some(fs), Some(sc)) => Some((fs, sc, &mut tex_cache)),
+                _ => None,
+            };
+
+            render_main_content(ctx, app_state, &mut shaper);
 
             render_theme_modal(ctx, app_state);
 
@@ -2342,5 +2852,10 @@ impl AppRunner {
         for id in &full_output.textures_delta.free {
             render_state.renderer.free_texture(id);
         }
+
+        // Restore cosmic-text state back to self
+        self.font_system = font_system;
+        self.swash_cache = swash_cache;
+        self.shaped_text_textures = tex_cache;
     }
 }
