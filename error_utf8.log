@@ -1,0 +1,689 @@
+﻿cargo :     Checking 
+daily-motivation 
+v0.1.0 (C:\Users\USER\O
+neDrive\Desktop\Irak\ru
+stV10)
+At line:1 char:1
++ cargo check 2>&1 | 
+Out-File -Encoding 
+utf8 error_utf8.log
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (    Checking    
+ da...p\Irak\rustV1    
+0):String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+warning: unused 
+import: 
+`WINDOW_LONG_PTR_INDEX`
+    --> 
+src\main.rs:3105:37
+     |
+3105 |                 
+    SWP_NOACTIVATE, 
+WINDOW_LONG_PTR_INDEX, 
+WS_EX_TOOLWINDOW,
+     |                 
+                    
+^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(un
+used_imports)]` (part 
+of `#[warn(unused)]`) 
+on by default
+
+error[E0271]: type 
+mismatch resolving 
+`<Result<HWND, Error> 
+as TypeKind>::TypeKind 
+== CopyType`
+    --> 
+src\main.rs:3121:58
+     |
+3121 | ...             
+      let exstyle = 
+GetWindowLongW(hwnd, 
+GWL_EXSTYLE);
+     |                 
+                    
+-------------- ^^^^ 
+expected `CopyType`, 
+found `InterfaceType`
+     |                 
+                    |
+     |                 
+                    
+required by a bound 
+introduced by this call
+     |
+     = note: required 
+for `std::result::Resul
+t<HWND, windows_result:
+:error::Error>` to 
+implement `Param<HWND, 
+CopyType>`
+note: required by a 
+bound in 
+`GetWindowLongW`
+    --> C:\Users\USER\.
+cargo\registry\src\inde
+x.crates.io-1949cf8c6b5
+b557f\windows-0.58.0\sr
+c\Windows\Win32\UI\Wind
+owsAndMessaging\mod.rs:
+1561:9
+     |
+1559 | pub unsafe fn Ge
+tWindowLongW<P0>(hwnd: 
+P0, nindex: 
+WINDOW_LONG_PTR_INDEX) 
+-> i32
+     |               
+-------------- 
+required by a bound in 
+this function
+1560 | where
+1561 |     P0: windows_
+core::Param<super::supe
+r::Foundation::HWND>,
+     |         ^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^ 
+required by this bound 
+in `GetWindowLongW`
+
+error[E0277]: the 
+trait bound `std::resul
+t::Result<HWND, windows
+_result::error::Error>:
+ Param<HWND, 
+CopyType>` is not 
+satisfied
+    --> 
+src\main.rs:3121:58
+     |
+3121 | ...             
+      let exstyle = 
+GetWindowLongW(hwnd, 
+GWL_EXSTYLE);
+     |                 
+                    
+-------------- ^^^^ 
+the trait 
+`CanInto<HWND>` is not 
+implemented for `std::r
+esult::Result<HWND, win
+dows_result::error::Err
+or>`
+     |                 
+                    |
+     |                 
+                    
+required by a bound 
+introduced by this call
+     |
+note: there are 
+multiple different 
+versions of crate 
+`windows_core` in the 
+dependency graph
+    --> C:\Users\USER\.
+cargo\registry\src\inde
+x.crates.io-1949cf8c6b5
+b557f\windows-core-0.58
+.0\src\imp\can_into.rs:
+1:1
+     |
+   1 | pub trait 
+CanInto<T>: Sized {
+     | ^^^^^^^^^^^^^^^^
+^^^^^^^^^^^ this is 
+the expected trait
+     |
+    ::: C:\Users\USER\.
+cargo\registry\src\inde
+x.crates.io-1949cf8c6b5
+b557f\windows-core-0.52
+.0\src\param.rs:70:1
+     |
+  70 | pub trait 
+CanInto<T>: Sized
+     | ----------------
+----------- this is 
+the found trait
+     = help: you can 
+use `cargo tree` to 
+explore your 
+dependency tree
+     = help: the 
+following other types 
+implement trait 
+`CanInto<T>`:
+               
+`HCURSOR` implements 
+`CanInto<HICON>`
+               
+`HINSTANCE` implements 
+`CanInto<HMODULE>`
+               
+`HMODULE` implements 
+`CanInto<HINSTANCE>`
+               `HWND` 
+implements 
+`CanInto<HANDLE>`
+               
+`IAgileObject` 
+implements 
+`CanInto<IUnknown>`
+               
+`IAgileReference` 
+implements 
+`CanInto<IUnknown>`
+               
+`IGenericFactory` 
+implements 
+`CanInto<IInspectable>`
+               
+`IGenericFactory` 
+implements 
+`CanInto<IUnknown>`
+             and 3 
+others
+     = note: required 
+for `std::result::Resul
+t<HWND, windows_result:
+:error::Error>` to 
+implement `Param<HWND, 
+CopyType>`
+note: required by a 
+bound in 
+`GetWindowLongW`
+    --> C:\Users\USER\.
+cargo\registry\src\inde
+x.crates.io-1949cf8c6b5
+b557f\windows-0.58.0\sr
+c\Windows\Win32\UI\Wind
+owsAndMessaging\mod.rs:
+1561:9
+     |
+1559 | pub unsafe fn Ge
+tWindowLongW<P0>(hwnd: 
+P0, nindex: 
+WINDOW_LONG_PTR_INDEX) 
+-> i32
+     |               
+-------------- 
+required by a bound in 
+this function
+1560 | where
+1561 |     P0: windows_
+core::Param<super::supe
+r::Foundation::HWND>,
+     |         ^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^ 
+required by this bound 
+in `GetWindowLongW`
+
+error[E0277]: the 
+trait bound `std::resul
+t::Result<HWND, windows
+_result::error::Error>:
+ Param<HWND, 
+CopyType>` is not 
+satisfied
+    --> 
+src\main.rs:3121:58
+     |
+3121 | ...             
+      let exstyle = 
+GetWindowLongW(hwnd, 
+GWL_EXSTYLE);
+     |                 
+                    
+-------------- ^^^^ 
+the trait `windows::win
+dows_core::interface::I
+nterface` is not 
+implemented for `std::r
+esult::Result<HWND, win
+dows_result::error::Err
+or>`
+     |                 
+                    |
+     |                 
+                    
+required by a bound 
+introduced by this call
+     |
+note: there are 
+multiple different 
+versions of crate 
+`windows_core` in the 
+dependency graph
+    --> C:\Users\USER\.
+cargo\registry\src\inde
+x.crates.io-1949cf8c6b5
+b557f\windows-core-0.58
+.0\src\interface.rs:14:
+1
+     |
+  14 | pub unsafe 
+trait Interface: Sized 
++ Clone {
+     | ^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^ this is the 
+expected trait
+     |
+    ::: C:\Users\USER\.
+cargo\registry\src\inde
+x.crates.io-1949cf8c6b5
+b557f\windows-core-0.52
+.0\src\interface.rs:7:1
+     |
+   7 | pub unsafe 
+trait Interface: Sized 
+{
+     | ----------------
+----------------- this 
+is the trait that was 
+imported
+     = help: you can 
+use `cargo tree` to 
+explore your 
+dependency tree
+     = help: the 
+following other types 
+implement trait `window
+s::windows_core::interf
+ace::Interface`:
+               
+IAgileObject
+               
+IAgileReference
+               
+IGenericFactory
+               
+IInspectable
+               IUnknown
+               
+IWeakReference
+               
+IWeakReferenceSource
+     = note: required 
+for `std::result::Resul
+t<HWND, windows_result:
+:error::Error>` to 
+implement `TypeKind`
+     = note: required 
+for `std::result::Resul
+t<HWND, windows_result:
+:error::Error>` to 
+implement `Param<HWND, 
+CopyType>`
+note: required by a 
+bound in 
+`GetWindowLongW`
+    --> C:\Users\USER\.
+cargo\registry\src\inde
+x.crates.io-1949cf8c6b5
+b557f\windows-0.58.0\sr
+c\Windows\Win32\UI\Wind
+owsAndMessaging\mod.rs:
+1561:9
+     |
+1559 | pub unsafe fn Ge
+tWindowLongW<P0>(hwnd: 
+P0, nindex: 
+WINDOW_LONG_PTR_INDEX) 
+-> i32
+     |               
+-------------- 
+required by a bound in 
+this function
+1560 | where
+1561 |     P0: windows_
+core::Param<super::supe
+r::Foundation::HWND>,
+     |         ^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^ 
+required by this bound 
+in `GetWindowLongW`
+
+error[E0271]: type 
+mismatch resolving 
+`<Result<HWND, Error> 
+as TypeKind>::TypeKind 
+== CopyType`
+    --> 
+src\main.rs:3123:33
+     |
+3122 | ...             
+      SetWindowLongW(
+     |                 
+      -------------- 
+required by a bound 
+introduced by this call
+3123 | ...             
+          hwnd,
+     |                 
+          ^^^^ 
+expected `CopyType`, 
+found `InterfaceType`
+     |
+     = note: required 
+for `std::result::Resul
+t<HWND, windows_result:
+:error::Error>` to 
+implement `Param<HWND, 
+CopyType>`
+note: required by a 
+bound in 
+`SetWindowLongW`
+    --> C:\Users\USER\.
+cargo\registry\src\inde
+x.crates.io-1949cf8c6b5
+b557f\windows-0.58.0\sr
+c\Windows\Win32\UI\Wind
+owsAndMessaging\mod.rs:
+3036:9
+     |
+3034 | pub unsafe fn Se
+tWindowLongW<P0>(hwnd: 
+P0, nindex: 
+WINDOW_LONG_PTR_INDEX, 
+dwnewlong: i32) -> i32
+     |               
+-------------- 
+required by a bound in 
+this function
+3035 | where
+3036 |     P0: windows_
+core::Param<super::supe
+r::Foundation::HWND>,
+     |         ^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^ 
+required by this bound 
+in `SetWindowLongW`
+
+error[E0277]: the 
+trait bound `std::resul
+t::Result<HWND, windows
+_result::error::Error>:
+ Param<HWND, 
+CopyType>` is not 
+satisfied
+    --> 
+src\main.rs:3123:33
+     |
+3122 | ...             
+      SetWindowLongW(
+     |                 
+      -------------- 
+required by a bound 
+introduced by this call
+3123 | ...             
+          hwnd,
+     |                 
+          ^^^^ the 
+trait `CanInto<HWND>` 
+is not implemented for 
+`std::result::Result<HW
+ND, windows_result::err
+or::Error>`
+     |
+note: there are 
+multiple different 
+versions of crate 
+`windows_core` in the 
+dependency graph
+    --> C:\Users\USER\.
+cargo\registry\src\inde
+x.crates.io-1949cf8c6b5
+b557f\windows-core-0.58
+.0\src\imp\can_into.rs:
+1:1
+     |
+   1 | pub trait 
+CanInto<T>: Sized {
+     | ^^^^^^^^^^^^^^^^
+^^^^^^^^^^^ this is 
+the expected trait
+     |
+    ::: C:\Users\USER\.
+cargo\registry\src\inde
+x.crates.io-1949cf8c6b5
+b557f\windows-core-0.52
+.0\src\param.rs:70:1
+     |
+  70 | pub trait 
+CanInto<T>: Sized
+     | ----------------
+----------- this is 
+the found trait
+     = help: you can 
+use `cargo tree` to 
+explore your 
+dependency tree
+     = help: the 
+following other types 
+implement trait 
+`CanInto<T>`:
+               
+`HCURSOR` implements 
+`CanInto<HICON>`
+               
+`HINSTANCE` implements 
+`CanInto<HMODULE>`
+               
+`HMODULE` implements 
+`CanInto<HINSTANCE>`
+               `HWND` 
+implements 
+`CanInto<HANDLE>`
+               
+`IAgileObject` 
+implements 
+`CanInto<IUnknown>`
+               
+`IAgileReference` 
+implements 
+`CanInto<IUnknown>`
+               
+`IGenericFactory` 
+implements 
+`CanInto<IInspectable>`
+               
+`IGenericFactory` 
+implements 
+`CanInto<IUnknown>`
+             and 3 
+others
+     = note: required 
+for `std::result::Resul
+t<HWND, windows_result:
+:error::Error>` to 
+implement `Param<HWND, 
+CopyType>`
+note: required by a 
+bound in 
+`SetWindowLongW`
+    --> C:\Users\USER\.
+cargo\registry\src\inde
+x.crates.io-1949cf8c6b5
+b557f\windows-0.58.0\sr
+c\Windows\Win32\UI\Wind
+owsAndMessaging\mod.rs:
+3036:9
+     |
+3034 | pub unsafe fn Se
+tWindowLongW<P0>(hwnd: 
+P0, nindex: 
+WINDOW_LONG_PTR_INDEX, 
+dwnewlong: i32) -> i32
+     |               
+-------------- 
+required by a bound in 
+this function
+3035 | where
+3036 |     P0: windows_
+core::Param<super::supe
+r::Foundation::HWND>,
+     |         ^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^ 
+required by this bound 
+in `SetWindowLongW`
+
+error[E0277]: the 
+trait bound `std::resul
+t::Result<HWND, windows
+_result::error::Error>:
+ Param<HWND, 
+CopyType>` is not 
+satisfied
+    --> 
+src\main.rs:3123:33
+     |
+3122 | ...             
+      SetWindowLongW(
+     |                 
+      -------------- 
+required by a bound 
+introduced by this call
+3123 | ...             
+          hwnd,
+     |                 
+          ^^^^ the 
+trait `windows::windows
+_core::interface::Inter
+face` is not 
+implemented for `std::r
+esult::Result<HWND, win
+dows_result::error::Err
+or>`
+     |
+note: there are 
+multiple different 
+versions of crate 
+`windows_core` in the 
+dependency graph
+    --> C:\Users\USER\.
+cargo\registry\src\inde
+x.crates.io-1949cf8c6b5
+b557f\windows-core-0.58
+.0\src\interface.rs:14:
+1
+     |
+  14 | pub unsafe 
+trait Interface: Sized 
++ Clone {
+     | ^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^ this is the 
+expected trait
+     |
+    ::: C:\Users\USER\.
+cargo\registry\src\inde
+x.crates.io-1949cf8c6b5
+b557f\windows-core-0.52
+.0\src\interface.rs:7:1
+     |
+   7 | pub unsafe 
+trait Interface: Sized 
+{
+     | ----------------
+----------------- this 
+is the trait that was 
+imported
+     = help: you can 
+use `cargo tree` to 
+explore your 
+dependency tree
+     = help: the 
+following other types 
+implement trait `window
+s::windows_core::interf
+ace::Interface`:
+               
+IAgileObject
+               
+IAgileReference
+               
+IGenericFactory
+               
+IInspectable
+               IUnknown
+               
+IWeakReference
+               
+IWeakReferenceSource
+     = note: required 
+for `std::result::Resul
+t<HWND, windows_result:
+:error::Error>` to 
+implement `TypeKind`
+     = note: required 
+for `std::result::Resul
+t<HWND, windows_result:
+:error::Error>` to 
+implement `Param<HWND, 
+CopyType>`
+note: required by a 
+bound in 
+`SetWindowLongW`
+    --> C:\Users\USER\.
+cargo\registry\src\inde
+x.crates.io-1949cf8c6b5
+b557f\windows-0.58.0\sr
+c\Windows\Win32\UI\Wind
+owsAndMessaging\mod.rs:
+3036:9
+     |
+3034 | pub unsafe fn Se
+tWindowLongW<P0>(hwnd: 
+P0, nindex: 
+WINDOW_LONG_PTR_INDEX, 
+dwnewlong: i32) -> i32
+     |               
+-------------- 
+required by a bound in 
+this function
+3035 | where
+3036 |     P0: windows_
+core::Param<super::supe
+r::Foundation::HWND>,
+     |         ^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^ 
+required by this bound 
+in `SetWindowLongW`
+
+Some errors have 
+detailed explanations: 
+E0271, E0277.
+For more information 
+about an error, try 
+`rustc --explain 
+E0271`.
+warning: 
+`daily-motivation` 
+(bin 
+"daily-motivation") 
+generated 1 warning
+error: could not 
+compile 
+`daily-motivation` 
+(bin 
+"daily-motivation") 
+due to 6 previous 
+errors; 1 warning 
+emitted

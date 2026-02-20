@@ -1,0 +1,144 @@
+﻿cargo :     Checking 
+daily-motivation 
+v0.1.0 (C:\Users\USER\O
+neDrive\Desktop\Irak\ru
+stV10)
+At line:1 char:1
++ cargo check 2>&1 | 
+Out-File -Encoding 
+utf8 error_utf8_2.log
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (    Checking    
+ da...p\Irak\rustV1    
+0):String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+warning: unused 
+import: 
+`WINDOW_LONG_PTR_INDEX`
+    --> 
+src\main.rs:3105:37
+     |
+3105 |                 
+    SWP_NOACTIVATE, 
+WINDOW_LONG_PTR_INDEX, 
+WS_EX_TOOLWINDOW,
+     |                 
+                    
+^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(un
+used_imports)]` (part 
+of `#[warn(unused)]`) 
+on by default
+
+error[E0283]: type 
+annotations needed
+    --> 
+src\main.rs:3150:29
+     |
+3149 |                 
+        SetWindowPos(
+     |                 
+        ------------ 
+required by a bound 
+introduced by this call
+3150 |                 
+            std::mem::t
+ransmute(bg_hwnd_val),
+     |                 
+            
+^^^^^^^^^^^^^^^^^^^ 
+cannot infer type of 
+the type parameter 
+`Dst` declared on the 
+function `transmute`
+     |
+     = note: multiple 
+`impl`s satisfying `_: 
+Param<HWND, CopyType>` 
+found in the 
+`windows_core` crate:
+             - impl<T, 
+U> Param<T, CopyType> 
+for U
+               where 
+<T as 
+TypeKind>::TypeKind == 
+CopyType, <U as 
+TypeKind>::TypeKind == 
+CopyType, T: TypeKind, 
+T: Clone, U: TypeKind, 
+U: Clone, U: 
+CanInto<T>;
+             - impl<T> 
+Param<T> for 
+std::option::Option<&T>
+               where 
+T: windows::windows_cor
+e::r#type::Type<T>;
+note: required by a 
+bound in `SetWindowPos`
+    --> C:\Users\USER\.
+cargo\registry\src\inde
+x.crates.io-1949cf8c6b5
+b557f\windows-0.58.0\sr
+c\Windows\Win32\UI\Wind
+owsAndMessaging\mod.rs:
+3052:9
+     |
+3050 | pub unsafe fn 
+SetWindowPos<P0, 
+P1>(hwnd: P0, 
+hwndinsertafter: P1, 
+x: i32, y: i32, cx: 
+i32, cy: i32, uflags: 
+SET_WINDOW_POS_FLAGS) 
+-> wind...
+     |               
+------------ required 
+by a bound in this 
+function
+3051 | where
+3052 |     P0: windows_
+core::Param<super::supe
+r::Foundation::HWND>,
+     |         ^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^ 
+required by this bound 
+in `SetWindowPos`
+help: consider 
+specifying the generic 
+arguments
+     |
+3150 |                 
+            std::mem::t
+ransmute::<isize, 
+Dst>(bg_hwnd_val),
+     |                 
+                       
+        ++++++++++++++
+
+For more information 
+about this error, try 
+`rustc --explain 
+E0283`.
+warning: 
+`daily-motivation` 
+(bin 
+"daily-motivation") 
+generated 1 warning
+error: could not 
+compile 
+`daily-motivation` 
+(bin 
+"daily-motivation") 
+due to 1 previous 
+error; 1 warning 
+emitted

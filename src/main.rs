@@ -3006,21 +3006,35 @@ impl AppRunner {
                                         }
                                     }
 
-                                    if let Ok(child) = std::process::Command::new("cargo")
-                                        .args([
-                                            "run",
-                                            "--release",
-                                            "--manifest-path",
-                                            "background/Cargo.toml",
-                                            "--",
-                                            &size.width.to_string(),
-                                            &size.height.to_string(),
-                                            &pos_x.to_string(),
-                                            &pos_y.to_string(),
-                                            &main_hwnd_isize.to_string(), // arg 5
-                                        ])
-                                        .spawn()
-                                    {
+                                    let exe_path = "background/target/release/quantum_logo.exe";
+                                    let child_res = if std::path::Path::new(exe_path).exists() {
+                                        std::process::Command::new(exe_path)
+                                            .args([
+                                                &size.width.to_string(),
+                                                &size.height.to_string(),
+                                                &pos_x.to_string(),
+                                                &pos_y.to_string(),
+                                                &main_hwnd_isize.to_string(), // arg 5
+                                            ])
+                                            .spawn()
+                                    } else {
+                                        std::process::Command::new("cargo")
+                                            .args([
+                                                "run",
+                                                "--release",
+                                                "--manifest-path",
+                                                "background/Cargo.toml",
+                                                "--",
+                                                &size.width.to_string(),
+                                                &size.height.to_string(),
+                                                &pos_x.to_string(),
+                                                &pos_y.to_string(),
+                                                &main_hwnd_isize.to_string(), // arg 5
+                                            ])
+                                            .spawn()
+                                    };
+
+                                    if let Ok(child) = child_res {
                                         app_state.bg_process = Some(child);
                                         app_state.bg_hwnd = None;
                                     }

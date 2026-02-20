@@ -3,7 +3,6 @@ use bevy::{
     prelude::*,
     window::PrimaryWindow,
 };
-use rand::Rng;
 use std::f32::consts::PI;
 
 // --- Components for tracking entities just like JS variables ---
@@ -22,6 +21,12 @@ struct QuantumParticle;
 #[derive(Component)]
 struct PointLight1;
 
+#[derive(Resource, Default)]
+struct TrackingState {
+    hwnd: isize,
+    frames: u32,
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
@@ -30,6 +35,7 @@ fn main() {
     let mut pos_x = 0;
     let mut pos_y = 0;
     let mut use_custom_pos = false;
+    let mut target_hwnd = 0isize;
 
     if args.len() >= 5 {
         if let (Ok(w), Ok(h), Ok(x), Ok(y)) = (
@@ -46,6 +52,12 @@ fn main() {
         }
     }
 
+    if args.len() >= 6 {
+        if let Ok(hwnd) = args[5].parse::<isize>() {
+            target_hwnd = hwnd;
+        }
+    }
+
     let position = if use_custom_pos {
         bevy::window::WindowPosition::At(IVec2::new(pos_x, pos_y))
     } else {
@@ -54,11 +66,17 @@ fn main() {
 
     App::new()
         .insert_resource(ClearColor(Color::hex("030308").unwrap())) // cosmic-bg
+        .insert_resource(TrackingState {
+            hwnd: target_hwnd,
+            frames: 0,
+        })
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Year 50,000 - Quantum Logo (Pure Rust)".into(),
                 resolution: (width, height).into(),
                 decorations: false,
+                transparent: true,
+                visible: false, // start invisible to hide the white flash
                 position,
                 ..default()
             }),
@@ -66,6 +84,7 @@ fn main() {
         }))
         .add_systems(Startup, setup_scene)
         .add_systems(Update, animate_scene)
+        .add_systems(Update, sync_window_process)
         .run();
 }
 
@@ -153,15 +172,13 @@ fn setup_scene(
         unlit: true,
         ..default()
     });
-
-    let mut rng = rand::thread_rng();
     commands
         .spawn((SpatialBundle::default(), QuantumParticle))
         .with_children(|parent| {
             for _ in 0..particles_count {
-                let radius = 6.0 + rng.gen::<f32>() * 4.0;
-                let theta = rng.gen::<f32>() * 2.0 * PI;
-                let phi = (rng.gen::<f32>() * 2.0 - 1.0).acos();
+                let radius = 6.0 + rand::random::<f32>() * 4.0;
+                let theta = rand::random::<f32>() * 2.0 * PI;
+                let phi = (rand::random::<f32>() * 2.0 - 1.0).acos();
 
                 let x = radius * phi.sin() * theta.cos();
                 let y = radius * phi.sin() * theta.sin();
@@ -346,5 +363,42 @@ fn animate_scene(
     if let Ok(mut light) = q_light.get_single_mut() {
         let hue = ((elapsed * 0.5).sin() + 1.0) * 0.5 * 360.0;
         light.color = Color::hsl(hue, 1.0, 0.5);
+    }
+}
+
+// --- Sync Window Process ---
+fn sync_window_process(
+    mut q_window: Query<&mut Window, With<PrimaryWindow>>,
+    mut tracking: ResMut<TrackingState>,
+) {
+    if let Ok(mut window) = q_window.get_single_mut() {
+        tracking.frames += 1;
+
+        // Show after a few frames to let rendering initialize perfectly
+        if tracking.frames == 5 {
+            window.visible = true;
+        }
+
+        #[cfg(windows)]
+        {
+            if tracking.hwnd != 0 {
+                use windows::Win32::Foundation::HWND;
+                use windows::Win32::UI::WindowsAndMessaging::GetWindowRect;
+                let hwnd = HWND(tracking.hwnd);
+                let mut rect = windows::Win32::Foundation::RECT::default();
+                unsafe {
+                    if GetWindowRect(hwnd, &mut rect).is_ok() {
+                        let width = (rect.right - rect.left) as f32;
+                        let height = (rect.bottom - rect.top) as f32;
+
+                        let x = rect.left;
+                        let y = rect.top;
+
+                        window.position = bevy::window::WindowPosition::At(IVec2::new(x, y));
+                        window.resolution.set(width, height);
+                    }
+                }
+            }
+        }
     }
 }
