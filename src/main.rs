@@ -1019,7 +1019,9 @@ pub fn render_main_content(
         .frame(Frame::none().fill(central_bg))
         .show(ctx, |ui| {
             // Draw gradient background manually if needed
-            if state.theme.apply_to_entire_window || state.theme.mode == ThemeMode::Gradient {
+            if !state.is_3d_bg_active
+                && (state.theme.apply_to_entire_window || state.theme.mode == ThemeMode::Gradient)
+            {
                 let rect = if state.theme.apply_to_entire_window {
                     ctx.screen_rect()
                 } else {
@@ -1100,7 +1102,7 @@ pub fn render_main_content(
 
                             mesh.vertices.push(Vertex {
                                 pos: p,
-                                uv: egui::pos2(tx, ty),
+                                uv: egui::pos2(0.0, 0.0), // Use the white pixel to avoid rendering font texture atlas
                                 color: calc_color(proj),
                             });
                         }
