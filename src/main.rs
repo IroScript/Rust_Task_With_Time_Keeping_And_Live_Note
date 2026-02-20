@@ -2994,21 +2994,57 @@ impl AppRunner {
                                 } else {
                                     (0, 0)
                                 };
-                                if let Ok(child) = std::process::Command::new("cargo")
-                                    .args([
-                                        "run",
-                                        "--release",
-                                        "--manifest-path",
-                                        "background/Cargo.toml",
-                                        "--",
-                                        &size.width.to_string(),
-                                        &size.height.to_string(),
-                                        &pos_x.to_string(),
-                                        &pos_y.to_string(),
-                                    ])
-                                    .spawn()
+                                #[cfg(windows)]
                                 {
-                                    app_state.bg_process = Some(child);
+                                    use winit::raw_window_handle::{
+                                        HasWindowHandle, RawWindowHandle,
+                                    };
+                                    let mut main_hwnd_isize = 0isize;
+                                    if let Ok(handle) = window.window_handle() {
+                                        if let RawWindowHandle::Win32(win32) = handle.as_raw() {
+                                            main_hwnd_isize = win32.hwnd.get() as isize;
+                                        }
+                                    }
+
+                                    if let Ok(child) = std::process::Command::new("cargo")
+                                        .args([
+                                            "run",
+                                            "--release",
+                                            "--manifest-path",
+                                            "background/Cargo.toml",
+                                            "--",
+                                            &size.width.to_string(),
+                                            &size.height.to_string(),
+                                            &pos_x.to_string(),
+                                            &pos_y.to_string(),
+                                            &main_hwnd_isize.to_string(), // arg 5
+                                        ])
+                                        .spawn()
+                                    {
+                                        app_state.bg_process = Some(child);
+                                        app_state.bg_hwnd = None;
+                                    }
+                                }
+                                #[cfg(not(windows))]
+                                {
+                                    if let Ok(child) = std::process::Command::new("cargo")
+                                        .args([
+                                            "run",
+                                            "--release",
+                                            "--manifest-path",
+                                            "background/Cargo.toml",
+                                            "--",
+                                            &size.width.to_string(),
+                                            &size.height.to_string(),
+                                            &pos_x.to_string(),
+                                            &pos_y.to_string(),
+                                            "0",
+                                        ])
+                                        .spawn()
+                                    {
+                                        app_state.bg_process = Some(child);
+                                        app_state.bg_hwnd = None;
+                                    }
                                 }
                             }
                         } else {
@@ -3094,73 +3130,6 @@ impl AppRunner {
         });
 
         egui_state.handle_platform_output(window, full_output.platform_output);
-
-        if app_state.is_3d_bg_active {
-            #[cfg(windows)]
-            {
-                use windows::core::PCWSTR;
-                use windows::Win32::Foundation::HWND;
-                use windows::Win32::UI::WindowsAndMessaging::{
-                    FindWindowW, GetWindowLongW, SetWindowLongW, SetWindowPos, GWL_EXSTYLE,
-                    SWP_NOACTIVATE, WINDOW_LONG_PTR_INDEX, WS_EX_TOOLWINDOW,
-                };
-                use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
-
-                if app_state.bg_hwnd.is_none() {
-                    let mut title: Vec<u16> = "Year 50,000 - Quantum Logo (Pure Rust)"
-                        .encode_utf16()
-                        .collect();
-                    title.push(0);
-
-                    if let Ok(hwnd) =
-                        unsafe { FindWindowW(PCWSTR::null(), PCWSTR::from_raw(title.as_ptr())) }
-                    {
-                        unsafe {
-                            // First try to hide from taskbar.
-                            let exstyle = GetWindowLongW(hwnd, GWL_EXSTYLE);
-                            SetWindowLongW(
-                                hwnd,
-                                GWL_EXSTYLE,
-                                exstyle | (WS_EX_TOOLWINDOW.0 as i32),
-                            );
-                        }
-                        let hwnd_isize: isize = unsafe { std::mem::transmute(hwnd) };
-                        app_state.bg_hwnd = Some(hwnd_isize);
-                    }
-                }
-
-                // Keep perfectly synced
-                if let Some(bg_hwnd_val) = app_state.bg_hwnd {
-                    let size = window.inner_size();
-                    let (pos_x, pos_y) = if let Ok(pos) = window.outer_position() {
-                        (pos.x, pos.y)
-                    } else {
-                        (0, 0)
-                    };
-
-                    let mut main_hwnd: HWND = unsafe { std::mem::transmute(0isize) };
-                    if let Ok(handle) = window.window_handle() {
-                        if let RawWindowHandle::Win32(win32) = handle.as_raw() {
-                            main_hwnd = unsafe { std::mem::transmute(win32.hwnd.get() as isize) };
-                        }
-                    }
-
-                    unsafe {
-                        SetWindowPos(
-                            std::mem::transmute::<isize, HWND>(bg_hwnd_val),
-                            main_hwnd, // Put it perfectly physically behind the main window in Z-order
-                            pos_x,
-                            pos_y,
-                            size.width as i32,
-                            size.height as i32,
-                            SWP_NOACTIVATE,
-                        );
-                    }
-                }
-            }
-        } else if app_state.bg_hwnd.is_some() {
-            app_state.bg_hwnd = None;
-        }
 
         let paint_jobs = egui_ctx.tessellate(full_output.shapes, window.scale_factor() as f32);
 
