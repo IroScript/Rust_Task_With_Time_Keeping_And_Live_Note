@@ -982,8 +982,125 @@ pub fn render_main_content(
         &mut HashMap<u64, egui::TextureHandle>,
     )>,
 ) {
+    // DRAW BACKGROUND MANUALLY BEHIND EVERYTHING IF NEEDED
+    if !state.is_3d_bg_active {
+        let draw_bg = state.theme.apply_to_entire_window || state.theme.mode == ThemeMode::Gradient;
+        if draw_bg {
+            egui::Area::new(egui::Id::new("main_bg"))
+                .order(egui::Order::Background)
+                .interactable(false)
+                .show(ctx, |ui| {
+                    let rect = if state.theme.apply_to_entire_window {
+                        ctx.screen_rect()
+                    } else {
+                        // Approximate central panel rect if not full window
+                        let mut r = ctx.screen_rect();
+                        if state.title_bar_state.control_panel_visible {
+                            r.max.x -= CONTROL_PANEL_WIDTH;
+                        }
+                        r
+                    };
+
+                    if state.theme.mode == ThemeMode::Solid {
+                        ui.painter()
+                            .rect_filled(rect, Rounding::ZERO, state.theme.solid_color);
+                    } else if !state.theme.gradient_colors.is_empty() {
+                        let angle_rad = (state.theme.gradient_angle as f32).to_radians();
+
+                        // Quick radial to corners approximation
+                        let dir = egui::Vec2::new(angle_rad.cos(), angle_rad.sin());
+
+                        use egui::epaint::{Mesh, Vertex};
+                        let mut mesh = Mesh::default();
+
+                        let c0 = rect.min;
+                        let c1 = egui::pos2(rect.max.x, rect.min.y);
+                        let c2 = egui::pos2(rect.min.x, rect.max.y);
+                        let c3 = rect.max;
+
+                        // Project corners onto gradient direction line
+                        let center = rect.center();
+                        let project = |p: egui::Pos2| -> f32 {
+                            let v = p - center;
+                            v.x * dir.x + v.y * dir.y
+                        };
+
+                        let p0 = project(c0);
+                        let p1 = project(c1);
+                        let p2 = project(c2);
+                        let p3 = project(c3);
+
+                        let min_p = p0.min(p1).min(p2).min(p3);
+                        let max_p = p0.max(p1).max(p2).max(p3);
+                        let range = (max_p - min_p).max(0.1);
+
+                        let calc_color = |p: f32| -> Color32 {
+                            let t = ((p - min_p) / range).clamp(0.0, 1.0);
+                            let colors = &state.theme.gradient_colors;
+
+                            if colors.is_empty() {
+                                return Color32::TRANSPARENT;
+                            }
+                            if colors.len() == 1 {
+                                return colors[0];
+                            }
+
+                            let n_segments = (colors.len() - 1) as f32;
+                            let scaled_t = t * n_segments;
+                            let mut index = scaled_t.floor() as usize;
+                            index = index.min(colors.len() - 2);
+                            let fract = scaled_t - index as f32;
+
+                            let c1 = colors[index];
+                            let c2 = colors[index + 1];
+
+                            let r = (c1.r() as f32 * (1.0 - fract) + c2.r() as f32 * fract) as u8;
+                            let g = (c1.g() as f32 * (1.0 - fract) + c2.g() as f32 * fract) as u8;
+                            let b = (c1.b() as f32 * (1.0 - fract) + c2.b() as f32 * fract) as u8;
+                            let a = (c1.a() as f32 * (1.0 - fract) + c2.a() as f32 * fract) as u8;
+
+                            Color32::from_rgba_premultiplied(r, g, b, a)
+                        };
+
+                        let steps_x = 32;
+                        let steps_y = 32;
+
+                        for yi in 0..=steps_y {
+                            let ty = yi as f32 / steps_y as f32;
+                            for xi in 0..=steps_x {
+                                let tx = xi as f32 / steps_x as f32;
+                                let p =
+                                    rect.min + egui::vec2(rect.width() * tx, rect.height() * ty);
+
+                                let proj = project(p);
+
+                                mesh.vertices.push(Vertex {
+                                    pos: p,
+                                    uv: egui::pos2(0.0, 0.0), // Use the white pixel to avoid rendering font texture atlas
+                                    color: calc_color(proj),
+                                });
+                            }
+                        }
+
+                        for yi in 0..steps_y {
+                            for xi in 0..steps_x {
+                                let i0 = yi * (steps_x + 1) + xi;
+                                let i1 = i0 + 1;
+                                let i2 = (yi + 1) * (steps_x + 1) + xi;
+                                let i3 = i2 + 1;
+
+                                mesh.indices.extend_from_slice(&[i0, i1, i2, i1, i3, i2]);
+                            }
+                        }
+
+                        ui.painter().add(egui::Shape::mesh(mesh));
+                    }
+                });
+        }
+    }
+
     // RIGHT SIDE PANEL — must be declared BEFORE CentralPanel
-    let right_panel_bg = if state.theme.apply_to_entire_window {
+    let right_panel_bg = if state.theme.apply_to_entire_window || state.is_3d_bg_active {
         Color32::TRANSPARENT
     } else {
         CONTROL_PANEL_BG
@@ -1009,123 +1126,18 @@ pub fn render_main_content(
     }
 
     // MAIN CANVAS — CentralPanel takes remaining space automatically
-    let central_bg = if state.theme.apply_to_entire_window {
+    let central_bg = if state.theme.apply_to_entire_window || state.is_3d_bg_active {
         Color32::TRANSPARENT // Draw background across entire screen behind panels
     } else {
         match state.theme.mode {
             ThemeMode::Solid => state.theme.solid_color,
-            ThemeMode::Gradient => Color32::TRANSPARENT, // We will manually draw gradient
+            ThemeMode::Gradient => Color32::TRANSPARENT, // We manually draw gradient
         }
     };
 
     egui::CentralPanel::default()
         .frame(Frame::none().fill(central_bg))
         .show(ctx, |ui| {
-            // Draw gradient background manually if needed
-            if !state.is_3d_bg_active
-                && (state.theme.apply_to_entire_window || state.theme.mode == ThemeMode::Gradient)
-            {
-                let rect = if state.theme.apply_to_entire_window {
-                    ctx.screen_rect()
-                } else {
-                    ui.max_rect()
-                };
-
-                if state.theme.mode == ThemeMode::Solid {
-                    ui.painter_at(rect)
-                        .rect_filled(rect, Rounding::ZERO, state.theme.solid_color);
-                } else if !state.theme.gradient_colors.is_empty() {
-                    let angle_rad = (state.theme.gradient_angle as f32).to_radians();
-
-                    // Quick radial to corners approximation
-                    let dir = egui::Vec2::new(angle_rad.cos(), angle_rad.sin());
-
-                    use egui::epaint::{Mesh, Vertex};
-                    let mut mesh = Mesh::default();
-
-                    let c0 = rect.min;
-                    let c1 = egui::pos2(rect.max.x, rect.min.y);
-                    let c2 = egui::pos2(rect.min.x, rect.max.y);
-                    let c3 = rect.max;
-
-                    // Project corners onto gradient direction line
-                    let center = rect.center();
-                    let project = |p: egui::Pos2| -> f32 {
-                        let v = p - center;
-                        v.x * dir.x + v.y * dir.y
-                    };
-
-                    let p0 = project(c0);
-                    let p1 = project(c1);
-                    let p2 = project(c2);
-                    let p3 = project(c3);
-
-                    let min_p = p0.min(p1).min(p2).min(p3);
-                    let max_p = p0.max(p1).max(p2).max(p3);
-                    let range = (max_p - min_p).max(0.1);
-
-                    let calc_color = |p: f32| -> Color32 {
-                        let t = ((p - min_p) / range).clamp(0.0, 1.0);
-                        let colors = &state.theme.gradient_colors;
-
-                        if colors.is_empty() {
-                            return Color32::TRANSPARENT;
-                        }
-                        if colors.len() == 1 {
-                            return colors[0];
-                        }
-
-                        let n_segments = (colors.len() - 1) as f32;
-                        let scaled_t = t * n_segments;
-                        let mut index = scaled_t.floor() as usize;
-                        index = index.min(colors.len() - 2);
-                        let fract = scaled_t - index as f32;
-
-                        let c1 = colors[index];
-                        let c2 = colors[index + 1];
-
-                        let r = (c1.r() as f32 * (1.0 - fract) + c2.r() as f32 * fract) as u8;
-                        let g = (c1.g() as f32 * (1.0 - fract) + c2.g() as f32 * fract) as u8;
-                        let b = (c1.b() as f32 * (1.0 - fract) + c2.b() as f32 * fract) as u8;
-                        let a = (c1.a() as f32 * (1.0 - fract) + c2.a() as f32 * fract) as u8;
-
-                        Color32::from_rgba_premultiplied(r, g, b, a)
-                    };
-
-                    let steps_x = 32;
-                    let steps_y = 32;
-
-                    for yi in 0..=steps_y {
-                        let ty = yi as f32 / steps_y as f32;
-                        for xi in 0..=steps_x {
-                            let tx = xi as f32 / steps_x as f32;
-                            let p = rect.min + egui::vec2(rect.width() * tx, rect.height() * ty);
-
-                            let proj = project(p);
-
-                            mesh.vertices.push(Vertex {
-                                pos: p,
-                                uv: egui::pos2(0.0, 0.0), // Use the white pixel to avoid rendering font texture atlas
-                                color: calc_color(proj),
-                            });
-                        }
-                    }
-
-                    for yi in 0..steps_y {
-                        for xi in 0..steps_x {
-                            let i0 = yi * (steps_x + 1) + xi;
-                            let i1 = i0 + 1;
-                            let i2 = (yi + 1) * (steps_x + 1) + xi;
-                            let i3 = i2 + 1;
-
-                            mesh.indices.extend_from_slice(&[i0, i1, i2, i1, i3, i2]);
-                        }
-                    }
-
-                    ui.painter_at(rect).add(egui::Shape::mesh(mesh));
-                }
-            }
-
             ui.vertical_centered(|ui| {
                 ui.add_space(80.0);
 
@@ -1777,9 +1789,9 @@ pub fn render_control_panel_contents(
                 for (idx, quote) in state.quotes.iter().enumerate() {
                     let is_current = idx == state.current_quote_index;
                     let bg_color = if is_current {
-                        Color32::from_rgb(60, 80, 120)
+                        Color32::from_white_alpha(40)
                     } else {
-                        Color32::from_rgb(50, 50, 60)
+                        Color32::from_white_alpha(10)
                     };
 
                     egui::Frame::none()
@@ -1991,7 +2003,8 @@ pub fn render_control_panel_contents(
 
             // ===== Info Section =====
             egui::Frame::none()
-                .fill(Color32::from_rgb(30, 30, 40))
+                .fill(Color32::from_black_alpha(150))
+                .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(30)))
                 .inner_margin(Vec2::new(10.0, 10.0))
                 .rounding(Rounding::same(4.0))
                 .show(ui, |ui| {
@@ -2027,7 +2040,8 @@ pub fn render_control_panel_contents(
 /// Render a section with title
 fn render_section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut egui::Ui)) {
     egui::Frame::none()
-        .fill(Color32::from_rgb(50, 50, 60))
+        .fill(Color32::from_black_alpha(150))
+        .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(30)))
         .inner_margin(Vec2::new(12.0, 12.0))
         .rounding(Rounding::same(8.0))
         .show(ui, |ui| {
