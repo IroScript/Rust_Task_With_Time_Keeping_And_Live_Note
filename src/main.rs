@@ -179,6 +179,8 @@ pub mod icons {
     pub const APP_ICON: TitleBarIcon =
         TitleBarIcon::new("\u{f135}", "Daily Motivation", 20.0, 24.0);
     pub const THEME: TitleBarIcon = TitleBarIcon::new("\u{eb5c}", "Change Theme", 20.0, 12.0);
+    pub const TOGGLE_BG: TitleBarIcon =
+        TitleBarIcon::new("\u{f110}", "Toggle 3D Background", 20.0, 16.0);
     pub const EXPORT: TitleBarIcon = TitleBarIcon::new("\u{f0207}", "Export Quotes", 20.0, 13.2);
     pub const ZOOM_IN: TitleBarIcon = TitleBarIcon::new("\u{f120d}", "Zoom In", 20.0, 16.8);
     pub const ZOOM_OUT: TitleBarIcon = TitleBarIcon::new("\u{f06ec}", "Zoom Out", 20.0, 16.8);
@@ -200,6 +202,7 @@ pub mod icons {
 pub struct TitleBarState {
     // Button hover states
     pub theme_btn_hovered: bool,
+    pub toggle_bg_btn_hovered: bool,
     pub export_btn_hovered: bool,
     pub zoom_out_btn_hovered: bool,
     pub zoom_in_btn_hovered: bool,
@@ -224,6 +227,7 @@ impl Default for TitleBarState {
     fn default() -> Self {
         Self {
             theme_btn_hovered: false,
+            toggle_bg_btn_hovered: false,
             export_btn_hovered: false,
             zoom_out_btn_hovered: false,
             zoom_in_btn_hovered: false,
@@ -247,6 +251,7 @@ impl Default for TitleBarState {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TitleBarAction {
     ThemeClicked,
+    ToggleBg,
     ExportClicked,
     ZoomIn,
     ZoomOut,
@@ -327,6 +332,10 @@ pub struct AppState {
 
     pub confirm_clear_pending: bool,
 
+    // 3D Background Process
+    pub is_3d_bg_active: bool,
+    pub bg_process: Option<std::process::Child>,
+
     // Color picker toggles
     pub show_main_color_picker: bool,
     pub show_sub_color_picker: bool,
@@ -366,6 +375,8 @@ impl Default for AppState {
                 subtitle_editing: false,
                 subtitle_edit_buffer: String::new(),
                 confirm_clear_pending: false,
+                is_3d_bg_active: false,
+                bg_process: None,
                 manual_resize_start: None,
             }
         } else {
@@ -439,8 +450,19 @@ impl Default for AppState {
                 subtitle_editing: false,
                 subtitle_edit_buffer: String::new(),
                 confirm_clear_pending: false,
+                is_3d_bg_active: false,
+                bg_process: None,
                 manual_resize_start: None,
             }
+        }
+    }
+}
+
+impl Drop for AppState {
+    fn drop(&mut self) {
+        if let Some(mut child) = self.bg_process.take() {
+            let _ = child.kill();
+            let _ = child.wait();
         }
     }
 }
@@ -510,6 +532,10 @@ impl AppState {
 
     /// Get background color (interpolated gradient or solid)
     pub fn get_background_color(&self) -> Color32 {
+        if self.is_3d_bg_active {
+            return Color32::TRANSPARENT;
+        }
+
         if self.theme.mode == ThemeMode::Solid {
             return self.theme.solid_color;
         }
@@ -802,6 +828,27 @@ pub fn render_title_bar(
                         actions.push(TitleBarAction::ThemeClicked);
                     }
                     response.on_hover_text_at_pointer(icons::THEME.tooltip);
+
+                    ui.add_space(8.0);
+
+                    // 8. Toggle BG
+                    let response = draw_icon_button(
+                        ui,
+                        &icons::TOGGLE_BG,
+                        Color32::TRANSPARENT,
+                        if state.is_3d_bg_active {
+                            Color32::from_rgb(0, 200, 255)
+                        } else {
+                            Color32::WHITE
+                        },
+                        state.title_bar_state.toggle_bg_btn_hovered,
+                    );
+                    state.title_bar_state.toggle_bg_btn_hovered = response.hovered();
+
+                    if response.clicked() {
+                        actions.push(TitleBarAction::ToggleBg);
+                    }
+                    response.on_hover_text_at_pointer(icons::TOGGLE_BG.tooltip);
 
                     // Re-calculate how much remaining space there is for the draggable area between text and icons
                     let drag_area_width = ui.available_width();
@@ -2617,6 +2664,7 @@ impl ApplicationHandler for AppRunner {
                 ))
                 .with_decorations(false)
                 .with_resizable(true)
+                .with_transparent(true)
                 .with_visible(false), // Start invisible to avoid white flash
         ) {
             Ok(window) => {
@@ -2931,6 +2979,29 @@ impl AppRunner {
             for action in actions {
                 match action {
                     TitleBarAction::ThemeClicked => app_state.theme_modal_open = true,
+                    TitleBarAction::ToggleBg => {
+                        app_state.is_3d_bg_active = !app_state.is_3d_bg_active;
+                        if app_state.is_3d_bg_active {
+                            if app_state.bg_process.is_none() {
+                                if let Ok(child) = std::process::Command::new("cargo")
+                                    .args([
+                                        "run",
+                                        "--release",
+                                        "--manifest-path",
+                                        "background/Cargo.toml",
+                                    ])
+                                    .spawn()
+                                {
+                                    app_state.bg_process = Some(child);
+                                }
+                            }
+                        } else {
+                            if let Some(mut child) = app_state.bg_process.take() {
+                                let _ = child.kill();
+                                let _ = child.wait();
+                            }
+                        }
+                    }
                     TitleBarAction::ExportClicked => {
                         if let Ok(json) = serde_json::to_string_pretty(&app_state.quotes) {
                             if let Ok(mut file) = OpenOptions::new()
@@ -3058,7 +3129,7 @@ impl AppRunner {
             r: bg_color.r() as f64 / 255.0,
             g: bg_color.g() as f64 / 255.0,
             b: bg_color.b() as f64 / 255.0,
-            a: 1.0,
+            a: bg_color.a() as f64 / 255.0,
         };
 
         {
