@@ -982,14 +982,53 @@ pub fn render_main_content(
         &mut HashMap<u64, egui::TextureHandle>,
     )>,
 ) {
-    // DRAW BACKGROUND MANUALLY BEHIND EVERYTHING IF NEEDED
-    if !state.is_3d_bg_active {
-        let draw_bg = state.theme.apply_to_entire_window || state.theme.mode == ThemeMode::Gradient;
-        if draw_bg {
-            egui::Area::new(egui::Id::new("main_bg"))
-                .order(egui::Order::Background)
-                .interactable(false)
-                .show(ctx, |ui| {
+    // RIGHT SIDE PANEL — must be declared BEFORE CentralPanel
+    let right_panel_bg = if state.theme.apply_to_entire_window || state.is_3d_bg_active {
+        Color32::TRANSPARENT
+    } else {
+        CONTROL_PANEL_BG
+    };
+
+    if state.title_bar_state.control_panel_visible {
+        egui::SidePanel::right("control_panel")
+            .exact_width(CONTROL_PANEL_WIDTH)
+            .resizable(false)
+            .frame(
+                Frame::none()
+                    .fill(right_panel_bg)
+                    .inner_margin(egui::Margin {
+                        left: 10.0,
+                        right: 10.0,
+                        top: 15.0,
+                        bottom: 15.0,
+                    }),
+            )
+            .show(ctx, |ui| {
+                render_control_panel_contents(ui, state, shaper);
+            });
+    }
+
+    // MAIN CANVAS — CentralPanel takes remaining space automatically
+    let central_bg = if state.theme.apply_to_entire_window || state.is_3d_bg_active {
+        Color32::TRANSPARENT // Draw background across entire screen behind panels
+    } else {
+        match state.theme.mode {
+            ThemeMode::Solid => state.theme.solid_color,
+            ThemeMode::Gradient => Color32::TRANSPARENT, // We manually draw gradient
+        }
+    };
+
+    egui::CentralPanel::default()
+        .frame(Frame::none().fill(central_bg))
+        .show(ctx, |ui| {
+            // BACKDROP RENDERER
+            // We draw the gradient or solid color here across `ctx.screen_rect()`.
+            // Because SidePanel is processed first and has a transparent background,
+            // this draws perfectly *underneath* the SidePanel controls.
+            if !state.is_3d_bg_active {
+                let draw_bg =
+                    state.theme.apply_to_entire_window || state.theme.mode == ThemeMode::Gradient;
+                if draw_bg {
                     let rect = if state.theme.apply_to_entire_window {
                         ctx.screen_rect()
                     } else {
@@ -1002,8 +1041,11 @@ pub fn render_main_content(
                     };
 
                     if state.theme.mode == ThemeMode::Solid {
-                        ui.painter()
-                            .rect_filled(rect, Rounding::ZERO, state.theme.solid_color);
+                        ui.painter_at(rect).rect_filled(
+                            rect,
+                            Rounding::ZERO,
+                            state.theme.solid_color,
+                        );
                     } else if !state.theme.gradient_colors.is_empty() {
                         let angle_rad = (state.theme.gradient_angle as f32).to_radians();
 
@@ -1093,51 +1135,11 @@ pub fn render_main_content(
                             }
                         }
 
-                        ui.painter().add(egui::Shape::mesh(mesh));
+                        ui.painter_at(rect).add(egui::Shape::mesh(mesh));
                     }
-                });
-        }
-    }
+                }
+            }
 
-    // RIGHT SIDE PANEL — must be declared BEFORE CentralPanel
-    let right_panel_bg = if state.theme.apply_to_entire_window || state.is_3d_bg_active {
-        Color32::TRANSPARENT
-    } else {
-        CONTROL_PANEL_BG
-    };
-
-    if state.title_bar_state.control_panel_visible {
-        egui::SidePanel::right("control_panel")
-            .exact_width(CONTROL_PANEL_WIDTH)
-            .resizable(false)
-            .frame(
-                Frame::none()
-                    .fill(right_panel_bg)
-                    .inner_margin(egui::Margin {
-                        left: 10.0,
-                        right: 10.0,
-                        top: 15.0,
-                        bottom: 15.0,
-                    }),
-            )
-            .show(ctx, |ui| {
-                render_control_panel_contents(ui, state, shaper);
-            });
-    }
-
-    // MAIN CANVAS — CentralPanel takes remaining space automatically
-    let central_bg = if state.theme.apply_to_entire_window || state.is_3d_bg_active {
-        Color32::TRANSPARENT // Draw background across entire screen behind panels
-    } else {
-        match state.theme.mode {
-            ThemeMode::Solid => state.theme.solid_color,
-            ThemeMode::Gradient => Color32::TRANSPARENT, // We manually draw gradient
-        }
-    };
-
-    egui::CentralPanel::default()
-        .frame(Frame::none().fill(central_bg))
-        .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(80.0);
 
