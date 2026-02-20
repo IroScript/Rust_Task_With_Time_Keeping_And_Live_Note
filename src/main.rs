@@ -2985,12 +2985,23 @@ impl AppRunner {
                         app_state.is_3d_bg_active = !app_state.is_3d_bg_active;
                         if app_state.is_3d_bg_active {
                             if app_state.bg_process.is_none() {
+                                let size = window.inner_size();
+                                let (pos_x, pos_y) = if let Ok(pos) = window.outer_position() {
+                                    (pos.x, pos.y)
+                                } else {
+                                    (0, 0)
+                                };
                                 if let Ok(child) = std::process::Command::new("cargo")
                                     .args([
                                         "run",
                                         "--release",
                                         "--manifest-path",
                                         "background/Cargo.toml",
+                                        "--",
+                                        &size.width.to_string(),
+                                        &size.height.to_string(),
+                                        &pos_x.to_string(),
+                                        &pos_y.to_string(),
                                     ])
                                     .spawn()
                                 {
