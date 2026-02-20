@@ -3006,18 +3006,33 @@ impl AppRunner {
                                         }
                                     }
 
-                                    let exe_path = "background/target/release/quantum_logo.exe";
-                                    let child_res = if std::path::Path::new(exe_path).exists() {
-                                        std::process::Command::new(exe_path)
+                                    let dev_path = "background/target/release/quantum_logo.exe";
+                                    let rel_path = "quantum_logo.exe";
+
+                                    let child_res = if std::path::Path::new(rel_path).exists() {
+                                        // Production / Distribution path (same folder)
+                                        std::process::Command::new(rel_path)
                                             .args([
                                                 &size.width.to_string(),
                                                 &size.height.to_string(),
                                                 &pos_x.to_string(),
                                                 &pos_y.to_string(),
-                                                &main_hwnd_isize.to_string(), // arg 5
+                                                &main_hwnd_isize.to_string(),
+                                            ])
+                                            .spawn()
+                                    } else if std::path::Path::new(dev_path).exists() {
+                                        // Development path (cargo run from root)
+                                        std::process::Command::new(dev_path)
+                                            .args([
+                                                &size.width.to_string(),
+                                                &size.height.to_string(),
+                                                &pos_x.to_string(),
+                                                &pos_y.to_string(),
+                                                &main_hwnd_isize.to_string(),
                                             ])
                                             .spawn()
                                     } else {
+                                        // Fallback to cargo run if not built
                                         std::process::Command::new("cargo")
                                             .args([
                                                 "run",
@@ -3029,7 +3044,7 @@ impl AppRunner {
                                                 &size.height.to_string(),
                                                 &pos_x.to_string(),
                                                 &pos_y.to_string(),
-                                                &main_hwnd_isize.to_string(), // arg 5
+                                                &main_hwnd_isize.to_string(),
                                             ])
                                             .spawn()
                                     };
