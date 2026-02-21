@@ -1919,7 +1919,8 @@ pub fn render_control_panel_contents(
                     // Textarea on the left
                     let text_width = (ui.available_width() - 80.0).max(50.0);
                     let mut text_response = None;
-                    egui::Frame::none()
+                    let mut main_frame_rect = Rect::NOTHING;
+                    let main_frame_resp = egui::Frame::none()
                         .fill(Color32::from_black_alpha(60))
                         .stroke(Stroke::new(1.0, NEON_CYAN.gamma_multiply(0.2)))
                         .rounding(Rounding::same(4.0))
@@ -1935,6 +1936,8 @@ pub fn render_control_panel_contents(
                             );
                             text_response = Some(resp);
                         });
+                    main_frame_rect = main_frame_resp.response.rect;
+                    
                     let text_response = text_response.unwrap();
                     if text_response.changed() {
                         ui.ctx().request_repaint();
@@ -1956,12 +1959,15 @@ pub fn render_control_panel_contents(
 
                     // Buttons column on the right
                     ui.vertical(|ui| {
-                        // Next index reference (top-right of textarea)
-                        ui.label(
-                            RichText::new(format!("{}", state.quotes.len() + 1))
-                                .size(9.5)
-                                .color(Color32::from_gray(140)),
+                        // Floating reference number at 45° top-right (outside frame)
+                        ui.painter().text(
+                            main_frame_rect.right_top() + Vec2::new(2.0, -3.0),
+                            egui::Align2::LEFT_BOTTOM,
+                            format!("{}", state.quotes.len() + 1),
+                            FontId::proportional(9.0),
+                            Color32::from_gray(140),
                         );
+
                         ui.horizontal(|ui| {
                             if ui
                                 .small_button(RichText::new("A+").color(Color32::WHITE).size(10.5))
@@ -2024,7 +2030,8 @@ pub fn render_control_panel_contents(
                 ui.horizontal(|ui| {
                     let text_width = (ui.available_width() - 80.0).max(50.0);
                     let mut sub_response = None;
-                    egui::Frame::none()
+                    let mut sub_frame_rect = Rect::NOTHING;
+                    let sub_frame_resp = egui::Frame::none()
                         .fill(Color32::from_black_alpha(60))
                         .stroke(Stroke::new(1.0, NEON_CYAN.gamma_multiply(0.2)))
                         .rounding(Rounding::same(4.0))
@@ -2039,6 +2046,8 @@ pub fn render_control_panel_contents(
                             );
                             sub_response = Some(resp);
                         });
+                    sub_frame_rect = sub_frame_resp.response.rect;
+
                     let sub_response = sub_response.unwrap();
                     if sub_response.changed() {
                         ui.ctx().request_repaint();
@@ -2065,11 +2074,13 @@ pub fn render_control_panel_contents(
                     }
 
                     ui.vertical(|ui| {
-                        // Next index reference (top-right of textarea)
-                        ui.label(
-                            RichText::new(format!("{}", state.quotes.len() + 1))
-                                .size(9.5)
-                                .color(Color32::from_gray(140)),
+                        // Floating reference number at 45° top-right (outside frame)
+                        ui.painter().text(
+                            sub_frame_rect.right_top() + Vec2::new(2.0, -3.0),
+                            egui::Align2::LEFT_BOTTOM,
+                            format!("{}", state.quotes.len() + 1),
+                            FontId::proportional(9.0),
+                            Color32::from_gray(140),
                         );
                         ui.horizontal(|ui| {
                             if ui
