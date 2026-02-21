@@ -14,6 +14,7 @@ use std::io::{BufReader, Write};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use winit::raw_window_handle::HasWindowHandle;
 use winit::{
     dpi::{LogicalSize, PhysicalPosition},
     event::WindowEvent,
@@ -29,7 +30,8 @@ use egui::{Color32, Frame, RichText, Rounding, Sense, Stroke, TopBottomPanel, Ve
 use windows::Win32::Foundation::HWND;
 #[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::{
-    SetWindowPos, HWND_TOPMOST, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
+    GetWindowLongW, SetLayeredWindowAttributes, SetWindowLongW, SetWindowPos, GWL_EXSTYLE,
+    HWND_TOPMOST, LWA_ALPHA, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, WS_EX_LAYERED,
 };
 
 use serde::{Deserialize, Serialize};
@@ -203,6 +205,19 @@ pub mod icons {
     pub const SHOW_HEADER: TitleBarIcon = TitleBarIcon::new("\u{f103}", "Show Header", 20.0, 24.0);
     pub const ROTATE: TitleBarIcon = TitleBarIcon::new("\u{f01e}", "Rotate Window", 20.0, 16.0);
     pub const ANIMATE: TitleBarIcon = TitleBarIcon::new("\u{f04b}", "Animate Window", 20.0, 16.0);
+
+    // Multi-Animation Icons
+    pub const ANIM_BOUNCE: TitleBarIcon =
+        TitleBarIcon::new("\u{f0025}", "Bounce Animation", 20.0, 16.0);
+    pub const ANIM_SHAKE: TitleBarIcon =
+        TitleBarIcon::new("\u{f067a}", "Shake Animation", 20.0, 16.0);
+    pub const ANIM_DANCE: TitleBarIcon =
+        TitleBarIcon::new("\u{f00d2}", "Dance Animation", 20.0, 16.0);
+    pub const ANIM_ROTATE: TitleBarIcon =
+        TitleBarIcon::new("\u{f01e}", "Rotate Animation", 20.0, 16.0);
+    pub const ANIM_DISSOLVE: TitleBarIcon =
+        TitleBarIcon::new("\u{f0376}", "Dissolve Animation", 20.0, 16.0);
+    pub const ANIM_FLY: TitleBarIcon = TitleBarIcon::new("\u{f02eb}", "Fly Animation", 20.0, 16.0);
 }
 
 // =============================================================================
@@ -274,6 +289,29 @@ pub enum TitleBarAction {
     ShowHeader,
     HideHeader,
     AnimateClicked,
+    PlayBounce,
+    PlayShake,
+    PlayDance,
+    PlayRotate,
+    PlayDissolve,
+    PlayFly,
+    StopAnimations,
+}
+
+// =============================================================================
+// ANIMATION TYPES
+// =============================================================================
+
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+pub enum AppAnimation {
+    #[default]
+    None,
+    Bounce,
+    Shake,
+    Dance,
+    Rotate,
+    Dissolve,
+    Fly,
 }
 
 // =============================================================================
@@ -367,10 +405,12 @@ pub struct AppState {
     // Rotation state: 0=0, 1=90, 2=180, 3=270
     pub rotation: u8,
 
-    // Bouncy window state
-    pub is_bouncing: bool,
+    // Bouncy window state (Now part of Multi-Animation)
+    pub active_animation: AppAnimation,
+    pub anim_progress: f32,
     pub bounce_vel_x: f32,
     pub bounce_vel_y: f32,
+    pub base_pos: Option<(i32, i32)>,
 }
 
 impl Default for AppState {
@@ -402,9 +442,11 @@ impl Default for AppState {
                 bg_hwnd: None,
                 manual_resize_start: None,
                 rotation: 0,
-                is_bouncing: false,
+                active_animation: AppAnimation::None,
+                anim_progress: 0.0,
                 bounce_vel_x: 5.0,
                 bounce_vel_y: 4.0,
+                base_pos: None,
             }
         } else {
             // Default initialization if no config found
@@ -482,9 +524,11 @@ impl Default for AppState {
                 bg_hwnd: None,
                 manual_resize_start: None,
                 rotation: 0,
-                is_bouncing: false,
+                active_animation: AppAnimation::None,
+                anim_progress: 0.0,
                 bounce_vel_x: 5.0,
                 bounce_vel_y: 4.0,
+                base_pos: None,
             }
         }
     }
@@ -887,6 +931,65 @@ pub fn render_title_bar(
                     }
 
                     ui.add_space(8.0);
+                    // ANIMATION SECTION (just right of TOGGLE_BG in code = physically right)
+                    let anim_btns = [
+                        (&icons::ANIM_FLY, TitleBarAction::PlayFly, AppAnimation::Fly),
+                        (
+                            &icons::ANIM_DISSOLVE,
+                            TitleBarAction::PlayDissolve,
+                            AppAnimation::Dissolve,
+                        ),
+                        (
+                            &icons::ANIM_ROTATE,
+                            TitleBarAction::PlayRotate,
+                            AppAnimation::Rotate,
+                        ),
+                        (
+                            &icons::ANIM_DANCE,
+                            TitleBarAction::PlayDance,
+                            AppAnimation::Dance,
+                        ),
+                        (
+                            &icons::ANIM_SHAKE,
+                            TitleBarAction::PlayShake,
+                            AppAnimation::Shake,
+                        ),
+                        (
+                            &icons::ANIM_BOUNCE,
+                            TitleBarAction::PlayBounce,
+                            AppAnimation::Bounce,
+                        ),
+                    ];
+
+                    for (icon, action, anim_type) in anim_btns {
+                        let active = state.active_animation == anim_type;
+                        let color = if active { NEON_LIME } else { Color32::WHITE };
+                        if draw_icon_button(ui, icon, Color32::TRANSPARENT, color, active).clicked()
+                        {
+                            actions.push(action);
+                        }
+                    }
+
+                    ui.add_space(8.0);
+                    // TOGGLE_BG (placed left attached to other buttons)
+                    let bg_color = if state.is_3d_bg_active {
+                        NEON_CYAN
+                    } else {
+                        Color32::from_rgba_premultiplied(255, 255, 255, 150)
+                    };
+                    if draw_icon_button(
+                        ui,
+                        &icons::TOGGLE_BG,
+                        Color32::TRANSPARENT,
+                        bg_color,
+                        false,
+                    )
+                    .clicked()
+                    {
+                        actions.push(TitleBarAction::ToggleBg);
+                    }
+
+                    ui.add_space(8.0);
                     if draw_icon_button(
                         ui,
                         &icons::ZOOM_IN,
@@ -924,17 +1027,6 @@ pub fn render_title_bar(
                     }
                     if draw_icon_button(
                         ui,
-                        &icons::ANIMATE,
-                        Color32::TRANSPARENT,
-                        Color32::WHITE,
-                        false,
-                    )
-                    .clicked()
-                    {
-                        actions.push(TitleBarAction::AnimateClicked);
-                    }
-                    if draw_icon_button(
-                        ui,
                         &icons::THEME,
                         Color32::TRANSPARENT,
                         Color32::WHITE,
@@ -943,24 +1035,6 @@ pub fn render_title_bar(
                     .clicked()
                     {
                         actions.push(TitleBarAction::ThemeClicked);
-                    }
-
-                    ui.add_space(8.0);
-                    let bg_color = if state.is_3d_bg_active {
-                        NEON_CYAN
-                    } else {
-                        Color32::from_rgba_premultiplied(255, 255, 255, 150)
-                    };
-                    if draw_icon_button(
-                        ui,
-                        &icons::TOGGLE_BG,
-                        Color32::TRANSPARENT,
-                        bg_color,
-                        false,
-                    )
-                    .clicked()
-                    {
-                        actions.push(TitleBarAction::ToggleBg);
                     }
 
                     let drag_avail = ui.available_width();
@@ -3104,6 +3178,35 @@ impl ApplicationHandler for AppRunner {
                 | WindowEvent::MouseInput { .. }
                 | WindowEvent::KeyboardInput { .. } => {
                     app_state.last_interaction = Instant::now();
+
+                    // Stop all animations on Space key
+                    if let WindowEvent::KeyboardInput { event, .. } = event {
+                        if event.state == winit::event::ElementState::Pressed {
+                            if let winit::keyboard::PhysicalKey::Code(
+                                winit::keyboard::KeyCode::Space,
+                            ) = event.physical_key
+                            {
+                                app_state.active_animation = AppAnimation::None;
+                                // Reset common effects
+                                if let Some(window) = self.window {
+                                    if let Ok(handle) = window.window_handle() {
+                                        if let winit::raw_window_handle::RawWindowHandle::Win32(
+                                            win32,
+                                        ) = handle.as_raw()
+                                        {
+                                            let hwnd = HWND(win32.hwnd.get() as _);
+                                            unsafe {
+                                                let _ = SetLayeredWindowAttributes(
+                                                    hwnd, None, 255, LWA_ALPHA,
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Request repaint to ensure UI updates immediately
                     self.window.as_ref().map(|w| w.request_redraw());
                 }
@@ -3166,40 +3269,7 @@ impl AppRunner {
             }
         };
 
-        // Window Bounce Physics
-        if app_state.is_bouncing {
-            if let (Ok(pos), Some(monitor)) = (window.outer_position(), window.current_monitor()) {
-                let size = window.outer_size();
-                let monitor_size = monitor.size();
-
-                let mut new_x = pos.x as f32 + app_state.bounce_vel_x;
-                let mut new_y = pos.y as f32 + app_state.bounce_vel_y;
-
-                // Bounce X
-                if new_x < 0.0 {
-                    new_x = 0.0;
-                    app_state.bounce_vel_x *= -1.0;
-                } else if new_x + size.width as f32 > monitor_size.width as f32 {
-                    new_x = monitor_size.width as f32 - size.width as f32;
-                    app_state.bounce_vel_x *= -1.0;
-                }
-
-                // Bounce Y
-                if new_y < 0.0 {
-                    new_y = 0.0;
-                    app_state.bounce_vel_y *= -1.0;
-                } else if new_y + size.height as f32 > monitor_size.height as f32 {
-                    new_y = monitor_size.height as f32 - size.height as f32;
-                    app_state.bounce_vel_y *= -1.0;
-                }
-
-                window.set_outer_position(winit::dpi::PhysicalPosition::new(
-                    new_x as i32,
-                    new_y as i32,
-                ));
-                window.request_redraw();
-            }
-        }
+        // (Animation Engine moved below)
 
         let raw_input = egui_state.take_egui_input(window);
         let full_output = egui_ctx.run(raw_input, |ctx| {
@@ -3330,9 +3400,9 @@ impl AppRunner {
                 }
             }
 
-            let actions = render_title_bar(ctx, app_state, window);
+            let mut actions = render_title_bar(ctx, app_state, window);
 
-            for action in actions {
+            for action in &actions {
                 match action {
                     TitleBarAction::ThemeClicked => app_state.theme_modal_open = true,
                     TitleBarAction::ToggleBg => {
@@ -3474,8 +3544,276 @@ impl AppRunner {
                         app_state.title_bar_state.header_visible = true;
                     }
                     TitleBarAction::AnimateClicked => {
-                        app_state.is_bouncing = !app_state.is_bouncing;
+                        if app_state.active_animation == AppAnimation::Bounce {
+                            app_state.active_animation = AppAnimation::None;
+                        } else {
+                            app_state.active_animation = AppAnimation::Bounce;
+                        }
                     }
+                    TitleBarAction::PlayBounce => {
+                        if app_state.active_animation == AppAnimation::None {
+                            if let Ok(pos) = window.outer_position() {
+                                app_state.base_pos = Some((pos.x, pos.y));
+                            }
+                        }
+                        app_state.active_animation =
+                            if app_state.active_animation == AppAnimation::Bounce {
+                                AppAnimation::None
+                            } else {
+                                AppAnimation::Bounce
+                            };
+                    }
+                    TitleBarAction::PlayShake => {
+                        if app_state.active_animation == AppAnimation::None {
+                            if let Ok(pos) = window.outer_position() {
+                                app_state.base_pos = Some((pos.x, pos.y));
+                            }
+                        }
+                        app_state.active_animation =
+                            if app_state.active_animation == AppAnimation::Shake {
+                                AppAnimation::None
+                            } else {
+                                AppAnimation::Shake
+                            };
+                    }
+                    TitleBarAction::PlayDance => {
+                        if app_state.active_animation == AppAnimation::None {
+                            if let Ok(pos) = window.outer_position() {
+                                app_state.base_pos = Some((pos.x, pos.y));
+                            }
+                        }
+                        app_state.active_animation =
+                            if app_state.active_animation == AppAnimation::Dance {
+                                AppAnimation::None
+                            } else {
+                                AppAnimation::Dance
+                            };
+                    }
+                    TitleBarAction::PlayRotate => {
+                        app_state.rotation = (app_state.rotation + 1) % 4;
+                        let size = window.inner_size();
+                        let _ = window.request_inner_size(winit::dpi::PhysicalSize::new(
+                            size.height,
+                            size.width,
+                        ));
+
+                        #[cfg(windows)]
+                        {
+                            use windows::core::PCWSTR;
+                            use windows::Win32::Foundation::HANDLE;
+                            use windows::Win32::UI::WindowsAndMessaging::SetPropW;
+
+                            let mut property_name: Vec<u16> =
+                                "RotationState".encode_utf16().collect();
+                            property_name.push(0);
+
+                            if let Ok(handle) = window.window_handle() {
+                                if let winit::raw_window_handle::RawWindowHandle::Win32(win32) =
+                                    handle.as_raw()
+                                {
+                                    unsafe {
+                                        let _ = SetPropW(
+                                            HWND(win32.hwnd.get() as _),
+                                            PCWSTR(property_name.as_ptr()),
+                                            HANDLE(app_state.rotation as _),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TitleBarAction::PlayDissolve => {
+                        if app_state.active_animation == AppAnimation::None {
+                            if let Ok(pos) = window.outer_position() {
+                                app_state.base_pos = Some((pos.x, pos.y));
+                            }
+                        }
+                        app_state.active_animation =
+                            if app_state.active_animation == AppAnimation::Dissolve {
+                                AppAnimation::None
+                            } else {
+                                AppAnimation::Dissolve
+                            };
+                        if app_state.active_animation == AppAnimation::None {
+                            if let Ok(handle) = window.window_handle() {
+                                if let winit::raw_window_handle::RawWindowHandle::Win32(win32) =
+                                    handle.as_raw()
+                                {
+                                    let hwnd = HWND(win32.hwnd.get() as _);
+                                    unsafe {
+                                        let _ =
+                                            SetLayeredWindowAttributes(hwnd, None, 255, LWA_ALPHA);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    TitleBarAction::PlayFly => {
+                        if app_state.active_animation == AppAnimation::None {
+                            if let Ok(pos) = window.outer_position() {
+                                app_state.base_pos = Some((pos.x, pos.y));
+                            }
+                        }
+                        app_state.active_animation =
+                            if app_state.active_animation == AppAnimation::Fly {
+                                AppAnimation::None
+                            } else {
+                                AppAnimation::Fly
+                            };
+                    }
+                    TitleBarAction::StopAnimations => {
+                        app_state.active_animation = AppAnimation::None;
+                        if let Ok(handle) = window.window_handle() {
+                            if let winit::raw_window_handle::RawWindowHandle::Win32(win32) =
+                                handle.as_raw()
+                            {
+                                let hwnd = HWND(win32.hwnd.get() as _);
+                                unsafe {
+                                    let _ = SetLayeredWindowAttributes(hwnd, None, 255, LWA_ALPHA);
+                                }
+                            }
+                        }
+                        if let Some((x, y)) = app_state.base_pos {
+                            window.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
+                        }
+                        app_state.base_pos = None;
+                    }
+                }
+            }
+
+            // Window Animation Engine
+            if app_state.active_animation != AppAnimation::None {
+                if let (Ok(pos), Some(monitor)) =
+                    (window.outer_position(), window.current_monitor())
+                {
+                    let size = window.outer_size();
+                    let monitor_size = monitor.size();
+                    app_state.anim_progress += 0.016;
+
+                    // Capture base position if not already set
+                    if app_state.base_pos.is_none() {
+                        app_state.base_pos = Some((pos.x, pos.y));
+                    }
+                    let (base_x, base_y) = app_state.base_pos.unwrap();
+
+                    match app_state.active_animation {
+                        AppAnimation::Bounce => {
+                            let mut new_x = pos.x as f32 + app_state.bounce_vel_x;
+                            let mut new_y = pos.y as f32 + app_state.bounce_vel_y;
+
+                            if new_x < 0.0 {
+                                new_x = 0.0;
+                                app_state.bounce_vel_x *= -1.0;
+                            } else if new_x + size.width as f32 > monitor_size.width as f32 {
+                                new_x = monitor_size.width as f32 - size.width as f32;
+                                app_state.bounce_vel_x *= -1.0;
+                            }
+
+                            if new_y < 0.0 {
+                                new_y = 0.0;
+                                app_state.bounce_vel_y *= -1.0;
+                            } else if new_y + size.height as f32 > monitor_size.height as f32 {
+                                new_y = monitor_size.height as f32 - size.height as f32;
+                                app_state.bounce_vel_y *= -1.0;
+                            }
+
+                            window.set_outer_position(winit::dpi::PhysicalPosition::new(
+                                new_x as i32,
+                                new_y as i32,
+                            ));
+                            app_state.base_pos = Some((new_x as i32, new_y as i32));
+                        }
+                        AppAnimation::Shake => {
+                            let intensity = 12.0;
+                            let offset_x = (app_state.anim_progress * 130.0).sin() * intensity;
+                            let offset_y = (app_state.anim_progress * 115.0).cos() * intensity;
+                            window.set_outer_position(winit::dpi::PhysicalPosition::new(
+                                base_x + offset_x as i32,
+                                base_y + offset_y as i32,
+                            ));
+                        }
+                        AppAnimation::Dance => {
+                            let radius = 70.0;
+                            let offset_x = (app_state.anim_progress * 4.0).sin() * radius;
+                            let offset_y = (app_state.anim_progress * 2.5).cos() * radius;
+                            window.set_outer_position(winit::dpi::PhysicalPosition::new(
+                                base_x + offset_x as i32,
+                                base_y + offset_y as i32,
+                            ));
+                        }
+                        AppAnimation::Rotate => {
+                            if app_state.anim_progress > 2.5 {
+                                app_state.anim_progress = 0.0;
+                                actions.push(TitleBarAction::PlayRotate);
+                            }
+                        }
+                        AppAnimation::Dissolve => {
+                            if let Ok(handle) = window.window_handle() {
+                                if let winit::raw_window_handle::RawWindowHandle::Win32(win32) =
+                                    handle.as_raw()
+                                {
+                                    let hwnd = HWND(win32.hwnd.get() as _);
+                                    let opacity =
+                                        0.4 + 0.6 * (app_state.anim_progress * 2.5).cos().abs();
+                                    unsafe {
+                                        let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+                                        if (ex_style & WS_EX_LAYERED.0 as i32) == 0 {
+                                            let _ = SetWindowLongW(
+                                                hwnd,
+                                                GWL_EXSTYLE,
+                                                ex_style | WS_EX_LAYERED.0 as i32,
+                                            );
+                                        }
+                                        let _ = SetLayeredWindowAttributes(
+                                            hwnd,
+                                            None,
+                                            (opacity * 255.0) as u8,
+                                            LWA_ALPHA,
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        AppAnimation::Fly => {
+                            let speed = 12.0;
+                            let mut new_x = pos.x as f32 + speed;
+                            let offset_y = (app_state.anim_progress * 2.0).sin() * 150.0;
+
+                            if new_x > monitor_size.width as f32 {
+                                new_x = -(size.width as f32);
+                            }
+
+                            window.set_outer_position(winit::dpi::PhysicalPosition::new(
+                                new_x as i32,
+                                (monitor_size.height as f32 / 2.0 + offset_y) as i32,
+                            ));
+                        }
+                        _ => {}
+                    }
+                    window.request_redraw();
+                }
+            } else {
+                if app_state.base_pos.is_some() {
+                    if let Ok(handle) = window.window_handle() {
+                        if let winit::raw_window_handle::RawWindowHandle::Win32(win32) =
+                            handle.as_raw()
+                        {
+                            let hwnd = HWND(win32.hwnd.get() as _);
+                            unsafe {
+                                let _ = SetLayeredWindowAttributes(hwnd, None, 255, LWA_ALPHA);
+                            }
+                        }
+                    }
+                    if matches!(
+                        app_state.active_animation,
+                        AppAnimation::Shake | AppAnimation::Dance
+                    ) {
+                        if let Some((x, y)) = app_state.base_pos {
+                            window.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
+                        }
+                    }
+                    app_state.base_pos = None;
+                    app_state.anim_progress = 0.0;
                 }
             }
 
