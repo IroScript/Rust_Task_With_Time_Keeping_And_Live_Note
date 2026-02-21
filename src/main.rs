@@ -39,30 +39,39 @@ use std::collections::HashMap;
 // CONSTANTS
 // =============================================================================
 
-const TITLE_BAR_HEIGHT: f32 = 20.0;
-const DEFAULT_WINDOW_SIZE: (u32, u32) = (1100, 750);
-const MIN_WINDOW_SIZE: (u32, u32) = (1, 1);
-const CONTROL_PANEL_WIDTH: f32 = 310.0; // Increased to fix right side cutoff
+// =============================================================================
+// YEAR 50,000 — NEURO-QUANTUM COLOR SYSTEM
+// =============================================================================
 
-// ── FUTURISTIC COLOR PALETTE ──────────────────────────
-// Deep space background
-const BG_DEEP: Color32 = Color32::from_rgb(4, 8, 18); // #040812
-const BG_PANEL: Color32 = Color32::from_rgb(8, 16, 32); // #081020
-                                                        // Neon accents
-const CYAN_DIM: Color32 = Color32::from_rgb(0, 100, 140); // #00648c
+const TITLE_BAR_HEIGHT: f32 = 26.0; // Slightly taller for futuristic feel
 
-// Title bar
-const TITLEBAR_BG: Color32 = Color32::from_rgb(6, 12, 28); // Dark navy
-const TITLEBAR_FG: Color32 = Color32::from_rgb(0, 200, 255); // Cyan text
+// ── DEEP VOID PALETTE ─────────────────────────────────
+const BG_DEEP: Color32 = Color32::from_rgb(2, 4, 12); // #02040C — void black
+const BG_PANEL: Color32 = Color32::from_rgb(5, 10, 22); // #050A16 — deep navy
+const BG_GLASS: Color32 = Color32::from_rgba_premultiplied(8, 18, 40, 210); // glass panel
 
-// Button style colors
-const BTN_NORMAL_BG: Color32 = Color32::from_rgb(12, 22, 44);
-const BTN_ACTIVE_BG: Color32 = CYAN_DIM;
+// ── QUANTUM NEON ACCENTS ──────────────────────────────
+const NEON_CYAN: Color32 = Color32::from_rgb(0, 255, 220); // #00FFDC
+const NEON_PLASMA: Color32 = Color32::from_rgb(180, 0, 255); // #B400FF
+const NEON_SOLAR: Color32 = Color32::from_rgb(255, 160, 0); // #FFA000
+const NEON_LIME: Color32 = Color32::from_rgb(80, 255, 120); // #50FF78
+const NEON_ROSE: Color32 = Color32::from_rgb(255, 40, 120); // #FF2878
+
+// ── TITLE BAR ─────────────────────────────────────────
+const TITLEBAR_BG: Color32 = Color32::from_rgba_premultiplied(4, 8, 20, 230);
+const TITLEBAR_FG: Color32 = NEON_CYAN;
+
+// ── BUTTON STATES ─────────────────────────────────────
+const BTN_NORMAL_BG: Color32 = Color32::from_rgba_premultiplied(15, 30, 60, 180);
+const BTN_ACTIVE_BG: Color32 = Color32::from_rgb(0, 120, 100);
 const BTN_ACTIVE_FG: Color32 = Color32::WHITE;
 
-// Hover colors are handled inside the drawing function directly
+// ── DIMENSIONS ────────────────────────────────────────
+const CONTROL_PANEL_WIDTH: f32 = 300.0;
+const DEFAULT_WINDOW_SIZE: (u32, u32) = (1100, 700);
+const MIN_WINDOW_SIZE: (u32, u32) = (450, 350);
 
-// Canvas backgrounds
+// ── PANEL / CANVAS ────────────────────────────────────
 const CANVAS_BG: Color32 = BG_DEEP;
 const CONTROL_PANEL_BG: Color32 = BG_PANEL;
 
@@ -102,11 +111,12 @@ impl Default for ThemeConfig {
             mode: ThemeMode::Gradient,
             gradient_angle: 135,
             gradient_colors: vec![
-                Color32::from_rgb(102, 126, 234), // #667eea
-                Color32::from_rgb(118, 75, 162),  // #764ba2
-                Color32::from_rgb(240, 147, 251), // #f093fb
+                Color32::from_rgb(2, 4, 16),    // Void black
+                Color32::from_rgb(30, 0, 80),   // Deep plasma
+                Color32::from_rgb(0, 60, 120),  // Quantum blue
+                Color32::from_rgb(0, 200, 180), // Neon teal
             ],
-            solid_color: Color32::from_rgb(102, 126, 234),
+            solid_color: Color32::from_rgb(2, 8, 24),
             apply_to_entire_window: true,
         }
     }
@@ -557,45 +567,75 @@ impl AppState {
 // BUTTON RENDERER
 // =============================================================================
 
-/// Draw a custom styled button with icon
 pub fn draw_icon_button(
     ui: &mut egui::Ui,
     icon: &TitleBarIcon,
-    bg_color: Color32,
+    _bg_color: Color32,
     fg_color: Color32,
     _hovered: bool,
 ) -> egui::Response {
-    // Slightly wider bounding box for bigger icons
-    let size = Vec2::new(icon.width + 4.0, TITLE_BAR_HEIGHT - 4.0);
+    let size = Vec2::new(icon.width + 6.0, TITLE_BAR_HEIGHT - 2.0);
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
 
     if response.hovered() {
         ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
     }
 
-    // Determine background color based on hover state: Custom bg default, Pink/Purple on hover
-    let bg = if response.hovered() {
-        Color32::from_rgb(220, 80, 220) // Pink/Purple hover color
-    } else {
-        bg_color
-    };
+    let is_hovered = response.hovered();
 
-    // Draw button background with rounded corners
+    // Outer glow border on hover
+    if is_hovered {
+        let glow_rect = rect.expand(2.0);
+        ui.painter().rect_filled(
+            glow_rect,
+            Rounding::same(8.0),
+            NEON_CYAN.gamma_multiply(0.12),
+        );
+        ui.painter().rect_stroke(
+            glow_rect,
+            Rounding::same(8.0),
+            Stroke::new(1.0, NEON_CYAN.gamma_multiply(0.47)),
+        );
+    }
+
+    // Main button background — glass morphism
+    let bg = if is_hovered {
+        NEON_CYAN.gamma_multiply(0.11)
+    } else {
+        BG_GLASS
+    };
     ui.painter().rect_filled(rect, Rounding::same(6.0), bg);
 
-    // Draw icon text centered
+    // Subtle top-edge highlight (glass rim)
+    let top_line = [
+        egui::pos2(rect.left() + 4.0, rect.top() + 1.0),
+        egui::pos2(rect.right() - 4.0, rect.top() + 1.0),
+    ];
+    ui.painter().line_segment(
+        top_line,
+        Stroke::new(
+            1.0,
+            if is_hovered {
+                NEON_CYAN.gamma_multiply(0.7)
+            } else {
+                Color32::from_rgba_premultiplied(255, 255, 255, 25)
+            },
+        ),
+    );
+
+    // Icon
+    let icon_color = if is_hovered { NEON_CYAN } else { fg_color };
     ui.painter().text(
         rect.center(),
         egui::Align2::CENTER_CENTER,
         icon.symbol,
         FontId::proportional(icon.font_size),
-        fg_color,
+        icon_color,
     );
 
     response
 }
 
-/// Draw a styled text button
 pub fn draw_text_button(
     ui: &mut egui::Ui,
     text: &str,
@@ -610,28 +650,62 @@ pub fn draw_text_button(
         ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
     }
 
-    let bg = if response.hovered() {
-        bg_color.linear_multiply(1.2)
-    } else {
-        bg_color
-    };
+    let is_hovered = response.hovered();
+    let is_clicked = response.is_pointer_button_down_on();
 
-    ui.painter().rect_filled(rect, Rounding::same(4.0), bg);
-
-    if response.hovered() {
-        ui.painter().rect_stroke(
-            rect,
-            Rounding::same(4.0),
-            Stroke::new(1.0, Color32::WHITE.gamma_multiply(0.3)),
+    // Glow halo on hover
+    if is_hovered {
+        ui.painter().rect_filled(
+            rect.expand(3.0),
+            Rounding::same(8.0),
+            Color32::from_rgba_unmultiplied(bg_color.r(), bg_color.g(), bg_color.b(), 18),
         );
     }
 
+    // Background with glass sheen
+    let bg = if is_clicked {
+        bg_color.linear_multiply(1.4)
+    } else if is_hovered {
+        bg_color.linear_multiply(1.15)
+    } else {
+        bg_color.linear_multiply(0.75)
+    };
+
+    ui.painter().rect_filled(rect, Rounding::same(6.0), bg);
+
+    // Top highlight rim
+    ui.painter().line_segment(
+        [
+            egui::pos2(rect.left() + 6.0, rect.top() + 1.0),
+            egui::pos2(rect.right() - 6.0, rect.top() + 1.0),
+        ],
+        Stroke::new(
+            1.0,
+            Color32::from_rgba_unmultiplied(255, 255, 255, if is_hovered { 60 } else { 20 }),
+        ),
+    );
+
+    // Border
+    ui.painter().rect_stroke(
+        rect,
+        Rounding::same(6.0),
+        Stroke::new(
+            1.0,
+            if is_hovered {
+                Color32::from_rgba_unmultiplied(bg_color.r(), bg_color.g(), bg_color.b(), 200)
+            } else {
+                Color32::from_rgba_unmultiplied(bg_color.r(), bg_color.g(), bg_color.b(), 80)
+            },
+        ),
+    );
+
+    // Label with letter-spacing simulation (spaces between chars)
     ui.painter().text(
         rect.center(),
         egui::Align2::CENTER_CENTER,
         text,
-        FontId::proportional(12.0),
-        Color32::WHITE,
+        FontId::proportional(11.5),
+        Color32::from_rgba_unmultiplied(255, 255, 255, if is_hovered { 255 } else { 210 }),
     );
 
     response
@@ -647,9 +721,8 @@ pub fn render_title_bar(
     state: &mut AppState,
     window: &Window,
 ) -> Vec<TitleBarAction> {
-    // If header is hidden, don't render the panel
     if !state.title_bar_state.header_visible {
-        return Vec::new(); // Empty actions
+        return Vec::new();
     }
 
     let mut actions = Vec::new();
@@ -664,213 +737,217 @@ pub fn render_title_bar(
         .exact_height(TITLE_BAR_HEIGHT)
         .frame(Frame::none().fill(titlebar_bg))
         .show(ctx, |ui| {
-            // Title bar top accent line
             let rect = ui.max_rect();
+
+            // ── HUD Elements ──
             ui.painter().line_segment(
                 [rect.left_top(), rect.right_top()],
-                egui::Stroke::new(1.0, Color32::from_rgb(0, 200, 255)), // CYAN_BRIGHT
+                Stroke::new(1.5, TITLEBAR_FG.gamma_multiply(0.78)),
+            );
+            ui.painter().line_segment(
+                [
+                    egui::pos2(rect.left(), rect.top() + 3.0),
+                    egui::pos2(rect.right(), rect.top() + 3.0),
+                ],
+                Stroke::new(0.5, TITLEBAR_FG.gamma_multiply(0.15)),
+            );
+
+            let b = 8.0;
+            let stroke = Stroke::new(1.5, TITLEBAR_FG.gamma_multiply(0.63));
+            ui.painter().line_segment(
+                [
+                    egui::pos2(rect.left(), rect.top()),
+                    egui::pos2(rect.left() + b, rect.top()),
+                ],
+                stroke,
+            );
+            ui.painter().line_segment(
+                [
+                    egui::pos2(rect.left(), rect.top()),
+                    egui::pos2(rect.left(), rect.bottom()),
+                ],
+                stroke,
+            );
+            ui.painter().line_segment(
+                [
+                    egui::pos2(rect.right() - b, rect.top()),
+                    egui::pos2(rect.right(), rect.top()),
+                ],
+                stroke,
+            );
+            ui.painter().line_segment(
+                [
+                    egui::pos2(rect.right(), rect.top()),
+                    egui::pos2(rect.right(), rect.bottom()),
+                ],
+                stroke,
             );
 
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                 ui.spacing_mut().item_spacing = Vec2::new(4.0, 0.0);
-                ui.add_space(8.0);
-
-                // ----- App Icon -----
-                ui.label(RichText::new(icons::APP_ICON.symbol).size(16.0));
-
-                let _title_response = ui.label(
-                    RichText::new("Daily Motivation")
-                        .color(TITLEBAR_FG)
-                        .strong()
-                        .size(14.0),
-                );
-
                 ui.add_space(12.0);
 
-                // ----- Current Quote Index -----
+                ui.label(
+                    RichText::new(icons::APP_ICON.symbol)
+                        .size(15.0)
+                        .color(TITLEBAR_FG),
+                );
+                ui.label(
+                    RichText::new("DAILY  MOTIVATION")
+                        .color(TITLEBAR_FG)
+                        .strong()
+                        .size(12.0),
+                );
+
+                ui.add_space(4.0);
+                let (br, _) = ui.allocate_exact_size(Vec2::new(38.0, 14.0), Sense::hover());
+                ui.painter()
+                    .rect_filled(br, Rounding::same(3.0), TITLEBAR_FG.gamma_multiply(0.08));
+                ui.painter().rect_stroke(
+                    br,
+                    Rounding::same(3.0),
+                    Stroke::new(0.5, TITLEBAR_FG.gamma_multiply(0.31)),
+                );
+                ui.painter().text(
+                    br.center(),
+                    egui::Align2::CENTER_CENTER,
+                    "v∞.0",
+                    FontId::proportional(8.5),
+                    TITLEBAR_FG.gamma_multiply(0.7),
+                );
+
+                ui.add_space(8.0);
                 if !state.quotes.is_empty() {
                     ui.label(
                         RichText::new(format!(
-                            "({}/{})",
+                            "[ {}/{} ]",
                             state.current_quote_index + 1,
                             state.quotes.len()
                         ))
-                        .color(Color32::from_rgba_unmultiplied(255, 255, 255, 180))
-                        .size(11.0),
+                        .color(NEON_LIME.gamma_multiply(0.7))
+                        .size(10.5),
                     );
                 }
 
-                // Allocate the empty space (drag area) dynamically taking all remaining central space
-
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.spacing_mut().item_spacing = Vec2::new(4.0, 0.0);
-                    // Add a tiny bit of padding on the absolute right edge
-                    ui.add_space(4.0);
+                    ui.spacing_mut().item_spacing = Vec2::new(3.0, 0.0);
+                    ui.add_space(6.0);
 
-                    // ===== BUTTON GROUP (Right Side) - MUST BE DRAWN IN REVERSE ORDER =====
+                    // Right-side buttons
+                    let btns = [
+                        (&icons::CLOSE, NEON_ROSE, TitleBarAction::CloseClicked),
+                        (
+                            &icons::MAXIMIZE,
+                            Color32::WHITE,
+                            TitleBarAction::MaximizeClicked,
+                        ),
+                        (
+                            &icons::MINIMIZE,
+                            Color32::WHITE,
+                            TitleBarAction::MinimizeClicked,
+                        ),
+                    ];
 
-                    // 1. Close
-                    let response = draw_icon_button(
-                        ui,
-                        &icons::CLOSE,
-                        Color32::TRANSPARENT,
-                        Color32::WHITE,
-                        state.title_bar_state.close_btn_hovered,
-                    );
-                    state.title_bar_state.close_btn_hovered = response.hovered();
-
-                    if response.clicked() {
-                        actions.push(TitleBarAction::CloseClicked);
+                    for (icon, color, action) in btns {
+                        if draw_icon_button(ui, icon, Color32::TRANSPARENT, color, false).clicked()
+                        {
+                            actions.push(action);
+                        }
                     }
-                    response.on_hover_text_at_pointer(icons::CLOSE.tooltip);
 
-                    // 2. Maximize
-                    let response = draw_icon_button(
-                        ui,
-                        &icons::MAXIMIZE,
-                        Color32::TRANSPARENT,
-                        Color32::WHITE,
-                        state.title_bar_state.maximize_btn_hovered,
-                    );
-                    state.title_bar_state.maximize_btn_hovered = response.hovered();
-
-                    if response.clicked() {
-                        actions.push(TitleBarAction::MaximizeClicked);
-                    }
-                    response.on_hover_text_at_pointer(icons::MAXIMIZE.tooltip);
-
-                    // 3. Minimize
-                    let response = draw_icon_button(
-                        ui,
-                        &icons::MINIMIZE,
-                        Color32::TRANSPARENT,
-                        Color32::WHITE,
-                        state.title_bar_state.minimize_btn_hovered,
-                    );
-                    state.title_bar_state.minimize_btn_hovered = response.hovered();
-
-                    if response.clicked() {
-                        actions.push(TitleBarAction::MinimizeClicked);
-                    }
-                    response.on_hover_text_at_pointer(icons::MINIMIZE.tooltip);
-
-                    // 3. Hide Header
-                    let response = draw_icon_button(
+                    if draw_icon_button(
                         ui,
                         &icons::HIDE_HEADER,
                         Color32::TRANSPARENT,
                         Color32::WHITE,
                         false,
-                    );
-
-                    if response.clicked() {
+                    )
+                    .clicked()
+                    {
                         actions.push(TitleBarAction::HideHeader);
                     }
-                    response.on_hover_text_at_pointer(icons::HIDE_HEADER.tooltip);
 
                     ui.add_space(8.0);
-
-                    // 4. Zoom In
-                    let response = draw_icon_button(
+                    if draw_icon_button(
                         ui,
                         &icons::ZOOM_IN,
                         Color32::TRANSPARENT,
                         Color32::WHITE,
-                        state.title_bar_state.zoom_in_btn_hovered,
-                    );
-                    state.title_bar_state.zoom_in_btn_hovered = response.hovered();
-
-                    if response.clicked() {
+                        false,
+                    )
+                    .clicked()
+                    {
                         actions.push(TitleBarAction::ZoomIn);
                     }
-                    response.on_hover_text_at_pointer(icons::ZOOM_IN.tooltip);
-
-                    // 5. Zoom Out
-                    let response = draw_icon_button(
+                    if draw_icon_button(
                         ui,
                         &icons::ZOOM_OUT,
                         Color32::TRANSPARENT,
                         Color32::WHITE,
-                        state.title_bar_state.zoom_out_btn_hovered,
-                    );
-                    state.title_bar_state.zoom_out_btn_hovered = response.hovered();
-
-                    if response.clicked() {
+                        false,
+                    )
+                    .clicked()
+                    {
                         actions.push(TitleBarAction::ZoomOut);
                     }
-                    response.on_hover_text_at_pointer(icons::ZOOM_OUT.tooltip);
 
                     ui.add_space(8.0);
-
-                    // 6. Export
-                    let response = draw_icon_button(
+                    if draw_icon_button(
                         ui,
                         &icons::EXPORT,
                         Color32::TRANSPARENT,
                         Color32::WHITE,
-                        state.title_bar_state.export_btn_hovered,
-                    );
-                    state.title_bar_state.export_btn_hovered = response.hovered();
-
-                    if response.clicked() {
+                        false,
+                    )
+                    .clicked()
+                    {
                         actions.push(TitleBarAction::ExportClicked);
                     }
-                    response.on_hover_text_at_pointer(icons::EXPORT.tooltip);
-
-                    // 7. Theme
-                    let response = draw_icon_button(
+                    if draw_icon_button(
                         ui,
                         &icons::THEME,
                         Color32::TRANSPARENT,
                         Color32::WHITE,
-                        state.title_bar_state.theme_btn_hovered,
-                    );
-                    state.title_bar_state.theme_btn_hovered = response.hovered();
-
-                    if response.clicked() {
+                        false,
+                    )
+                    .clicked()
+                    {
                         actions.push(TitleBarAction::ThemeClicked);
                     }
-                    response.on_hover_text_at_pointer(icons::THEME.tooltip);
 
                     ui.add_space(8.0);
-
-                    // 8. Toggle BG
-                    let response = draw_icon_button(
+                    let bg_color = if state.is_3d_bg_active {
+                        NEON_CYAN
+                    } else {
+                        Color32::from_rgba_premultiplied(255, 255, 255, 150)
+                    };
+                    if draw_icon_button(
                         ui,
                         &icons::TOGGLE_BG,
                         Color32::TRANSPARENT,
-                        if state.is_3d_bg_active {
-                            Color32::from_rgb(0, 200, 255)
-                        } else {
-                            Color32::WHITE
-                        },
-                        state.title_bar_state.toggle_bg_btn_hovered,
-                    );
-                    state.title_bar_state.toggle_bg_btn_hovered = response.hovered();
-
-                    if response.clicked() {
+                        bg_color,
+                        false,
+                    )
+                    .clicked()
+                    {
                         actions.push(TitleBarAction::ToggleBg);
                     }
-                    response.on_hover_text_at_pointer(icons::TOGGLE_BG.tooltip);
 
-                    // Re-calculate how much remaining space there is for the draggable area between text and icons
-                    let drag_area_width = ui.available_width();
-                    if drag_area_width > 0.0 {
-                        let (_rect, resp) = ui.allocate_exact_size(
-                            Vec2::new(drag_area_width, TITLE_BAR_HEIGHT),
+                    let drag_avail = ui.available_width();
+                    if drag_avail > 0.0 {
+                        let (_, resp) = ui.allocate_exact_size(
+                            Vec2::new(drag_avail, TITLE_BAR_HEIGHT),
                             Sense::drag(),
                         );
-
-                        // Make the empty space draggable for moving the window
                         if resp.drag_started() {
                             let _ = window.drag_window();
                         }
                     }
                 });
             });
-        });
-
-    actions
+            actions
+        })
+        .inner
 }
 
 /// Render floating button group (Toggle Panel, Show Header)
@@ -1143,6 +1220,69 @@ pub fn render_main_content(
             ui.vertical_centered(|ui| {
                 ui.add_space(80.0);
 
+                // ── HUD FRAME CORNERS ──────────────────────────────────
+                // Draw corner brackets around the central quote area
+                {
+                    let screen = ctx.screen_rect();
+                    let panel_w = if state.title_bar_state.control_panel_visible {
+                        CONTROL_PANEL_WIDTH
+                    } else {
+                        0.0
+                    };
+                    let cx = (screen.width() - panel_w) / 2.0;
+                    let cy = screen.height() / 2.0;
+
+                    let frame_w = 320.0;
+                    let frame_h = 160.0;
+                    let arm = 20.0;
+                    let painter = ui.painter();
+                    let hud_color = NEON_CYAN.gamma_multiply(0.23);
+                    let hud_stroke = Stroke::new(1.5, hud_color);
+
+                    // Top-left corner
+                    let tl = egui::pos2(cx - frame_w, cy - frame_h);
+                    painter.line_segment([tl, egui::pos2(tl.x + arm, tl.y)], hud_stroke);
+                    painter.line_segment([tl, egui::pos2(tl.x, tl.y + arm)], hud_stroke);
+
+                    // Top-right corner
+                    let tr = egui::pos2(cx + frame_w, cy - frame_h);
+                    painter.line_segment([tr, egui::pos2(tr.x - arm, tr.y)], hud_stroke);
+                    painter.line_segment([tr, egui::pos2(tr.x, tr.y + arm)], hud_stroke);
+
+                    // Bottom-left corner
+                    let bl = egui::pos2(cx - frame_w, cy + frame_h);
+                    painter.line_segment([bl, egui::pos2(bl.x + arm, bl.y)], hud_stroke);
+                    painter.line_segment([bl, egui::pos2(bl.x, bl.y - arm)], hud_stroke);
+
+                    // Bottom-right corner
+                    let br = egui::pos2(cx + frame_w, cy + frame_h);
+                    painter.line_segment([br, egui::pos2(br.x - arm, br.y)], hud_stroke);
+                    painter.line_segment([br, egui::pos2(br.x, br.y - arm)], hud_stroke);
+
+                    // Top label tag (using Plasma)
+                    painter.text(
+                        egui::pos2(cx, cy - frame_h - 10.0),
+                        egui::Align2::CENTER_CENTER,
+                        "◈  NEURAL  FEED  ◈",
+                        FontId::proportional(9.0),
+                        NEON_PLASMA.gamma_multiply(0.4),
+                    );
+
+                    // Bottom data readout (using Solar)
+                    let readout = format!(
+                        "SYN:{:03}  •  FREQ:{:04}ms  •  CORE:∞",
+                        state.quotes.len(),
+                        state.rotation_interval.as_millis()
+                    );
+                    painter.text(
+                        egui::pos2(cx, cy + frame_h + 12.0),
+                        egui::Align2::CENTER_CENTER,
+                        &readout,
+                        FontId::proportional(8.5),
+                        NEON_SOLAR.gamma_multiply(0.3),
+                    );
+                }
+
                 // PREVIEW & EDITING LOGIC
                 // If inputs have content, show them (Live Preview).
                 let (main_text, sub_text, is_preview) = if !state.main_text_input.is_empty() {
@@ -1372,17 +1512,72 @@ pub fn render_main_content(
                 ui.add_space(40.0);
 
                 ui.horizontal(|ui| {
-                    ui.add_space(((ui.available_width() - 200.0) / 2.0).max(0.0));
+                    let total_btn_w = 220.0;
+                    let avail = ui.available_width();
+                    ui.add_space(((avail - total_btn_w) / 2.0).max(0.0));
 
-                    if draw_text_button(ui, "◀ Prev", BTN_NORMAL_BG, 90.0, 32.0).clicked() {
+                    // PREV — plasma violet
+                    if draw_text_button(ui, "◀  PREV", Color32::from_rgb(80, 0, 160), 100.0, 34.0)
+                        .clicked()
+                    {
                         state.prev_quote();
                     }
 
-                    ui.add_space(10.0);
+                    ui.add_space(12.0);
 
-                    if draw_text_button(ui, "Next ▶", BTN_NORMAL_BG, 90.0, 32.0).clicked() {
+                    // NEXT — neon teal
+                    if draw_text_button(ui, "NEXT  ▶", Color32::from_rgb(0, 120, 100), 100.0, 34.0)
+                        .clicked()
+                    {
                         state.next_quote();
                     }
+                });
+
+                // Rotation status bar
+                ui.add_space(24.0);
+
+                ui.horizontal(|ui| {
+                    let avail = ui.available_width();
+                    ui.add_space(((avail - 280.0) / 2.0).max(0.0));
+
+                    // Animated dot indicator
+                    let dot_color = if state.rotation_enabled {
+                        Color32::from_rgb(80, 255, 120)
+                    } else {
+                        Color32::from_rgb(255, 60, 80)
+                    };
+
+                    let (dot_rect, _) = ui.allocate_exact_size(Vec2::new(8.0, 8.0), Sense::hover());
+                    let mid = dot_rect.center();
+                    ui.painter().circle_filled(mid, 3.5, dot_color);
+                    ui.painter().circle_stroke(
+                        mid,
+                        5.5,
+                        Stroke::new(
+                            0.5,
+                            Color32::from_rgba_unmultiplied(
+                                dot_color.r(),
+                                dot_color.g(),
+                                dot_color.b(),
+                                80,
+                            ),
+                        ),
+                    );
+
+                    ui.add_space(6.0);
+                    ui.label(
+                        RichText::new(format!(
+                            "Δt {}s  ·  {}",
+                            state.rotation_interval.as_secs(),
+                            if state.rotation_enabled {
+                                "STREAMING"
+                            } else {
+                                "PAUSED"
+                            }
+                        ))
+                        .color(Color32::from_rgba_unmultiplied(150, 200, 200, 180))
+                        .size(10.5),
+                    );
                 });
 
                 // Interval display
@@ -2041,20 +2236,70 @@ pub fn render_control_panel_contents(
 
 /// Render a section with title
 fn render_section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut egui::Ui)) {
+    // Outer glow border layer
     egui::Frame::none()
-        .fill(Color32::from_black_alpha(150))
-        .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(30)))
-        .inner_margin(Vec2::new(12.0, 12.0))
-        .rounding(Rounding::same(8.0))
+        .fill(Color32::from_rgba_unmultiplied(0, 255, 220, 4))
+        .stroke(Stroke::new(
+            1.0,
+            Color32::from_rgba_unmultiplied(0, 255, 220, 50),
+        ))
+        .inner_margin(egui::Margin::same(1.0))
+        .rounding(Rounding::same(10.0))
         .show(ui, |ui| {
-            ui.label(
-                RichText::new(title)
-                    .color(Color32::from_rgb(100, 200, 255))
-                    .size(12.0)
-                    .strong(),
-            );
-            ui.add_space(8.0);
-            add_contents(ui)
+            // Inner glass panel
+            egui::Frame::none()
+                .fill(Color32::from_rgba_unmultiplied(4, 14, 35, 220))
+                .stroke(Stroke::new(
+                    0.5,
+                    Color32::from_rgba_unmultiplied(255, 255, 255, 8),
+                ))
+                .inner_margin(egui::Margin {
+                    left: 12.0,
+                    right: 12.0,
+                    top: 10.0,
+                    bottom: 12.0,
+                })
+                .rounding(Rounding::same(9.0))
+                .show(ui, |ui| {
+                    // Section title row with decorative line
+                    ui.horizontal(|ui| {
+                        // Left accent mark
+                        let (mark_rect, _) =
+                            ui.allocate_exact_size(Vec2::new(3.0, 12.0), Sense::hover());
+                        ui.painter().rect_filled(
+                            mark_rect,
+                            Rounding::same(2.0),
+                            Color32::from_rgb(0, 255, 220),
+                        );
+
+                        ui.add_space(6.0);
+
+                        ui.label(
+                            RichText::new(title)
+                                .color(Color32::from_rgb(0, 255, 220))
+                                .size(10.5)
+                                .strong(),
+                        );
+
+                        // Trailing separator line
+                        let avail = ui.available_width();
+                        if avail > 4.0 {
+                            let (line_rect, _) =
+                                ui.allocate_exact_size(Vec2::new(avail - 2.0, 1.0), Sense::hover());
+                            let mid_y = line_rect.center().y;
+                            ui.painter().line_segment(
+                                [
+                                    egui::pos2(line_rect.left(), mid_y),
+                                    egui::pos2(line_rect.right(), mid_y),
+                                ],
+                                Stroke::new(0.5, Color32::from_rgba_unmultiplied(0, 255, 220, 40)),
+                            );
+                        }
+                    });
+
+                    ui.add_space(8.0);
+                    add_contents(ui);
+                });
         });
 }
 
@@ -2203,36 +2448,63 @@ pub fn render_theme_modal(ctx: &Context, state: &mut AppState) {
                 );
                 ui.add_space(5.0);
 
+                // Preset buttons
                 ui.horizontal_wrapped(|ui| {
-                    if ui.button("Purple to Pink").clicked() {
+                    if ui.button("⬡ Aurora Void").clicked() {
                         state.theme.gradient_colors = vec![
-                            Color32::from_rgb(102, 126, 234),
-                            Color32::from_rgb(118, 75, 162),
-                            Color32::from_rgb(240, 147, 251),
+                            Color32::from_rgb(2, 4, 16),
+                            Color32::from_rgb(30, 0, 80),
+                            Color32::from_rgb(0, 60, 120),
+                            Color32::from_rgb(0, 200, 180),
                         ];
                         state.save();
                     }
-                    if ui.button("Blue to Cyan").clicked() {
+                    if ui.button("⬡ Solar Flare").clicked() {
                         state.theme.gradient_colors = vec![
-                            Color32::from_rgb(0, 198, 255),
-                            Color32::from_rgb(0, 114, 255),
+                            Color32::from_rgb(10, 0, 30),
+                            Color32::from_rgb(120, 20, 0),
+                            Color32::from_rgb(255, 100, 0),
+                            Color32::from_rgb(255, 220, 60),
                         ];
                         state.save();
                     }
                 });
-
                 ui.horizontal_wrapped(|ui| {
-                    if ui.button("Orange to Red").clicked() {
+                    if ui.button("⬡ Plasma Storm").clicked() {
                         state.theme.gradient_colors = vec![
-                            Color32::from_rgb(255, 107, 107),
-                            Color32::from_rgb(238, 90, 42),
+                            Color32::from_rgb(5, 0, 20),
+                            Color32::from_rgb(80, 0, 180),
+                            Color32::from_rgb(200, 0, 255),
+                            Color32::from_rgb(255, 80, 200),
                         ];
                         state.save();
                     }
-                    if ui.button("Green to Teal").clicked() {
+                    if ui.button("⬡ Deep Ocean").clicked() {
                         state.theme.gradient_colors = vec![
-                            Color32::from_rgb(0, 210, 252),
-                            Color32::from_rgb(58, 71, 213),
+                            Color32::from_rgb(0, 5, 20),
+                            Color32::from_rgb(0, 30, 80),
+                            Color32::from_rgb(0, 100, 160),
+                            Color32::from_rgb(0, 200, 220),
+                        ];
+                        state.save();
+                    }
+                });
+                ui.horizontal_wrapped(|ui| {
+                    if ui.button("⬡ Matrix Rain").clicked() {
+                        state.theme.gradient_colors = vec![
+                            Color32::from_rgb(0, 8, 0),
+                            Color32::from_rgb(0, 40, 10),
+                            Color32::from_rgb(0, 120, 30),
+                            Color32::from_rgb(80, 255, 100),
+                        ];
+                        state.save();
+                    }
+                    if ui.button("⬡ Quantum Noir").clicked() {
+                        state.theme.gradient_colors = vec![
+                            Color32::from_rgb(2, 2, 6),
+                            Color32::from_rgb(10, 10, 25),
+                            Color32::from_rgb(25, 25, 50),
+                            Color32::from_rgb(60, 60, 100),
                         ];
                         state.save();
                     }
