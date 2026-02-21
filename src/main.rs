@@ -48,9 +48,7 @@ use std::collections::HashMap;
 const TITLE_BAR_HEIGHT: f32 = 26.0; // Slightly taller for futuristic feel
 
 // ── DEEP VOID PALETTE ─────────────────────────────────
-const BG_DEEP: Color32 = Color32::from_rgb(2, 4, 12); // #02040C — void black
-const BG_PANEL: Color32 = Color32::from_rgb(5, 10, 22); // #050A16 — deep navy
-const BG_GLASS: Color32 = Color32::from_rgba_premultiplied(8, 18, 40, 210); // glass panel
+const BG_GLASS: Color32 = Color32::TRANSPARENT;
 
 // ── QUANTUM NEON ACCENTS ──────────────────────────────
 const NEON_CYAN: Color32 = Color32::from_rgb(0, 255, 220); // #00FFDC
@@ -60,11 +58,10 @@ const NEON_LIME: Color32 = Color32::from_rgb(80, 255, 120); // #50FF78
 const NEON_ROSE: Color32 = Color32::from_rgb(255, 40, 120); // #FF2878
 
 // ── TITLE BAR ─────────────────────────────────────────
-const TITLEBAR_BG: Color32 = Color32::from_rgba_premultiplied(4, 8, 20, 230);
 const TITLEBAR_FG: Color32 = NEON_CYAN;
 
 // ── BUTTON STATES ─────────────────────────────────────
-const BTN_NORMAL_BG: Color32 = Color32::from_rgba_premultiplied(15, 30, 60, 180);
+const BTN_NORMAL_BG: Color32 = Color32::TRANSPARENT;
 const BTN_ACTIVE_BG: Color32 = Color32::from_rgb(0, 120, 100);
 const BTN_ACTIVE_FG: Color32 = Color32::WHITE;
 
@@ -74,8 +71,8 @@ const DEFAULT_WINDOW_SIZE: (u32, u32) = (1100, 700);
 const MIN_WINDOW_SIZE: (u32, u32) = (450, 350);
 
 // ── PANEL / CANVAS ────────────────────────────────────
-const CANVAS_BG: Color32 = BG_DEEP;
-const CONTROL_PANEL_BG: Color32 = BG_PANEL;
+const CANVAS_BG: Color32 = Color32::TRANSPARENT;
+const CONTROL_PANEL_BG: Color32 = Color32::TRANSPARENT;
 
 // =============================================================================
 // DATA STRUCTURES
@@ -790,11 +787,7 @@ pub fn render_title_bar(
 
     let mut actions = Vec::new();
 
-    let titlebar_bg = if state.theme.apply_to_entire_window {
-        Color32::TRANSPARENT
-    } else {
-        TITLEBAR_BG
-    };
+    let titlebar_bg = Color32::from_black_alpha(26);
 
     TopBottomPanel::top("title_bar")
         .exact_height(TITLE_BAR_HEIGHT)
@@ -1164,11 +1157,6 @@ pub fn render_main_content(
     )>,
 ) {
     // RIGHT SIDE PANEL — must be declared BEFORE CentralPanel
-    let right_panel_bg = if state.theme.apply_to_entire_window || state.is_3d_bg_active {
-        Color32::TRANSPARENT
-    } else {
-        CONTROL_PANEL_BG
-    };
 
     if state.title_bar_state.control_panel_visible {
         egui::SidePanel::right("control_panel")
@@ -1176,7 +1164,7 @@ pub fn render_main_content(
             .resizable(false)
             .frame(
                 Frame::none()
-                    .fill(right_panel_bg)
+                    .fill(Color32::from_black_alpha(40))
                     .inner_margin(egui::Margin {
                         left: 10.0,
                         right: 10.0,
@@ -1190,17 +1178,9 @@ pub fn render_main_content(
     }
 
     // MAIN CANVAS — CentralPanel takes remaining space automatically
-    let central_bg = if state.theme.apply_to_entire_window || state.is_3d_bg_active {
-        Color32::TRANSPARENT // Draw background across entire screen behind panels
-    } else {
-        match state.theme.mode {
-            ThemeMode::Solid => state.theme.solid_color,
-            ThemeMode::Gradient => Color32::TRANSPARENT, // We manually draw gradient
-        }
-    };
 
     egui::CentralPanel::default()
-        .frame(Frame::none().fill(central_bg))
+        .frame(Frame::none().fill(Color32::TRANSPARENT))
         .show(ctx, |ui| {
             // BACKDROP RENDERER
             // We draw the gradient or solid color here across `ctx.screen_rect()`.
@@ -1726,13 +1706,23 @@ pub fn render_control_panel_contents(
                 ui.horizontal(|ui| {
                     // Textarea on the left
                     let text_width = (ui.available_width() - 80.0).max(50.0);
-                    let text_response = ui.add(
-                        egui::TextEdit::multiline(&mut state.main_text_input)
-                            .hint_text("Main text... (Enter to submit, Shift+Enter for new line)")
-                            .desired_rows(3)
-                            .desired_width(text_width)
-                            .lock_focus(true),
-                    );
+                    let mut text_response = None;
+                    egui::Frame::none()
+                        .fill(Color32::from_black_alpha(60))
+                        .rounding(Rounding::same(4.0))
+                        .show(ui, |ui| {
+                            let resp = ui.add(
+                                egui::TextEdit::multiline(&mut state.main_text_input)
+                                    .hint_text(
+                                        "Main text... (Enter to submit, Shift+Enter for new line)",
+                                    )
+                                    .desired_rows(3)
+                                    .desired_width(text_width)
+                                    .lock_focus(true),
+                            );
+                            text_response = Some(resp);
+                        });
+                    let text_response = text_response.unwrap();
                     if text_response.changed() {
                         ui.ctx().request_repaint();
                     }
@@ -1786,7 +1776,7 @@ pub fn render_control_panel_contents(
                 // Color picker popup for main text
                 if state.show_main_color_picker {
                     egui::Frame::none()
-                        .fill(Color32::from_rgb(60, 60, 70))
+                        .fill(Color32::from_black_alpha(40))
                         .inner_margin(Vec2::new(8.0, 8.0))
                         .rounding(Rounding::same(4.0))
                         .show(ui, |ui| {
@@ -1812,14 +1802,22 @@ pub fn render_control_panel_contents(
                 // --- Supporting text input with A+/A-/color buttons to the right ---
                 ui.horizontal(|ui| {
                     let text_width = (ui.available_width() - 80.0).max(50.0);
-                    let sub_response = ui.add(
-                        egui::TextEdit::multiline(&mut state.sub_text_input)
-                            .hint_text(
-                                "Supporting text... (Enter to submit, Shift+Enter for new line)",
-                            )
-                            .desired_rows(2)
-                            .desired_width(text_width),
-                    );
+                    let mut sub_response = None;
+                    egui::Frame::none()
+                        .fill(Color32::from_black_alpha(60))
+                        .rounding(Rounding::same(4.0))
+                        .show(ui, |ui| {
+                            let resp = ui.add(
+                                egui::TextEdit::multiline(&mut state.sub_text_input)
+                                    .hint_text(
+                                        "Supporting text... (Enter to submit, Shift+Enter for new line)",
+                                    )
+                                    .desired_rows(2)
+                                    .desired_width(text_width),
+                            );
+                            sub_response = Some(resp);
+                        });
+                    let sub_response = sub_response.unwrap();
                     if sub_response.changed() {
                         ui.ctx().request_repaint();
                     }
@@ -1877,7 +1875,7 @@ pub fn render_control_panel_contents(
                 // Color picker popup for sub text
                 if state.show_sub_color_picker {
                     egui::Frame::none()
-                        .fill(Color32::from_rgb(60, 60, 70))
+                        .fill(Color32::from_black_alpha(40))
                         .inner_margin(Vec2::new(8.0, 8.0))
                         .rounding(Rounding::same(4.0))
                         .show(ui, |ui| {
@@ -2090,9 +2088,9 @@ pub fn render_control_panel_contents(
                 for (idx, quote) in state.quotes.iter().enumerate() {
                     let is_current = idx == state.current_quote_index;
                     let bg_color = if is_current {
-                        Color32::from_white_alpha(40)
+                        Color32::from_black_alpha(35)
                     } else {
-                        Color32::from_white_alpha(10)
+                        Color32::from_black_alpha(20)
                     };
 
                     egui::Frame::none()
@@ -2304,7 +2302,7 @@ pub fn render_control_panel_contents(
 
             // ===== Info Section =====
             egui::Frame::none()
-                .fill(Color32::from_black_alpha(150))
+                .fill(Color32::from_black_alpha(26))
                 .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(30)))
                 .inner_margin(Vec2::new(10.0, 10.0))
                 .rounding(Rounding::same(4.0))
@@ -2340,19 +2338,16 @@ pub fn render_control_panel_contents(
 
 /// Render a section with title
 fn render_section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut egui::Ui)) {
-    // Outer glow border layer
+    // Outer frame with relative darkening
     egui::Frame::none()
-        .fill(Color32::from_rgba_unmultiplied(0, 255, 220, 4))
-        .stroke(Stroke::new(
-            1.0,
-            Color32::from_rgba_unmultiplied(0, 255, 220, 50),
-        ))
+        .fill(Color32::from_black_alpha(20))
+        .stroke(Stroke::new(1.0, Color32::from_white_alpha(30)))
         .inner_margin(egui::Margin::same(1.0))
         .rounding(Rounding::same(10.0))
         .show(ui, |ui| {
-            // Inner glass panel
+            // Inner subtle depth
             egui::Frame::none()
-                .fill(Color32::from_rgba_unmultiplied(4, 14, 35, 220))
+                .fill(Color32::from_black_alpha(13))
                 .stroke(Stroke::new(
                     0.5,
                     Color32::from_rgba_unmultiplied(255, 255, 255, 8),
@@ -2380,7 +2375,7 @@ fn render_section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut
 
                         ui.label(
                             RichText::new(title)
-                                .color(Color32::from_rgb(0, 255, 220))
+                                .color(Color32::WHITE)
                                 .size(10.5)
                                 .strong(),
                         );
@@ -2396,7 +2391,7 @@ fn render_section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut
                                     egui::pos2(line_rect.left(), mid_y),
                                     egui::pos2(line_rect.right(), mid_y),
                                 ],
-                                Stroke::new(0.5, Color32::from_rgba_unmultiplied(0, 255, 220, 40)),
+                                Stroke::new(0.5, Color32::from_white_alpha(40)),
                             );
                         }
                     });
@@ -2422,7 +2417,7 @@ pub fn render_theme_modal(ctx: &Context, state: &mut AppState) {
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, Vec2::new(0.0, 0.0))
         .fixed_size(Vec2::new(400.0, 500.0))
-        .frame(egui::Frame::window(&ctx.style()).fill(Color32::from_rgb(45, 45, 55)))
+        .frame(egui::Frame::window(&ctx.style()).fill(Color32::from_white_alpha(15)))
         .show(ctx, |ui| {
             // Mode toggle
             ui.horizontal(|ui| {
@@ -2489,6 +2484,7 @@ pub fn render_theme_modal(ctx: &Context, state: &mut AppState) {
                 );
                 ui.add_space(5.0);
 
+                let mut to_remove = None;
                 for idx in 0..state.theme.gradient_colors.len() {
                     ui.horizontal(|ui| {
                         ui.label(
@@ -2526,12 +2522,15 @@ pub fn render_theme_modal(ctx: &Context, state: &mut AppState) {
                                 .fill(Color32::from_rgb(255, 70, 70)),
                             );
                             if remove_btn.clicked() {
-                                state.theme.gradient_colors.remove(idx);
-                                state.save();
-                                return; // break out of closure after mutation
+                                to_remove = Some(idx);
                             }
                         }
                     });
+                }
+
+                if let Some(idx) = to_remove {
+                    state.theme.gradient_colors.remove(idx);
+                    state.save();
                 }
 
                 // Add color button
