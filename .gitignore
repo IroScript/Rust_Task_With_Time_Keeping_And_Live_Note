@@ -1,10 +1,6 @@
-target/
-debug.log
-settings.json
-quotes_export.json
-.gemini/
-*.png
-*.txt
-*.exe
-*.pdb
-*.lock
+**/target/
+**/*.rs.bk
+# WASM/Trunk artifacts
+**/dist/
+**/.trunk/
+**/wasm-bindgen-main/

@@ -22,9 +22,11 @@ use winit::{
     window::Window,
 };
 
+use egui::epaint::ClippedShape;
 use egui::Context;
 use egui::FontId;
 use egui::{Color32, Frame, RichText, Rounding, Sense, Stroke, TopBottomPanel, Vec2};
+use egui::{Pos2, Rect, Shape};
 
 #[cfg(windows)]
 use windows::Win32::Foundation::HWND;
@@ -759,15 +761,81 @@ pub fn draw_text_button(
         ),
     );
 
-    // Label with letter-spacing simulation (spaces between chars)
+    // Label with shadow behind for visibility (Year 50k panel)
+    let center = rect.center();
+    let font_id = FontId::proportional(11.5);
+    let shadow = Color32::from_black_alpha(130);
+    let offsets: [Vec2; 8] = [
+        Vec2::new(0.5, 0.0),
+        Vec2::new(-0.5, 0.0),
+        Vec2::new(0.0, 0.5),
+        Vec2::new(0.0, -0.5),
+        Vec2::new(0.5, 0.5),
+        Vec2::new(-0.5, 0.5),
+        Vec2::new(0.5, -0.5),
+        Vec2::new(-0.5, -0.5),
+    ];
+    for offset in offsets {
+        ui.painter().text(
+            center + offset,
+            egui::Align2::CENTER_CENTER,
+            text,
+            font_id.clone(),
+            shadow,
+        );
+    }
     ui.painter().text(
-        rect.center(),
+        center,
         egui::Align2::CENTER_CENTER,
         text,
-        FontId::proportional(11.5),
-        Color32::from_rgba_unmultiplied(255, 255, 255, if is_hovered { 255 } else { 210 }),
+        font_id,
+        Color32::WHITE,
     );
 
+    response
+}
+
+/// Draw text with a glow/shadow behind it for better visibility on dark backgrounds.
+/// Uses multiple offset draws in `shadow_or_glow_color` then the main text in `main_color`.
+fn label_with_glow(
+    ui: &mut egui::Ui,
+    text: &str,
+    main_color: Color32,
+    size: f32,
+    shadow_or_glow_color: Color32,
+    align: egui::Align2,
+) -> egui::Response {
+    let font_id = FontId::proportional(size);
+    // Approximate size for allocation (avoids layout API differences across egui versions)
+    let approx_w = (text.len() as f32 * size * 0.55).max(20.0) + 10.0;
+    let approx_h = size * 1.8 + 10.0;
+    let allocate_size = Vec2::new(approx_w, approx_h);
+    let (rect, response) = ui.allocate_exact_size(allocate_size, Sense::hover());
+    let pos = match align {
+        egui::Align2::LEFT_CENTER => rect.left_center() + Vec2::new(5.0, 0.0),
+        egui::Align2::RIGHT_CENTER => rect.right_center() - Vec2::new(5.0, 0.0),
+        _ => rect.center(),
+    };
+    let offsets: [Vec2; 8] = [
+        Vec2::new(0.5, 0.0),
+        Vec2::new(-0.5, 0.0),
+        Vec2::new(0.0, 0.5),
+        Vec2::new(0.0, -0.5),
+        Vec2::new(0.5, 0.5),
+        Vec2::new(-0.5, 0.5),
+        Vec2::new(0.5, -0.5),
+        Vec2::new(-0.5, -0.5),
+    ];
+    for offset in offsets {
+        ui.painter().text(
+            pos + offset,
+            align,
+            text,
+            font_id.clone(),
+            shadow_or_glow_color,
+        );
+    }
+    ui.painter().text(pos, align, text, font_id, main_color);
     response
 }
 
@@ -1140,6 +1208,148 @@ fn render_floating_buttons(ctx: &Context, state: &mut AppState) -> Vec<TitleBarA
         });
 
     actions
+}
+
+// =============================================================================
+// OUTER-BOX ROTATION (content below title bar rotates 0°/90°/180°/270°)
+// =============================================================================
+
+/// Rotate a point around a center by angle_rad (radians).
+fn rotate_pos2_around(center: Pos2, p: Pos2, angle_rad: f32) -> Pos2 {
+    let dx = p.x - center.x;
+    let dy = p.y - center.y;
+    let c = angle_rad.cos();
+    let s = angle_rad.sin();
+    Pos2::new(center.x + dx * c - dy * s, center.y + dx * s + dy * c)
+}
+
+/// Axis-aligned bounding box of a rect after rotation around center.
+fn rect_aabb_after_rotate(center: Pos2, r: Rect, angle_rad: f32) -> Rect {
+    let corners = [
+        r.left_top(),
+        r.right_top(),
+        r.right_bottom(),
+        r.left_bottom(),
+    ];
+    let rotated: [Pos2; 4] = [
+        rotate_pos2_around(center, corners[0], angle_rad),
+        rotate_pos2_around(center, corners[1], angle_rad),
+        rotate_pos2_around(center, corners[2], angle_rad),
+        rotate_pos2_around(center, corners[3], angle_rad),
+    ];
+    let min_x = rotated.iter().map(|p| p.x).fold(f32::INFINITY, f32::min);
+    let max_x = rotated
+        .iter()
+        .map(|p| p.x)
+        .fold(f32::NEG_INFINITY, f32::max);
+    let min_y = rotated.iter().map(|p| p.y).fold(f32::INFINITY, f32::min);
+    let max_y = rotated
+        .iter()
+        .map(|p| p.y)
+        .fold(f32::NEG_INFINITY, f32::max);
+    Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y))
+}
+
+/// Transform a single shape in-place by rotating all geometry around center.
+fn transform_shape_rotate(shape: &mut Shape, center: Pos2, angle_rad: f32) {
+    match shape {
+        Shape::Vec(shapes) => {
+            for s in shapes.iter_mut() {
+                transform_shape_rotate(s, center, angle_rad);
+            }
+        }
+        Shape::Circle(c) => {
+            c.center = rotate_pos2_around(center, c.center, angle_rad);
+        }
+        Shape::Ellipse(e) => {
+            e.center = rotate_pos2_around(center, e.center, angle_rad);
+        }
+        Shape::LineSegment { points, .. } => {
+            points[0] = rotate_pos2_around(center, points[0], angle_rad);
+            points[1] = rotate_pos2_around(center, points[1], angle_rad);
+        }
+        Shape::Path(p) => {
+            for pt in p.points.iter_mut() {
+                *pt = rotate_pos2_around(center, *pt, angle_rad);
+            }
+        }
+        Shape::Rect(r) => {
+            r.rect = rect_aabb_after_rotate(center, r.rect, angle_rad);
+        }
+        Shape::Text(t) => {
+            t.pos = rotate_pos2_around(center, t.pos, angle_rad);
+        }
+        Shape::Mesh(mesh) => {
+            for v in mesh.vertices.iter_mut() {
+                v.pos = rotate_pos2_around(center, v.pos, angle_rad);
+            }
+        }
+        Shape::QuadraticBezier(b) => {
+            b.points[0] = rotate_pos2_around(center, b.points[0], angle_rad);
+            b.points[1] = rotate_pos2_around(center, b.points[1], angle_rad);
+            b.points[2] = rotate_pos2_around(center, b.points[2], angle_rad);
+        }
+        Shape::CubicBezier(b) => {
+            b.points[0] = rotate_pos2_around(center, b.points[0], angle_rad);
+            b.points[1] = rotate_pos2_around(center, b.points[1], angle_rad);
+            b.points[2] = rotate_pos2_around(center, b.points[2], angle_rad);
+            b.points[3] = rotate_pos2_around(center, b.points[3], angle_rad);
+        }
+        Shape::Callback(_) | Shape::Noop => {}
+    }
+}
+
+/// Inverse-rotate pointer input so that clicks hit the correct widget when content is rotated.
+fn transform_raw_input_for_rotation(
+    raw_input: &mut egui::RawInput,
+    content_rect: Rect,
+    rotation: u8,
+) {
+    if rotation == 0 {
+        return;
+    }
+    let center = content_rect.center();
+    let angle_rad = -(rotation as f32) * std::f32::consts::FRAC_PI_2;
+    for ev in raw_input.events.iter_mut() {
+        let pos_opt: Option<&mut Pos2> = match ev {
+            egui::Event::PointerMoved(pos) => Some(pos),
+            egui::Event::PointerButton { pos, .. } => Some(pos),
+            egui::Event::Touch { pos, .. } => Some(pos),
+            _ => None,
+        };
+        if let Some(pos) = pos_opt {
+            if content_rect.contains(*pos) {
+                *pos = rotate_pos2_around(center, *pos, angle_rad);
+            }
+        }
+    }
+}
+
+/// Transform all shapes that lie in the content area (below title bar) by rotation.
+/// rotation: 0=0°, 1=90°, 2=180°, 3=270°.
+fn transform_content_shapes(
+    shapes: &[ClippedShape],
+    content_rect: Rect,
+    rotation: u8,
+) -> Vec<ClippedShape> {
+    if rotation == 0 {
+        return shapes.to_vec();
+    }
+    let angle_rad = (rotation as f32) * std::f32::consts::FRAC_PI_2;
+    let center = content_rect.center();
+    let mut out = Vec::with_capacity(shapes.len());
+    for clipped in shapes {
+        let clip_center_y = clipped.clip_rect.center().y;
+        if clip_center_y > TITLE_BAR_HEIGHT {
+            let mut new_clip = clipped.clone();
+            transform_shape_rotate(&mut new_clip.shape, center, angle_rad);
+            new_clip.clip_rect = rect_aabb_after_rotate(center, new_clip.clip_rect, angle_rad);
+            out.push(new_clip);
+        } else {
+            out.push(clipped.clone());
+        }
+    }
+    out
 }
 
 // =============================================================================
@@ -1709,6 +1919,7 @@ pub fn render_control_panel_contents(
                     let mut text_response = None;
                     egui::Frame::none()
                         .fill(Color32::from_black_alpha(60))
+                        .stroke(Stroke::new(1.0, NEON_CYAN.gamma_multiply(0.2)))
                         .rounding(Rounding::same(4.0))
                         .show(ui, |ui| {
                             let resp = ui.add(
@@ -1745,7 +1956,7 @@ pub fn render_control_panel_contents(
                     ui.vertical(|ui| {
                         ui.horizontal(|ui| {
                             if ui
-                                .small_button(RichText::new("A+").color(Color32::WHITE).size(10.0))
+                                .small_button(RichText::new("A+").color(Color32::WHITE).size(10.5))
                                 .clicked()
                                 && state.text_style.main_text_size < 100.0
                             {
@@ -1754,8 +1965,9 @@ pub fn render_control_panel_contents(
                             }
                             // Color picker button
                             let color_btn = ui.add(
-                                egui::Button::new(RichText::new("🎨").size(12.0))
+                                egui::Button::new(RichText::new("🎨").color(Color32::WHITE).size(13.0))
                                     .fill(Color32::from_rgb(244, 67, 54))
+                                    .stroke(Stroke::new(1.0, Color32::WHITE.gamma_multiply(0.4)))
                                     .min_size(Vec2::new(24.0, 20.0)),
                             );
                             if color_btn.clicked() {
@@ -1763,7 +1975,7 @@ pub fn render_control_panel_contents(
                             }
                         });
                         if ui
-                            .small_button(RichText::new("A-").color(Color32::WHITE).size(10.0))
+                            .small_button(RichText::new("A-").color(Color32::WHITE).size(10.5))
                             .clicked()
                             && state.text_style.main_text_size > 12.0
                         {
@@ -1777,6 +1989,7 @@ pub fn render_control_panel_contents(
                 if state.show_main_color_picker {
                     egui::Frame::none()
                         .fill(Color32::from_black_alpha(40))
+                        .stroke(Stroke::new(1.0, NEON_CYAN.gamma_multiply(0.25)))
                         .inner_margin(Vec2::new(8.0, 8.0))
                         .rounding(Rounding::same(4.0))
                         .show(ui, |ui| {
@@ -1805,6 +2018,7 @@ pub fn render_control_panel_contents(
                     let mut sub_response = None;
                     egui::Frame::none()
                         .fill(Color32::from_black_alpha(60))
+                        .stroke(Stroke::new(1.0, NEON_CYAN.gamma_multiply(0.2)))
                         .rounding(Rounding::same(4.0))
                         .show(ui, |ui| {
                             let resp = ui.add(
@@ -1845,7 +2059,7 @@ pub fn render_control_panel_contents(
                     ui.vertical(|ui| {
                         ui.horizontal(|ui| {
                             if ui
-                                .small_button(RichText::new("A+").color(Color32::WHITE).size(10.0))
+                                .small_button(RichText::new("A+").color(Color32::WHITE).size(10.5))
                                 .clicked()
                                 && state.text_style.sub_text_size < 50.0
                             {
@@ -1853,8 +2067,9 @@ pub fn render_control_panel_contents(
                                 state.save();
                             }
                             let color_btn = ui.add(
-                                egui::Button::new(RichText::new("🎨").size(12.0))
+                                egui::Button::new(RichText::new("🎨").color(Color32::WHITE).size(13.0))
                                     .fill(Color32::from_rgb(244, 67, 54))
+                                    .stroke(Stroke::new(1.0, Color32::WHITE.gamma_multiply(0.4)))
                                     .min_size(Vec2::new(24.0, 20.0)),
                             );
                             if color_btn.clicked() {
@@ -1862,7 +2077,7 @@ pub fn render_control_panel_contents(
                             }
                         });
                         if ui
-                            .small_button(RichText::new("A-").color(Color32::WHITE).size(10.0))
+                            .small_button(RichText::new("A-").color(Color32::WHITE).size(10.5))
                             .clicked()
                             && state.text_style.sub_text_size > 8.0
                         {
@@ -1876,6 +2091,7 @@ pub fn render_control_panel_contents(
                 if state.show_sub_color_picker {
                     egui::Frame::none()
                         .fill(Color32::from_black_alpha(40))
+                        .stroke(Stroke::new(1.0, NEON_CYAN.gamma_multiply(0.25)))
                         .inner_margin(Vec2::new(8.0, 8.0))
                         .rounding(Rounding::same(4.0))
                         .show(ui, |ui| {
@@ -1924,20 +2140,24 @@ pub fn render_control_panel_contents(
             // ===== Line Gaps Section =====
             render_section(ui, "LINE GAPS", |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new("Main Text Gap")
-                            .color(Color32::WHITE)
-                            .size(10.5)
-                            .strong(),
+                    label_with_glow(
+                        ui,
+                        "Main Text Gap",
+                        Color32::WHITE,
+                        10.5,
+                        Color32::from_black_alpha(140),
+                        egui::Align2::LEFT_CENTER,
                     );
 
                     // Add flexible space to push the label to the right
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(
-                            RichText::new(format!("{:.1}", state.text_style.main_line_gap))
-                                .color(NEON_LIME)
-                                .size(10.5)
-                                .strong(),
+                        label_with_glow(
+                            ui,
+                            &format!("{:.1}", state.text_style.main_line_gap),
+                            NEON_LIME,
+                            10.5,
+                            Color32::from_black_alpha(120),
+                            egui::Align2::RIGHT_CENTER,
                         );
 
                         // The slider takes the remaining width
@@ -1957,19 +2177,23 @@ pub fn render_control_panel_contents(
                 });
 
                 ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new("Supporting Text Gap")
-                            .color(Color32::WHITE)
-                            .size(10.5)
-                            .strong(),
+                    label_with_glow(
+                        ui,
+                        "Supporting Text Gap",
+                        Color32::WHITE,
+                        10.5,
+                        Color32::from_black_alpha(140),
+                        egui::Align2::LEFT_CENTER,
                     );
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(
-                            RichText::new(format!("{:.1}", state.text_style.sub_line_gap))
-                                .color(NEON_LIME)
-                                .size(10.5)
-                                .strong(),
+                        label_with_glow(
+                            ui,
+                            &format!("{:.1}", state.text_style.sub_line_gap),
+                            NEON_LIME,
+                            10.5,
+                            Color32::from_black_alpha(120),
+                            egui::Align2::RIGHT_CENTER,
                         );
                         let slider_width = ui.available_width();
                         if ui
@@ -1987,19 +2211,23 @@ pub fn render_control_panel_contents(
                 });
 
                 ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new("Gap Between Texts")
-                            .color(Color32::WHITE)
-                            .size(10.5)
-                            .strong(),
+                    label_with_glow(
+                        ui,
+                        "Gap Between Texts",
+                        Color32::WHITE,
+                        10.5,
+                        Color32::from_black_alpha(140),
+                        egui::Align2::LEFT_CENTER,
                     );
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(
-                            RichText::new(format!("{:.0} px", state.text_style.between_gap))
-                                .color(NEON_LIME)
-                                .size(10.5)
-                                .strong(),
+                        label_with_glow(
+                            ui,
+                            &format!("{:.0} px", state.text_style.between_gap),
+                            NEON_LIME,
+                            10.5,
+                            Color32::from_black_alpha(120),
+                            egui::Align2::RIGHT_CENTER,
                         );
                         let slider_width = ui.available_width();
                         if ui
@@ -2038,10 +2266,13 @@ pub fn render_control_panel_contents(
                         state.save();
                     }
 
-                    ui.label(
-                        RichText::new("seconds")
-                            .color(Color32::from_rgb(140, 200, 255))
-                            .size(10.5),
+                    label_with_glow(
+                        ui,
+                        "seconds",
+                        Color32::from_rgb(140, 200, 255),
+                        10.5,
+                        Color32::from_black_alpha(120),
+                        egui::Align2::LEFT_CENTER,
                     );
                 });
 
@@ -2108,10 +2339,7 @@ pub fn render_control_panel_contents(
                         .fill(bg_color)
                         .inner_margin(Vec2::new(8.0, 6.0))
                         .rounding(Rounding::same(4.0))
-                        .stroke(Stroke::new(
-                            1.0,
-                            Color32::from_rgba_unmultiplied(255, 255, 255, 50),
-                        ))
+                        .stroke(Stroke::new(1.0, NEON_CYAN.gamma_multiply(0.18)))
                         .show(ui, |ui| {
                             // Let the text flexibly fill space
                             // Delete button goes on the very right
@@ -2121,7 +2349,7 @@ pub fn render_control_panel_contents(
                                     // Delete button
                                     let del_btn = ui.add(
                                         egui::Button::new(
-                                            RichText::new("Delete").color(Color32::WHITE).size(9.0),
+                                            RichText::new("Delete").color(Color32::WHITE).size(10.0),
                                         )
                                         .fill(Color32::from_rgb(255, 70, 70))
                                         .min_size(Vec2::new(40.0, 18.0)),
@@ -2279,13 +2507,16 @@ pub fn render_control_panel_contents(
                 }
             } else {
                 ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new("Are you sure?")
-                            .color(Color32::WHITE)
-                            .size(11.0),
+                    label_with_glow(
+                        ui,
+                        "Are you sure?",
+                        Color32::WHITE,
+                        11.0,
+                        Color32::from_black_alpha(140),
+                        egui::Align2::LEFT_CENTER,
                     );
                     if ui
-                        .button(RichText::new("Yes, Clear").color(Color32::WHITE).size(10.0))
+                        .button(RichText::new("Yes, Clear").color(Color32::WHITE).size(10.5))
                         .clicked()
                     {
                         state.quotes.clear();
@@ -2293,7 +2524,14 @@ pub fn render_control_panel_contents(
                         state.confirm_clear_pending = false;
                         state.save();
                     }
-                    if ui.button(RichText::new("Cancel").size(10.0)).clicked() {
+                    if ui
+                        .button(
+                            RichText::new("Cancel")
+                                .color(Color32::from_rgba_unmultiplied(190, 190, 215, 255))
+                                .size(10.5),
+                        )
+                        .clicked()
+                    {
                         state.confirm_clear_pending = false;
                     }
                 });
@@ -2304,34 +2542,42 @@ pub fn render_control_panel_contents(
             // ===== Info Section =====
             egui::Frame::none()
                 .fill(Color32::from_black_alpha(26))
-                .stroke(egui::Stroke::new(1.0, Color32::from_white_alpha(30)))
+                .stroke(egui::Stroke::new(1.0, NEON_CYAN.gamma_multiply(0.22)))
                 .inner_margin(Vec2::new(10.0, 10.0))
                 .rounding(Rounding::same(4.0))
                 .show(ui, |ui| {
-                    ui.label(
-                        RichText::new(format!(
-                            "Current Interval: {}s",
-                            state.rotation_interval.as_secs()
-                        ))
-                        .color(Color32::from_rgba_unmultiplied(180, 180, 200, 255))
-                        .size(10.0),
+                    let info_color = Color32::from_rgba_unmultiplied(190, 190, 215, 255);
+                    let shadow = Color32::from_black_alpha(130);
+                    label_with_glow(
+                        ui,
+                        &format!("Current Interval: {}s", state.rotation_interval.as_secs()),
+                        info_color,
+                        10.5,
+                        shadow,
+                        egui::Align2::LEFT_CENTER,
                     );
-                    ui.label(
-                        RichText::new(format!("Total Quotes: {}", state.quotes.len()))
-                            .color(Color32::from_rgba_unmultiplied(180, 180, 200, 255))
-                            .size(10.0),
+                    label_with_glow(
+                        ui,
+                        &format!("Total Quotes: {}", state.quotes.len()),
+                        info_color,
+                        10.5,
+                        shadow,
+                        egui::Align2::LEFT_CENTER,
                     );
-                    ui.label(
-                        RichText::new(format!(
+                    label_with_glow(
+                        ui,
+                        &format!(
                             "Rotation: {}",
                             if state.rotation_enabled {
                                 "Active"
                             } else {
                                 "Paused"
                             }
-                        ))
-                        .color(Color32::from_rgba_unmultiplied(180, 180, 200, 255))
-                        .size(10.0),
+                        ),
+                        info_color,
+                        10.5,
+                        shadow,
+                        egui::Align2::LEFT_CENTER,
                     );
                 });
         });
@@ -2368,9 +2614,16 @@ fn render_section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut
 
                         ui.add_space(6.0);
 
-                        ui.label(RichText::new(title).color(NEON_CYAN).size(9.5).strong());
+                        label_with_glow(
+                            ui,
+                            title,
+                            NEON_CYAN,
+                            10.0,
+                            NEON_CYAN.gamma_multiply(0.5),
+                            egui::Align2::LEFT_CENTER,
+                        );
 
-                        // Trailing separator line
+                        // Trailing separator line (subtle horizontal)
                         let avail = ui.available_width();
                         if avail > 4.0 {
                             let (line_rect, _) =
@@ -2381,7 +2634,7 @@ fn render_section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut
                                     egui::pos2(line_rect.left(), mid_y),
                                     egui::pos2(line_rect.right(), mid_y),
                                 ],
-                                Stroke::new(0.5, Color32::from_white_alpha(40)),
+                                Stroke::new(0.5, NEON_CYAN.gamma_multiply(0.17)),
                             );
                         }
                     });
@@ -3091,14 +3344,13 @@ impl ApplicationHandler for AppRunner {
                         visuals.widgets.hovered.bg_stroke =
                             egui::Stroke::new(1.0, Color32::WHITE.gamma_multiply(0.5));
                         visuals.widgets.active.bg_fill = Color32::from_rgb(100, 100, 110);
-                        visuals.widgets.noninteractive.fg_stroke =
-                            egui::Stroke::new(1.0, Color32::from_rgba_unmultiplied(180, 230, 255, 200));
-                        visuals.widgets.inactive.fg_stroke =
-                            egui::Stroke::new(1.0, Color32::WHITE);
-                        visuals.widgets.active.fg_stroke =
-                            egui::Stroke::new(1.0, NEON_CYAN);
-                        visuals.widgets.hovered.fg_stroke =
-                            egui::Stroke::new(1.0, NEON_CYAN);
+                        visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(
+                            1.0,
+                            Color32::from_rgba_unmultiplied(190, 230, 255, 255),
+                        );
+                        visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
+                        visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, NEON_CYAN);
+                        visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, NEON_CYAN);
                         style.visuals = visuals;
 
                         egui_ctx.set_style(style);
@@ -3268,7 +3520,15 @@ impl AppRunner {
 
         // (Animation Engine moved below)
 
-        let raw_input = egui_state.take_egui_input(window);
+        let mut raw_input = egui_state.take_egui_input(window);
+        let scale = window.scale_factor() as f32;
+        let content_w = window.inner_size().width as f32 / scale;
+        let content_h = window.inner_size().height as f32 / scale;
+        let content_rect = Rect::from_min_max(
+            Pos2::new(0.0, TITLE_BAR_HEIGHT),
+            Pos2::new(content_w, content_h),
+        );
+        transform_raw_input_for_rotation(&mut raw_input, content_rect, app_state.rotation);
         let full_output = egui_ctx.run(raw_input, |ctx| {
             // Track activity for auto-hide
             if ctx.is_using_pointer() || ctx.input(|i| i.pointer.any_down() || !i.events.is_empty())
@@ -3587,37 +3847,9 @@ impl AppRunner {
                             };
                     }
                     TitleBarAction::PlayRotate => {
-                        app_state.rotation = (app_state.rotation + 1) % 4;
-                        let size = window.inner_size();
-                        let _ = window.request_inner_size(winit::dpi::PhysicalSize::new(
-                            size.height,
-                            size.width,
-                        ));
-
-                        #[cfg(windows)]
-                        {
-                            use windows::core::PCWSTR;
-                            use windows::Win32::Foundation::HANDLE;
-                            use windows::Win32::UI::WindowsAndMessaging::SetPropW;
-
-                            let mut property_name: Vec<u16> =
-                                "RotationState".encode_utf16().collect();
-                            property_name.push(0);
-
-                            if let Ok(handle) = window.window_handle() {
-                                if let winit::raw_window_handle::RawWindowHandle::Win32(win32) =
-                                    handle.as_raw()
-                                {
-                                    unsafe {
-                                        let _ = SetPropW(
-                                            HWND(win32.hwnd.get() as _),
-                                            PCWSTR(property_name.as_ptr()),
-                                            HANDLE(app_state.rotation as _),
-                                        );
-                                    }
-                                }
-                            }
-                        }
+                        // Cycle content rotation: 0° → 90° → 180° → 270° → 0°
+                        // Entire content (panel + canvas + 3D bg) is rotated via shape transform.
+                        // app_state.rotation = (app_state.rotation + 1) % 4;
                     }
                     TitleBarAction::PlayDissolve => {
                         if app_state.active_animation == AppAnimation::None {
@@ -3846,10 +4078,23 @@ impl AppRunner {
                 }
             }
         });
+        let scale = window.scale_factor() as f32;
+        let content_w = window.inner_size().width as f32 / scale;
+        let content_h = window.inner_size().height as f32 / scale;
+        let content_rect = Rect::from_min_max(
+            Pos2::new(0.0, TITLE_BAR_HEIGHT),
+            Pos2::new(content_w, content_h),
+        );
 
         egui_state.handle_platform_output(window, full_output.platform_output);
 
-        let paint_jobs = egui_ctx.tessellate(full_output.shapes, window.scale_factor() as f32);
+        // Outer-box rotation: transform content-area shapes (below title bar) by 90°/180°/270°
+        let shapes_to_tessellate = if app_state.rotation != 0 {
+            transform_content_shapes(&full_output.shapes, content_rect, app_state.rotation)
+        } else {
+            full_output.shapes
+        };
+        let paint_jobs = egui_ctx.tessellate(shapes_to_tessellate, scale);
 
         let frame = match render_state.surface.get_current_texture() {
             Ok(frame) => frame,

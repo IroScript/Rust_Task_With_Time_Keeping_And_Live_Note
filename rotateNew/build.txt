@@ -1,0 +1,143 @@
+cargo :    Compiling 
+rotate_demo v0.1.0 (C:\
+Users\USER\OneDrive\Des
+ktop\Irak\rustV10\rotat
+eNew)
+At line:1 char:1
++ cargo run 2>&1 | 
+Out-File -FilePath 
+build.txt -Encoding 
+ascii
++ ~~~~~~~~~~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (   Compiling    
+ ro...tV10\rotateNe    
+w):String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+warning: use of 
+deprecated associated 
+function 
+`egui::Frame::none`: 
+Use `Frame::NONE` or 
+`Frame::new()` instead.
+   --> 
+src\main.rs:115:41
+    |
+115 |                  
+   .frame(egui::Frame::
+none().fill(Color32::fr
+om_rgb(20, 20, 20)))
+    |                  
+                       
+^^^^
+    |
+    = note: 
+`#[warn(deprecated)]` 
+on by default
+
+error[E0597]: 
+`encoder` does not 
+live long enough
+   --> 
+src\main.rs:255:29
+    |
+231 |           let 
+mut encoder = self
+    |               
+----------- binding 
+`encoder` declared here
+...
+255 |               
+let mut rpass = encoder
+.begin_render_pass(&wgp
+u::RenderPassDescriptor
+ {
+    |                  
+             ^^^^^^^ 
+borrowed value does 
+not live long enough
+...
+267 | /             
+self.renderer
+268 | |                
+ .render(&mut rpass, 
+&paint_jobs, 
+&screen_descriptor);
+    | |________________
+_______________________
+_______________________
+______- argument 
+requires that 
+`encoder` is borrowed 
+for `'static`
+...
+276 |       }
+    |       - 
+`encoder` dropped here 
+while still borrowed
+
+error[E0505]: cannot 
+move out of `encoder` 
+because it is borrowed
+   --> 
+src\main.rs:274:32
+    |
+231 |           let 
+mut encoder = self
+    |               
+----------- binding 
+`encoder` declared here
+...
+255 |               
+let mut rpass = encoder
+.begin_render_pass(&wgp
+u::RenderPassDescriptor
+ {
+    |                  
+             ------- 
+borrow of `encoder` 
+occurs here
+...
+267 | /             
+self.renderer
+268 | |                
+ .render(&mut rpass, 
+&paint_jobs, 
+&screen_descriptor);
+    | |________________
+_______________________
+_______________________
+______- argument 
+requires that 
+`encoder` is borrowed 
+for `'static`
+...
+274 |           self.qu
+eue.submit(Some(encoder
+.finish()));
+    |                  
+                
+^^^^^^^ move out of 
+`encoder` occurs here
+
+Some errors have 
+detailed explanations: 
+E0505, E0597.
+For more information 
+about an error, try 
+`rustc --explain 
+E0505`.
+warning: `rotate_demo` 
+(bin "rotate_demo") 
+generated 1 warning
+error: could not 
+compile `rotate_demo` 
+(bin "rotate_demo") 
+due to 2 previous 
+errors; 1 warning 
+emitted

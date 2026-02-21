@@ -1,0 +1,43 @@
+cargo : warning: 
+unused import: `winit::
+raw_window_handle::HasW
+indowHandle`
+At line:1 char:1
++ cargo check 2>&1 | 
+Out-File -Encoding 
+ascii 
+check_out_final.txt
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (warning: unus   
+ ed...asWindowHandl    
+e`:String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+  --> src\main.rs:17:5
+   |
+17 | use winit::raw_win
+dow_handle::HasWindowHa
+ndle;
+   |     ^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^
+   |
+   = note: `#[warn(unus
+ed_imports)]` (part of 
+`#[warn(unused)]`) on 
+by default
+
+warning: 
+`daily-motivation` 
+(bin 
+"daily-motivation") 
+generated 1 warning
+    Finished `dev` 
+profile [unoptimized + 
+debuginfo] target(s) 
+in 0.47s

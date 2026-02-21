@@ -1,0 +1,126 @@
+﻿cargo :     Checking 
+daily-motivation 
+v0.1.0 (C:\Users\USER\O
+neDrive\Desktop\Irak\ru
+stV10)
+At line:1 char:1
++ cargo check 2>&1 | 
+Out-File -FilePath 
+check_output.txt 
+-Encoding utf8 ...
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (    Checking    
+ da...p\Irak\rustV1    
+0):String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+warning: variable does 
+not need to be mutable
+    --> 
+src\main.rs:3759:45
+     |
+3759 | ...             
+      let mut ex_style 
+= GetWindowLongW(hwnd, 
+GWL_EXSTYLE);
+     |                 
+          ----^^^^^^^^
+     |                 
+          |
+     |                 
+          help: remove 
+this `mut`
+     |
+     = note: 
+`#[warn(unused_mut)]` 
+(part of 
+`#[warn(unused)]`) on 
+by default
+
+error[E0382]: borrow 
+of moved value: 
+`actions`
+    --> 
+src\main.rs:3747:33
+     |
+3403 |             let 
+mut actions = 
+render_title_bar(ctx, 
+app_state, window);
+     |                 
+----------- move 
+occurs because 
+`actions` has type `std
+::vec::Vec<TitleBarActi
+on>`, which does not 
+implement the `Copy` 
+trait
+3404 |
+3405 |             for 
+action in actions {
+     |                 
+          ------- 
+`actions` moved due to 
+this implicit call to 
+`.into_iter()`
+...
+3747 |                 
+                actions
+.push(TitleBarAction::P
+layRotate);
+     |                 
+                
+^^^^^^^ value borrowed 
+here after move
+     |
+note: `into_iter` 
+takes ownership of the 
+receiver `self`, which 
+moves `actions`
+    --> C:\Users\USER\.
+rustup\toolchains\stabl
+e-x86_64-pc-windows-msv
+c\lib/rustlib/src/rust\
+library\core\src\iter\t
+raits\collect.rs:310:18
+     |
+ 310 |     fn 
+into_iter(self) -> 
+Self::IntoIter;
+     |                 
+ ^^^^
+help: consider 
+iterating over a slice 
+of the `std::vec::Vec<T
+itleBarAction>`'s 
+content to avoid 
+moving into the `for` 
+loop
+     |
+3405 |             for 
+action in &actions {
+     |                 
+          +
+
+For more information 
+about this error, try 
+`rustc --explain 
+E0382`.
+warning: 
+`daily-motivation` 
+(bin 
+"daily-motivation") 
+generated 1 warning
+error: could not 
+compile 
+`daily-motivation` 
+(bin 
+"daily-motivation") 
+due to 1 previous 
+error; 1 warning 
+emitted

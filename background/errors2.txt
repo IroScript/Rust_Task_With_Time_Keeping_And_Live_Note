@@ -1,0 +1,57 @@
+    Blocking waiting for file lock on build directory
+    Checking rand_core v0.10.0
+   Compiling bevy_reflect_derive v0.13.2
+    Checking cpufeatures v0.3.0
+    Checking getrandom v0.4.1
+    Checking chacha20 v0.10.0
+    Checking uuid v1.21.0
+    Checking rand v0.10.0
+    Checking bevy_utils v0.13.2
+    Checking gilrs-core v0.5.15
+    Checking gilrs v0.10.10
+    Checking bevy_reflect v0.13.2
+    Checking bevy_ecs v0.13.2
+    Checking bevy_app v0.13.2
+    Checking bevy_log v0.13.2
+    Checking bevy_core v0.13.2
+    Checking bevy_input v0.13.2
+    Checking bevy_time v0.13.2
+    Checking bevy_a11y v0.13.2
+    Checking bevy_asset v0.13.2
+    Checking bevy_hierarchy v0.13.2
+    Checking bevy_diagnostic v0.13.2
+    Checking bevy_transform v0.13.2
+    Checking bevy_window v0.13.2
+    Checking bevy_gilrs v0.13.2
+    Checking bevy_winit v0.13.2
+    Checking bevy_render v0.13.2
+    Checking bevy_audio v0.13.2
+    Checking bevy_core_pipeline v0.13.2
+    Checking bevy_scene v0.13.2
+    Checking bevy_animation v0.13.2
+    Checking bevy_sprite v0.13.2
+    Checking bevy_pbr v0.13.2
+    Checking bevy_text v0.13.2
+    Checking bevy_ui v0.13.2
+    Checking bevy_gizmos v0.13.2
+    Checking bevy_gltf v0.13.2
+    Checking bevy_internal v0.13.2
+    Checking bevy v0.13.2
+    Checking quantum_logo v0.1.0 (E:\rustlogo)
+error[E0425]: cannot find function `thread_rng` in crate `rand`
+   --> src\main.rs:127:25
+    |
+127 |     let mut rng = rand::thread_rng();
+    |                         ^^^^^^^^^^ not found in `rand`
+
+warning: unused import: `rand::Rng`
+ --> src\main.rs:7:5
+  |
+7 | use rand::Rng;
+  |     ^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+For more information about this error, try `rustc --explain E0425`.
+warning: `quantum_logo` (bin "quantum_logo") generated 1 warning
+error: could not compile `quantum_logo` (bin "quantum_logo") due to 1 previous error; 1 warning emitted

@@ -1,0 +1,122 @@
+﻿cargo :     Checking 
+daily-motivation 
+v0.1.0 (C:\Users\USER\O
+neDrive\Desktop\Irak\ru
+stV10)
+At line:1 char:1
++ cargo check 2>&1 | 
+Out-File -Encoding 
+utf8 err.txt
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo     
+         : 
+NotSpecified: (    C   
+ hecking 
+da...p\Irak\rus    
+tV10):String) [], 
+Remot    eException
+    + 
+FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+error[E0015]: cannot 
+call non-const 
+associated function `Co
+lor32::from_rgba_unmult
+iplied` in constants
+  --> src\main.rs:61:30
+   |
+61 | const 
+BORDER_CYAN: Color32 = 
+Color32::from_rgba_unmu
+ltiplied(0, 200, 255, 
+40);
+   |                   
+           ^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
+   |
+   = note: calls in 
+constants are limited 
+to constant functions, 
+tuple structs and 
+tuple variants
+
+error[E0015]: cannot 
+call non-const 
+associated function `Co
+lor32::from_rgba_unmult
+iplied` in constants
+  --> src\main.rs:62:30
+   |
+62 | const 
+BORDER_GLOW: Color32 = 
+Color32::from_rgba_unmu
+ltiplied(0, 200, 255, 
+80);
+   |                   
+           ^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
+   |
+   = note: calls in 
+constants are limited 
+to constant functions, 
+tuple structs and 
+tuple variants
+
+error[E0015]: cannot 
+call non-const 
+associated function `Co
+lor32::from_rgba_unmult
+iplied` in constants
+  --> src\main.rs:74:29
+   |
+74 | const HOVER_CYAN: 
+Color32 = Color32::from
+_rgba_unmultiplied(0, 
+200, 255, 30);
+   |                   
+          ^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^
+   |
+   = note: calls in 
+constants are limited 
+to constant functions, 
+tuple structs and 
+tuple variants
+
+error[E0015]: cannot 
+call non-const 
+associated function `Co
+lor32::from_rgba_unmult
+iplied` in constants
+  --> src\main.rs:75:29
+   |
+75 | const HOVER_PINK: 
+Color32 = Color32::from
+_rgba_unmultiplied(255,
+ 47, 123, 40);
+   |                   
+          ^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
+   |
+   = note: calls in 
+constants are limited 
+to constant functions, 
+tuple structs and 
+tuple variants
+
+For more information 
+about this error, try 
+`rustc --explain 
+E0015`.
+error: could not 
+compile 
+`daily-motivation` 
+(bin 
+"daily-motivation") 
+due to 4 previous 
+errors
