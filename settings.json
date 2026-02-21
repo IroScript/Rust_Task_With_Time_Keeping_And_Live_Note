@@ -5,10 +5,6 @@
       "sub_text": "Keep pushing - You're doing great! 🌟"
     },
     {
-      "main_text": "প্রতিটি মুহূর্ত গুরুত্বপূর্ণ - কাজ চালিয়ে যাও",
-      "sub_text": "Keep pushing - You're doing great! 🌟"
-    },
-    {
       "main_text": "সফলতা ধৈর্যের ফল - হার মানিও না",
       "sub_text": "Keep pushing - You're doing great! 🌟"
     },
@@ -21,15 +17,7 @@
       "sub_text": "Keep pushing - You're doing great! 🌟"
     },
     {
-      "main_text": "তুমি পারবে - শুধু চেষ্টা চালিয়ে যাও",
-      "sub_text": "Keep pushing - You're doing great! 🌟"
-    },
-    {
       "main_text": "Dreams need action - Start now",
-      "sub_text": "Keep pushing - You're doing great! 🌟"
-    },
-    {
-      "main_text": "প্রতিদিন একটু এগিয়ে যাও - লক্ষ্য কাছে",
       "sub_text": "Keep pushing - You're doing great! 🌟"
     },
     {
@@ -39,42 +27,50 @@
     {
       "main_text": "বিশ্রাম নাও কিন্তু হাল ছাড়ো না",
       "sub_text": "Keep pushing - You're doing great! 🌟"
+    },
+    {
+      "main_text": "ami ekhon eta korbo\n",
+      "sub_text": "Keep pushing - You're doing great! 🌟"
+    },
+    {
+      "main_text": "ami bsti er logo ta ektu pore search dibo\n",
+      "sub_text": "Keep pushing - You're doing great! 🌟"
     }
   ],
   "interval_secs": 60,
   "theme": {
-    "mode": "Solid",
-    "gradient_angle": 135,
+    "mode": "Gradient",
+    "gradient_angle": 270,
     "gradient_colors": [
       [
-        10,
-        0,
+        2,
+        4,
+        16,
+        255
+      ],
+      [
         30,
-        255
-      ],
-      [
-        120,
-        20,
         0,
+        80,
         255
       ],
       [
-        255,
-        100,
         0,
-        255
-      ],
-      [
-        255,
-        220,
         60,
+        120,
+        255
+      ],
+      [
+        0,
+        200,
+        180,
         255
       ]
     ],
     "solid_color": [
-      25,
-      183,
-      153,
+      205,
+      54,
+      54,
       255
     ],
     "apply_to_entire_window": true
@@ -94,8 +90,8 @@
       229,
       200
     ],
-    "main_line_gap": 3.0,
+    "main_line_gap": 1.0,
     "sub_line_gap": 1.0,
-    "between_gap": 0.0
+    "between_gap": 5.0
   }
 }

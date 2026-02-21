@@ -32,8 +32,8 @@ use egui::{Pos2, Rect, Shape};
 use windows::Win32::Foundation::HWND;
 #[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowLongW, SetLayeredWindowAttributes, SetWindowLongW, SetWindowPos, GWL_EXSTYLE,
-    HWND_TOPMOST, LWA_ALPHA, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, WS_EX_LAYERED,
+    GetWindowLongW, SetLayeredWindowAttributes, SetPropW, SetWindowLongW, SetWindowPos,
+    GWL_EXSTYLE, HWND_TOPMOST, LWA_ALPHA, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, WS_EX_LAYERED,
 };
 
 use serde::{Deserialize, Serialize};
@@ -405,6 +405,7 @@ pub struct AppState {
     pub rotation: u8,
     pub target_rotation_angle: f32,
     pub current_rotation_angle: f32,
+    pub current_scale: f32,
 
     // Bouncy window state (Now part of Multi-Animation)
     pub active_animation: AppAnimation,
@@ -445,6 +446,7 @@ impl Default for AppState {
                 rotation: 0,
                 target_rotation_angle: 0.0,
                 current_rotation_angle: 0.0,
+                current_scale: 1.0,
                 active_animation: AppAnimation::None,
                 anim_progress: 0.0,
                 bounce_vel_x: 5.0,
@@ -529,6 +531,7 @@ impl Default for AppState {
                 rotation: 0,
                 target_rotation_angle: 0.0,
                 current_rotation_angle: 0.0,
+                current_scale: 1.0,
                 active_animation: AppAnimation::None,
                 anim_progress: 0.0,
                 bounce_vel_x: 5.0,
@@ -1136,10 +1139,9 @@ fn render_floating_buttons(ctx: &Context, state: &mut AppState) -> Vec<TitleBarA
         return actions;
     }
 
-    // Fixed position: Top 70px, Right 10px
-    // We use Screen Rect to determine Right edge
+    // Fixed position: Just below title bar, right-aligned
     let screen_rect = ctx.screen_rect();
-    let pos = egui::pos2(screen_rect.right() - 10.0, 70.0);
+    let pos = egui::pos2(screen_rect.right() - 3.0, TITLE_BAR_HEIGHT + 2.0);
 
     egui::Area::new(egui::Id::new("floating_buttons"))
         .fixed_pos(pos)
@@ -1256,72 +1258,101 @@ fn rect_aabb_after_rotate(center: Pos2, r: Rect, angle_rad: f32) -> Rect {
     Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y))
 }
 
-/// Transform a single shape in-place by rotating all geometry around center by angle_rad.
-/// KEY FIX: TextShape.angle += angle_rad (rotates actual glyphs)
-fn transform_shape_rotate(shape: &mut Shape, center: Pos2, angle_rad: f32) {
-    if angle_rad.abs() < 0.0001 {
+/// Transform a single shape in-place by rotating and scaling all geometry around center.
+fn transform_shape_rotate_scale(shape: &mut Shape, center: Pos2, angle_rad: f32, scale: f32) {
+    let no_rotate = angle_rad.abs() < 0.0001;
+    let no_scale = (scale - 1.0).abs() < 0.0001;
+
+    if no_rotate && no_scale {
         return;
     }
+
+    let transform = |p: Pos2| -> Pos2 {
+        let mut pt = p;
+        if !no_rotate {
+            pt = rotate_pos2_around(center, pt, angle_rad);
+        }
+        if !no_scale {
+            pt = center + (pt - center) * scale;
+        }
+        pt
+    };
 
     match shape {
         Shape::Vec(shapes) => {
             for s in shapes.iter_mut() {
-                transform_shape_rotate(s, center, angle_rad);
+                transform_shape_rotate_scale(s, center, angle_rad, scale);
             }
         }
         Shape::Circle(c) => {
-            c.center = rotate_pos2_around(center, c.center, angle_rad);
+            c.center = transform(c.center);
+            c.radius *= scale;
         }
         Shape::Ellipse(e) => {
-            e.center = rotate_pos2_around(center, e.center, angle_rad);
+            e.center = transform(e.center);
+            e.radius *= scale;
         }
         Shape::LineSegment { points, .. } => {
-            points[0] = rotate_pos2_around(center, points[0], angle_rad);
-            points[1] = rotate_pos2_around(center, points[1], angle_rad);
+            points[0] = transform(points[0]);
+            points[1] = transform(points[1]);
         }
         Shape::Path(p) => {
             for pt in p.points.iter_mut() {
-                *pt = rotate_pos2_around(center, *pt, angle_rad);
+                *pt = transform(*pt);
             }
         }
         Shape::Rect(r) => {
             r.rect = rect_aabb_after_rotate(center, r.rect, angle_rad);
+            // Apply scale to the resulting AABB
+            let min = center + (r.rect.min - center) * scale;
+            let max = center + (r.rect.max - center) * scale;
+            r.rect = Rect::from_min_max(min, max);
         }
         Shape::Text(t) => {
-            t.pos = rotate_pos2_around(center, t.pos, angle_rad);
-            // ✅ THE KEY FIX: Rotates the actual glyphs
+            t.pos = transform(t.pos);
             t.angle += angle_rad;
+            // Note: egui TextShape doesn't have a simple scale field,
+            // but the caller usually handles FontId size.
+            // However, we are transforming geometry here.
+            // For now, we rely on the position change.
         }
         Shape::Mesh(mesh) => {
             for v in mesh.vertices.iter_mut() {
-                v.pos = rotate_pos2_around(center, v.pos, angle_rad);
+                v.pos = transform(v.pos);
             }
         }
         Shape::QuadraticBezier(b) => {
             for p in &mut b.points {
-                *p = rotate_pos2_around(center, *p, angle_rad);
+                *p = transform(*p);
             }
         }
         Shape::CubicBezier(b) => {
             for p in &mut b.points {
-                *p = rotate_pos2_around(center, *p, angle_rad);
+                *p = transform(*p);
             }
         }
         Shape::Callback(_) | Shape::Noop => {}
     }
 }
 
-/// Inverse-rotate pointer input so that clicks hit the correct widget when content is rotated.
-fn transform_raw_input_for_rotation(
+/// Inverse-rotate and inverse-scale pointer input so that clicks hit the correct widget.
+fn transform_raw_input_for_rotation_scale(
     raw_input: &mut egui::RawInput,
     content_rect: Rect,
     angle_rad: f32,
+    scale: f32,
 ) {
-    if angle_rad.abs() < 0.0001 {
+    let no_rotate = angle_rad.abs() < 0.0001;
+    let no_scale = (scale - 1.0).abs() < 0.0001;
+
+    if no_rotate && no_scale {
         return;
     }
+
     let center = content_rect.center();
     let inv_angle_rad = -angle_rad;
+    let inv_scale = 1.0 / scale.max(0.1);
+
     for ev in raw_input.events.iter_mut() {
         let pos_opt: Option<&mut Pos2> = match ev {
             egui::Event::PointerMoved(pos) => Some(pos),
@@ -1331,7 +1362,16 @@ fn transform_raw_input_for_rotation(
         };
         if let Some(pos) = pos_opt {
             if content_rect.contains(*pos) {
-                *pos = rotate_pos2_around(center, *pos, inv_angle_rad);
+                // To undo scaling: P_orig = center + (P_scaled - center) / scale
+                let mut p = *pos;
+                if !no_scale {
+                    p = center + (p - center) * inv_scale;
+                }
+                // To undo rotation
+                if !no_rotate {
+                    p = rotate_pos2_around(center, p, inv_angle_rad);
+                }
+                *pos = p;
             }
         }
     }
@@ -1339,13 +1379,14 @@ fn transform_raw_input_for_rotation(
 
 /// Transform all shapes that lie in the content area (below title bar) by rotation.
 /// rotation: 0=0°, 1=90°, 2=180°, 3=270°.
-/// Transform all shapes that lie in the content area (below title bar) by rotation angle (radians).
+/// Transform all shapes that lie in the content area (below title bar) by rotation angle and scale.
 fn transform_content_shapes(
     shapes: &[ClippedShape],
     content_rect: Rect,
     angle_rad: f32,
+    scale: f32,
 ) -> Vec<ClippedShape> {
-    if angle_rad.abs() < 0.0001 {
+    if angle_rad.abs() < 0.0001 && (scale - 1.0).abs() < 0.0001 {
         return shapes.to_vec();
     }
     let center = content_rect.center();
@@ -1354,9 +1395,15 @@ fn transform_content_shapes(
         let clip_center_y = clipped.clip_rect.center().y;
         if clip_center_y > TITLE_BAR_HEIGHT {
             let mut new_clip = clipped.clone();
-            transform_shape_rotate(&mut new_clip.shape, center, angle_rad);
+            transform_shape_rotate_scale(&mut new_clip.shape, center, angle_rad, scale);
+
+            // Transform clip_rect as well
             new_clip.clip_rect = rect_aabb_after_rotate(center, new_clip.clip_rect, angle_rad);
-            // Expand clip slightly to prevent artifacts at tilted angles
+            let min = center + (new_clip.clip_rect.min - center) * scale;
+            let max = center + (new_clip.clip_rect.max - center) * scale;
+            new_clip.clip_rect = Rect::from_min_max(min, max);
+
+            // Expand clip slightly to prevent artifacts
             new_clip.clip_rect = new_clip.clip_rect.expand(2.0);
             out.push(new_clip);
         } else {
@@ -1380,6 +1427,92 @@ pub fn render_main_content(
         &mut HashMap<u64, egui::TextureHandle>,
     )>,
 ) {
+    // ── FOOTER RENDERER ─────────────────────────────────────
+    if state.title_bar_state.header_visible {
+        egui::TopBottomPanel::bottom("footer_panel")
+            .exact_height(24.0)
+            .frame(egui::Frame::none().fill(Color32::from_black_alpha(20)))
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing = egui::Vec2::new(12.0, 0.0);
+                    ui.add_space(10.0);
+
+                    // 1. Navigation
+                    if ui
+                        .small_button(RichText::new("◀").color(NEON_CYAN))
+                        .clicked()
+                    {
+                        state.prev_quote();
+                    }
+                    if ui
+                        .small_button(RichText::new("▶").color(NEON_CYAN))
+                        .clicked()
+                    {
+                        state.next_quote();
+                    }
+
+                    ui.separator();
+
+                    // 2. Technical Readout
+                    ui.label(
+                        RichText::new("◈  NEURAL  FEED  ◈")
+                            .font(FontId::proportional(8.5))
+                            .color(NEON_PLASMA.gamma_multiply(0.4)),
+                    );
+
+                    let readout = format!(
+                        "SYN:{:03}  •  FREQ:{:04}ms  •  CORE:∞",
+                        state.quotes.len(),
+                        state.rotation_interval.as_millis()
+                    );
+                    ui.label(
+                        RichText::new(readout)
+                            .font(FontId::proportional(8.5))
+                            .color(NEON_SOLAR.gamma_multiply(0.4)),
+                    );
+
+                    ui.separator();
+
+                    // 3. Rotation Status
+                    let dot_color = if state.rotation_enabled {
+                        Color32::from_rgb(80, 255, 120)
+                    } else {
+                        Color32::from_rgb(255, 60, 80)
+                    };
+                    let (dot_rect, _) = ui.allocate_exact_size(Vec2::new(8.0, 8.0), Sense::hover());
+                    ui.painter()
+                        .circle_filled(dot_rect.center(), 3.0, dot_color);
+
+                    ui.label(
+                        RichText::new(format!(
+                            "Δt {}s  ·  {}",
+                            state.rotation_interval.as_secs(),
+                            if state.rotation_enabled {
+                                "STREAMING"
+                            } else {
+                                "PAUSED"
+                            }
+                        ))
+                        .color(Color32::from_rgba_unmultiplied(150, 200, 200, 180))
+                        .size(9.5),
+                    );
+
+                    ui.separator();
+
+                    // 4. Interval Info
+                    ui.label(
+                        RichText::new(format!(
+                            "INTERVAL: {}s | AUTO: {}",
+                            state.rotation_interval.as_secs(),
+                            if state.rotation_enabled { "ON" } else { "OFF" }
+                        ))
+                        .color(Color32::from_rgba_unmultiplied(255, 255, 255, 120))
+                        .size(9.0),
+                    );
+                });
+            });
+    }
+
     // RIGHT SIDE PANEL — must be declared BEFORE CentralPanel
 
     if state.title_bar_state.control_panel_visible {
@@ -1527,69 +1660,6 @@ pub fn render_main_content(
 
             ui.vertical_centered(|ui| {
                 ui.add_space(80.0);
-
-                // ── HUD FRAME CORNERS ──────────────────────────────────
-                // Draw corner brackets around the central quote area
-                {
-                    let screen = ctx.screen_rect();
-                    let panel_w = if state.title_bar_state.control_panel_visible {
-                        CONTROL_PANEL_WIDTH
-                    } else {
-                        0.0
-                    };
-                    let cx = (screen.width() - panel_w) / 2.0;
-                    let cy = screen.height() / 2.0;
-
-                    let frame_w = 320.0;
-                    let frame_h = 160.0;
-                    let arm = 20.0;
-                    let painter = ui.painter();
-                    let hud_color = NEON_CYAN.gamma_multiply(0.23);
-                    let hud_stroke = Stroke::new(1.5, hud_color);
-
-                    // Top-left corner
-                    let tl = egui::pos2(cx - frame_w, cy - frame_h);
-                    painter.line_segment([tl, egui::pos2(tl.x + arm, tl.y)], hud_stroke);
-                    painter.line_segment([tl, egui::pos2(tl.x, tl.y + arm)], hud_stroke);
-
-                    // Top-right corner
-                    let tr = egui::pos2(cx + frame_w, cy - frame_h);
-                    painter.line_segment([tr, egui::pos2(tr.x - arm, tr.y)], hud_stroke);
-                    painter.line_segment([tr, egui::pos2(tr.x, tr.y + arm)], hud_stroke);
-
-                    // Bottom-left corner
-                    let bl = egui::pos2(cx - frame_w, cy + frame_h);
-                    painter.line_segment([bl, egui::pos2(bl.x + arm, bl.y)], hud_stroke);
-                    painter.line_segment([bl, egui::pos2(bl.x, bl.y - arm)], hud_stroke);
-
-                    // Bottom-right corner
-                    let br = egui::pos2(cx + frame_w, cy + frame_h);
-                    painter.line_segment([br, egui::pos2(br.x - arm, br.y)], hud_stroke);
-                    painter.line_segment([br, egui::pos2(br.x, br.y - arm)], hud_stroke);
-
-                    // Top label tag (using Plasma)
-                    painter.text(
-                        egui::pos2(cx, cy - frame_h - 10.0),
-                        egui::Align2::CENTER_CENTER,
-                        "◈  NEURAL  FEED  ◈",
-                        FontId::proportional(9.0),
-                        NEON_PLASMA.gamma_multiply(0.4),
-                    );
-
-                    // Bottom data readout (using Solar)
-                    let readout = format!(
-                        "SYN:{:03}  •  FREQ:{:04}ms  •  CORE:∞",
-                        state.quotes.len(),
-                        state.rotation_interval.as_millis()
-                    );
-                    painter.text(
-                        egui::pos2(cx, cy + frame_h + 12.0),
-                        egui::Align2::CENTER_CENTER,
-                        &readout,
-                        FontId::proportional(8.5),
-                        NEON_SOLAR.gamma_multiply(0.3),
-                    );
-                }
 
                 // PREVIEW & EDITING LOGIC
                 // If inputs have content, show them (Live Preview).
@@ -1816,89 +1886,7 @@ pub fn render_main_content(
                     }
                 }
 
-                // Navigation buttons
                 ui.add_space(40.0);
-
-                ui.horizontal(|ui| {
-                    let total_btn_w = 220.0;
-                    let avail = ui.available_width();
-                    ui.add_space(((avail - total_btn_w) / 2.0).max(0.0));
-
-                    // PREV — plasma violet
-                    if draw_text_button(ui, "◀  PREV", Color32::from_rgb(80, 0, 160), 100.0, 34.0)
-                        .clicked()
-                    {
-                        state.prev_quote();
-                    }
-
-                    ui.add_space(12.0);
-
-                    // NEXT — neon teal
-                    if draw_text_button(ui, "NEXT  ▶", Color32::from_rgb(0, 120, 100), 100.0, 34.0)
-                        .clicked()
-                    {
-                        state.next_quote();
-                    }
-                });
-
-                // Rotation status bar
-                ui.add_space(24.0);
-
-                ui.horizontal(|ui| {
-                    let avail = ui.available_width();
-                    ui.add_space(((avail - 280.0) / 2.0).max(0.0));
-
-                    // Animated dot indicator
-                    let dot_color = if state.rotation_enabled {
-                        Color32::from_rgb(80, 255, 120)
-                    } else {
-                        Color32::from_rgb(255, 60, 80)
-                    };
-
-                    let (dot_rect, _) = ui.allocate_exact_size(Vec2::new(8.0, 8.0), Sense::hover());
-                    let mid = dot_rect.center();
-                    ui.painter().circle_filled(mid, 3.5, dot_color);
-                    ui.painter().circle_stroke(
-                        mid,
-                        5.5,
-                        Stroke::new(
-                            0.5,
-                            Color32::from_rgba_unmultiplied(
-                                dot_color.r(),
-                                dot_color.g(),
-                                dot_color.b(),
-                                80,
-                            ),
-                        ),
-                    );
-
-                    ui.add_space(6.0);
-                    ui.label(
-                        RichText::new(format!(
-                            "Δt {}s  ·  {}",
-                            state.rotation_interval.as_secs(),
-                            if state.rotation_enabled {
-                                "STREAMING"
-                            } else {
-                                "PAUSED"
-                            }
-                        ))
-                        .color(Color32::from_rgba_unmultiplied(150, 200, 200, 180))
-                        .size(10.5),
-                    );
-                });
-
-                // Interval display
-                ui.add_space(30.0);
-                ui.label(
-                    RichText::new(format!(
-                        "Interval: {}s | Auto-rotation: {}",
-                        state.rotation_interval.as_secs(),
-                        if state.rotation_enabled { "ON" } else { "OFF" }
-                    ))
-                    .color(Color32::from_rgba_unmultiplied(255, 255, 255, 150))
-                    .size(12.0),
-                );
             });
         });
 }
@@ -3542,10 +3530,11 @@ impl AppRunner {
             Pos2::new(0.0, TITLE_BAR_HEIGHT),
             Pos2::new(content_w, content_h),
         );
-        transform_raw_input_for_rotation(
+        transform_raw_input_for_rotation_scale(
             &mut raw_input,
             content_rect,
             app_state.current_rotation_angle,
+            app_state.current_scale,
         );
         let full_output = egui_ctx.run(raw_input, |ctx| {
             // Track activity for auto-hide
@@ -4078,18 +4067,55 @@ impl AppRunner {
                 _ => None,
             };
 
-            // Smooth content rotation animation
+            // Smooth content rotation and scaling animation
             {
                 let speed = 8.0_f32;
                 let dt = 0.016_f32;
-                app_state.current_rotation_angle += (app_state.target_rotation_angle
-                    - app_state.current_rotation_angle)
-                    * (1.0 - (-speed * dt).exp());
+                let lerp = 1.0 - (-speed * dt).exp();
+
+                app_state.current_rotation_angle +=
+                    (app_state.target_rotation_angle - app_state.current_rotation_angle) * lerp;
+
+                // Calculate target scale to fit in window
+                let angle = app_state.current_rotation_angle;
+                let cos_a = angle.cos().abs();
+                let sin_a = angle.sin().abs();
+
+                let w = content_rect.width();
+                let h = content_rect.height();
+
+                let bounding_w = w * cos_a + h * sin_a;
+                let bounding_h = w * sin_a + h * cos_a;
+
+                let target_scale = (w / bounding_w).min(h / bounding_h).min(1.0);
+                app_state.current_scale += (target_scale - app_state.current_scale) * lerp;
 
                 if (app_state.current_rotation_angle - app_state.target_rotation_angle).abs()
                     > 0.001
+                    || (app_state.current_scale - target_scale).abs() > 0.001
                 {
                     window.request_redraw();
+                }
+            }
+
+            // Sync rotation state with 3D background (Windows Property)
+            #[cfg(windows)]
+            {
+                if let Ok(handle) = window.window_handle() {
+                    if let winit::raw_window_handle::RawWindowHandle::Win32(win32) = handle.as_raw()
+                    {
+                        let hwnd = HWND(win32.hwnd.get() as _);
+                        let mut property_name: Vec<u16> = "RotationState".encode_utf16().collect();
+                        property_name.push(0);
+                        let angle_bits = app_state.current_rotation_angle.to_bits();
+                        unsafe {
+                            let _ = SetPropW(
+                                hwnd,
+                                windows::core::PCWSTR(property_name.as_ptr()),
+                                windows::Win32::Foundation::HANDLE(angle_bits as _),
+                            );
+                        }
+                    }
                 }
             }
 
@@ -4123,11 +4149,14 @@ impl AppRunner {
         egui_state.handle_platform_output(window, full_output.platform_output);
 
         // Outer-box rotation: transform content-area shapes (below title bar) by smooth angle
-        let shapes_to_tessellate = if app_state.current_rotation_angle.abs() > 0.0001 {
+        let shapes_to_tessellate = if app_state.current_rotation_angle.abs() > 0.0001
+            || (app_state.current_scale - 1.0).abs() > 0.0001
+        {
             transform_content_shapes(
                 &full_output.shapes,
                 content_rect,
                 app_state.current_rotation_angle,
+                app_state.current_scale,
             )
         } else {
             full_output.shapes
