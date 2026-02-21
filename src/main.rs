@@ -403,6 +403,8 @@ pub struct AppState {
 
     // Rotation state: 0=0, 1=90, 2=180, 3=270
     pub rotation: u8,
+    pub target_rotation_angle: f32,
+    pub current_rotation_angle: f32,
 
     // Bouncy window state (Now part of Multi-Animation)
     pub active_animation: AppAnimation,
@@ -441,6 +443,8 @@ impl Default for AppState {
                 bg_hwnd: None,
                 manual_resize_start: None,
                 rotation: 0,
+                target_rotation_angle: 0.0,
+                current_rotation_angle: 0.0,
                 active_animation: AppAnimation::None,
                 anim_progress: 0.0,
                 bounce_vel_x: 5.0,
@@ -523,6 +527,8 @@ impl Default for AppState {
                 bg_hwnd: None,
                 manual_resize_start: None,
                 rotation: 0,
+                target_rotation_angle: 0.0,
+                current_rotation_angle: 0.0,
                 active_animation: AppAnimation::None,
                 anim_progress: 0.0,
                 bounce_vel_x: 5.0,
@@ -1250,8 +1256,13 @@ fn rect_aabb_after_rotate(center: Pos2, r: Rect, angle_rad: f32) -> Rect {
     Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y))
 }
 
-/// Transform a single shape in-place by rotating all geometry around center.
+/// Transform a single shape in-place by rotating all geometry around center by angle_rad.
+/// KEY FIX: TextShape.angle += angle_rad (rotates actual glyphs)
 fn transform_shape_rotate(shape: &mut Shape, center: Pos2, angle_rad: f32) {
+    if angle_rad.abs() < 0.0001 {
+        return;
+    }
+
     match shape {
         Shape::Vec(shapes) => {
             for s in shapes.iter_mut() {
@@ -1278,6 +1289,8 @@ fn transform_shape_rotate(shape: &mut Shape, center: Pos2, angle_rad: f32) {
         }
         Shape::Text(t) => {
             t.pos = rotate_pos2_around(center, t.pos, angle_rad);
+            // ✅ THE KEY FIX: Rotates the actual glyphs
+            t.angle += angle_rad;
         }
         Shape::Mesh(mesh) => {
             for v in mesh.vertices.iter_mut() {
@@ -1285,15 +1298,14 @@ fn transform_shape_rotate(shape: &mut Shape, center: Pos2, angle_rad: f32) {
             }
         }
         Shape::QuadraticBezier(b) => {
-            b.points[0] = rotate_pos2_around(center, b.points[0], angle_rad);
-            b.points[1] = rotate_pos2_around(center, b.points[1], angle_rad);
-            b.points[2] = rotate_pos2_around(center, b.points[2], angle_rad);
+            for p in &mut b.points {
+                *p = rotate_pos2_around(center, *p, angle_rad);
+            }
         }
         Shape::CubicBezier(b) => {
-            b.points[0] = rotate_pos2_around(center, b.points[0], angle_rad);
-            b.points[1] = rotate_pos2_around(center, b.points[1], angle_rad);
-            b.points[2] = rotate_pos2_around(center, b.points[2], angle_rad);
-            b.points[3] = rotate_pos2_around(center, b.points[3], angle_rad);
+            for p in &mut b.points {
+                *p = rotate_pos2_around(center, *p, angle_rad);
+            }
         }
         Shape::Callback(_) | Shape::Noop => {}
     }
@@ -1303,13 +1315,13 @@ fn transform_shape_rotate(shape: &mut Shape, center: Pos2, angle_rad: f32) {
 fn transform_raw_input_for_rotation(
     raw_input: &mut egui::RawInput,
     content_rect: Rect,
-    rotation: u8,
+    angle_rad: f32,
 ) {
-    if rotation == 0 {
+    if angle_rad.abs() < 0.0001 {
         return;
     }
     let center = content_rect.center();
-    let angle_rad = -(rotation as f32) * std::f32::consts::FRAC_PI_2;
+    let inv_angle_rad = -angle_rad;
     for ev in raw_input.events.iter_mut() {
         let pos_opt: Option<&mut Pos2> = match ev {
             egui::Event::PointerMoved(pos) => Some(pos),
@@ -1319,7 +1331,7 @@ fn transform_raw_input_for_rotation(
         };
         if let Some(pos) = pos_opt {
             if content_rect.contains(*pos) {
-                *pos = rotate_pos2_around(center, *pos, angle_rad);
+                *pos = rotate_pos2_around(center, *pos, inv_angle_rad);
             }
         }
     }
@@ -1327,15 +1339,15 @@ fn transform_raw_input_for_rotation(
 
 /// Transform all shapes that lie in the content area (below title bar) by rotation.
 /// rotation: 0=0°, 1=90°, 2=180°, 3=270°.
+/// Transform all shapes that lie in the content area (below title bar) by rotation angle (radians).
 fn transform_content_shapes(
     shapes: &[ClippedShape],
     content_rect: Rect,
-    rotation: u8,
+    angle_rad: f32,
 ) -> Vec<ClippedShape> {
-    if rotation == 0 {
+    if angle_rad.abs() < 0.0001 {
         return shapes.to_vec();
     }
-    let angle_rad = (rotation as f32) * std::f32::consts::FRAC_PI_2;
     let center = content_rect.center();
     let mut out = Vec::with_capacity(shapes.len());
     for clipped in shapes {
@@ -1344,6 +1356,8 @@ fn transform_content_shapes(
             let mut new_clip = clipped.clone();
             transform_shape_rotate(&mut new_clip.shape, center, angle_rad);
             new_clip.clip_rect = rect_aabb_after_rotate(center, new_clip.clip_rect, angle_rad);
+            // Expand clip slightly to prevent artifacts at tilted angles
+            new_clip.clip_rect = new_clip.clip_rect.expand(2.0);
             out.push(new_clip);
         } else {
             out.push(clipped.clone());
@@ -3528,7 +3542,11 @@ impl AppRunner {
             Pos2::new(0.0, TITLE_BAR_HEIGHT),
             Pos2::new(content_w, content_h),
         );
-        transform_raw_input_for_rotation(&mut raw_input, content_rect, app_state.rotation);
+        transform_raw_input_for_rotation(
+            &mut raw_input,
+            content_rect,
+            app_state.current_rotation_angle,
+        );
         let full_output = egui_ctx.run(raw_input, |ctx| {
             // Track activity for auto-hide
             if ctx.is_using_pointer() || ctx.input(|i| i.pointer.any_down() || !i.events.is_empty())
@@ -3847,9 +3865,10 @@ impl AppRunner {
                             };
                     }
                     TitleBarAction::PlayRotate => {
-                        // Cycle content rotation: 0° → 90° → 180° → 270° → 0°
-                        // Entire content (panel + canvas + 3D bg) is rotated via shape transform.
-                        // app_state.rotation = (app_state.rotation + 1) % 4;
+                        // Increase target angle by 90 degrees (PI/2 radians)
+                        app_state.rotation = app_state.rotation.wrapping_add(1);
+                        app_state.target_rotation_angle =
+                            app_state.rotation as f32 * std::f32::consts::FRAC_PI_2;
                     }
                     TitleBarAction::PlayDissolve => {
                         if app_state.active_animation == AppAnimation::None {
@@ -4059,6 +4078,21 @@ impl AppRunner {
                 _ => None,
             };
 
+            // Smooth content rotation animation
+            {
+                let speed = 8.0_f32;
+                let dt = 0.016_f32;
+                app_state.current_rotation_angle += (app_state.target_rotation_angle
+                    - app_state.current_rotation_angle)
+                    * (1.0 - (-speed * dt).exp());
+
+                if (app_state.current_rotation_angle - app_state.target_rotation_angle).abs()
+                    > 0.001
+                {
+                    window.request_redraw();
+                }
+            }
+
             render_main_content(ctx, app_state, &mut shaper);
 
             render_theme_modal(ctx, app_state);
@@ -4088,9 +4122,13 @@ impl AppRunner {
 
         egui_state.handle_platform_output(window, full_output.platform_output);
 
-        // Outer-box rotation: transform content-area shapes (below title bar) by 90°/180°/270°
-        let shapes_to_tessellate = if app_state.rotation != 0 {
-            transform_content_shapes(&full_output.shapes, content_rect, app_state.rotation)
+        // Outer-box rotation: transform content-area shapes (below title bar) by smooth angle
+        let shapes_to_tessellate = if app_state.current_rotation_angle.abs() > 0.0001 {
+            transform_content_shapes(
+                &full_output.shapes,
+                content_rect,
+                app_state.current_rotation_angle,
+            )
         } else {
             full_output.shapes
         };
