@@ -1926,16 +1926,17 @@ pub fn render_control_panel_contents(
                 ui.horizontal(|ui| {
                     ui.label(
                         RichText::new("Main Text Gap")
-                            .color(Color32::from_rgba_unmultiplied(255, 255, 255, 230))
-                            .size(11.0),
+                            .color(Color32::WHITE)
+                            .size(10.5)
+                            .strong(),
                     );
 
                     // Add flexible space to push the label to the right
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(
                             RichText::new(format!("{:.1}", state.text_style.main_line_gap))
-                                .color(Color32::from_rgb(100, 200, 255))
-                                .size(11.0)
+                                .color(NEON_LIME)
+                                .size(10.5)
                                 .strong(),
                         );
 
@@ -1958,15 +1959,16 @@ pub fn render_control_panel_contents(
                 ui.horizontal(|ui| {
                     ui.label(
                         RichText::new("Supporting Text Gap")
-                            .color(Color32::from_rgba_unmultiplied(255, 255, 255, 230))
-                            .size(11.0),
+                            .color(Color32::WHITE)
+                            .size(10.5)
+                            .strong(),
                     );
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(
                             RichText::new(format!("{:.1}", state.text_style.sub_line_gap))
-                                .color(Color32::from_rgb(100, 200, 255))
-                                .size(11.0)
+                                .color(NEON_LIME)
+                                .size(10.5)
                                 .strong(),
                         );
                         let slider_width = ui.available_width();
@@ -1987,15 +1989,16 @@ pub fn render_control_panel_contents(
                 ui.horizontal(|ui| {
                     ui.label(
                         RichText::new("Gap Between Texts")
-                            .color(Color32::from_rgba_unmultiplied(255, 255, 255, 230))
-                            .size(11.0),
+                            .color(Color32::WHITE)
+                            .size(10.5)
+                            .strong(),
                     );
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(
                             RichText::new(format!("{:.0} px", state.text_style.between_gap))
-                                .color(Color32::from_rgb(100, 200, 255))
-                                .size(11.0)
+                                .color(NEON_LIME)
+                                .size(10.5)
                                 .strong(),
                         );
                         let slider_width = ui.available_width();
@@ -2019,8 +2022,12 @@ pub fn render_control_panel_contents(
             // ===== Interval Section =====
             render_section(ui, "INTERVAL (SECONDS)", |ui| {
                 ui.horizontal(|ui| {
-                    let interval_resp =
-                        ui.add(egui::DragValue::new(&mut state.interval_secs).range(1..=60));
+                    let frame_response = egui::Frame::none()
+                        .fill(Color32::from_black_alpha(80))
+                        .stroke(Stroke::new(1.0, NEON_CYAN.gamma_multiply(0.4)))
+                        .rounding(Rounding::same(4.0))
+                        .show(ui, |ui| ui.add(egui::DragValue::new(&mut state.interval_secs).range(1..=60)));
+                    let interval_resp = frame_response.inner;
                     if interval_resp.changed() {
                         // Clamp logic
                         state.interval_secs = state.interval_secs.clamp(1, 60);
@@ -2031,7 +2038,11 @@ pub fn render_control_panel_contents(
                         state.save();
                     }
 
-                    ui.label(RichText::new("seconds").color(Color32::GRAY).size(11.0));
+                    ui.label(
+                        RichText::new("seconds")
+                            .color(Color32::from_rgb(140, 200, 255))
+                            .size(10.5),
+                    );
                 });
 
                 ui.add_space(8.0);
@@ -2141,7 +2152,7 @@ pub fn render_control_panel_contents(
                                                                 fs,
                                                                 sc,
                                                                 &display_main,
-                                                                9.0,
+                                                                10.0,
                                                                 Color32::WHITE,
                                                                 tc,
                                                             )
@@ -2159,7 +2170,7 @@ pub fn render_control_panel_contents(
                                                             let resp = ui.label(
                                                                 RichText::new(&display_main)
                                                                     .color(Color32::WHITE)
-                                                                    .size(9.0),
+                                                                    .size(10.0),
                                                             );
                                                             clicked_main = resp.clicked();
                                                         }
@@ -2167,7 +2178,7 @@ pub fn render_control_panel_contents(
                                                         let resp = ui.label(
                                                             RichText::new(&display_main)
                                                                 .color(Color32::WHITE)
-                                                                .size(9.0),
+                                                                .size(10.0),
                                                         );
                                                         clicked_main = resp.clicked();
                                                     }
@@ -2175,7 +2186,7 @@ pub fn render_control_panel_contents(
                                                     let resp = ui.label(
                                                         RichText::new(&display_main)
                                                             .color(Color32::WHITE)
-                                                            .size(9.0),
+                                                            .size(10.0),
                                                     );
                                                     clicked_main = resp.clicked();
                                                 }
@@ -2195,10 +2206,8 @@ pub fn render_control_panel_contents(
                                                                 fs,
                                                                 sc,
                                                                 &display_sub,
-                                                                9.0,
-                                                                Color32::from_rgba_unmultiplied(
-                                                                    255, 255, 255, 200,
-                                                                ),
+                                                                9.5,
+                                                                NEON_CYAN.gamma_multiply(0.75),
                                                                 tc,
                                                             )
                                                         {
@@ -2209,31 +2218,23 @@ pub fn render_control_panel_contents(
                                                             ));
                                                         } else {
                                                             ui.label(
-                                                    RichText::new(&display_sub)
-                                                        .color(Color32::from_rgba_unmultiplied(
-                                                            255, 255, 255, 200,
-                                                        ))
-                                                        .size(9.0),
-                                                );
+                                                                RichText::new(&display_sub)
+                                                                    .color(NEON_CYAN.gamma_multiply(0.75))
+                                                                    .size(9.5),
+                                                            );
                                                         }
                                                     } else {
                                                         ui.label(
                                                             RichText::new(&display_sub)
-                                                                .color(
-                                                                    Color32::from_rgba_unmultiplied(
-                                                                        255, 255, 255, 200,
-                                                                    ),
-                                                                )
-                                                                .size(9.0),
+                                                                .color(NEON_CYAN.gamma_multiply(0.75))
+                                                                .size(9.5),
                                                         );
                                                     }
                                                 } else {
                                                     ui.label(
                                                         RichText::new(&display_sub)
-                                                            .color(Color32::from_rgba_unmultiplied(
-                                                                255, 255, 255, 200,
-                                                            ))
-                                                            .size(9.0),
+                                                            .color(NEON_CYAN.gamma_multiply(0.75))
+                                                            .size(9.5),
                                                     );
                                                 }
 
@@ -2312,12 +2313,12 @@ pub fn render_control_panel_contents(
                             "Current Interval: {}s",
                             state.rotation_interval.as_secs()
                         ))
-                        .color(Color32::GRAY)
+                        .color(Color32::from_rgba_unmultiplied(180, 180, 200, 255))
                         .size(10.0),
                     );
                     ui.label(
                         RichText::new(format!("Total Quotes: {}", state.quotes.len()))
-                            .color(Color32::GRAY)
+                            .color(Color32::from_rgba_unmultiplied(180, 180, 200, 255))
                             .size(10.0),
                     );
                     ui.label(
@@ -2329,7 +2330,7 @@ pub fn render_control_panel_contents(
                                 "Paused"
                             }
                         ))
-                        .color(Color32::GRAY)
+                        .color(Color32::from_rgba_unmultiplied(180, 180, 200, 255))
                         .size(10.0),
                     );
                 });
@@ -2338,20 +2339,17 @@ pub fn render_control_panel_contents(
 
 /// Render a section with title
 fn render_section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut egui::Ui)) {
-    // Outer frame with relative darkening
+    // Outer frame with relative darkening and faint cyan glow
     egui::Frame::none()
         .fill(Color32::from_black_alpha(20))
-        .stroke(Stroke::new(1.0, Color32::from_white_alpha(30)))
+        .stroke(Stroke::new(1.0, NEON_CYAN.gamma_multiply(0.25)))
         .inner_margin(egui::Margin::same(1.0))
         .rounding(Rounding::same(10.0))
         .show(ui, |ui| {
             // Inner subtle depth
             egui::Frame::none()
                 .fill(Color32::from_black_alpha(13))
-                .stroke(Stroke::new(
-                    0.5,
-                    Color32::from_rgba_unmultiplied(255, 255, 255, 8),
-                ))
+                .stroke(Stroke::new(0.5, Color32::from_white_alpha(12)))
                 .inner_margin(egui::Margin {
                     left: 12.0,
                     right: 12.0,
@@ -2365,20 +2363,12 @@ fn render_section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut
                         // Left accent mark
                         let (mark_rect, _) =
                             ui.allocate_exact_size(Vec2::new(3.0, 12.0), Sense::hover());
-                        ui.painter().rect_filled(
-                            mark_rect,
-                            Rounding::same(2.0),
-                            Color32::from_rgb(0, 255, 220),
-                        );
+                        ui.painter()
+                            .rect_filled(mark_rect, Rounding::same(2.0), NEON_CYAN);
 
                         ui.add_space(6.0);
 
-                        ui.label(
-                            RichText::new(title)
-                                .color(Color32::WHITE)
-                                .size(10.5)
-                                .strong(),
-                        );
+                        ui.label(RichText::new(title).color(NEON_CYAN).size(9.5).strong());
 
                         // Trailing separator line
                         let avail = ui.available_width();
@@ -3095,12 +3085,20 @@ impl ApplicationHandler for AppRunner {
                         style.visuals.window_fill = CANVAS_BG;
                         style.visuals.panel_fill = CONTROL_PANEL_BG;
 
-                        // Add global hover effects for buttons
+                        // Add global hover effects for buttons and text visibility (Year 50k aesthetic)
                         let mut visuals = style.visuals.clone();
                         visuals.widgets.hovered.bg_fill = Color32::from_rgb(80, 80, 90);
                         visuals.widgets.hovered.bg_stroke =
                             egui::Stroke::new(1.0, Color32::WHITE.gamma_multiply(0.5));
                         visuals.widgets.active.bg_fill = Color32::from_rgb(100, 100, 110);
+                        visuals.widgets.noninteractive.fg_stroke =
+                            egui::Stroke::new(1.0, Color32::from_rgba_unmultiplied(180, 230, 255, 200));
+                        visuals.widgets.inactive.fg_stroke =
+                            egui::Stroke::new(1.0, Color32::WHITE);
+                        visuals.widgets.active.fg_stroke =
+                            egui::Stroke::new(1.0, NEON_CYAN);
+                        visuals.widgets.hovered.fg_stroke =
+                            egui::Stroke::new(1.0, NEON_CYAN);
                         style.visuals = visuals;
 
                         egui_ctx.set_style(style);
