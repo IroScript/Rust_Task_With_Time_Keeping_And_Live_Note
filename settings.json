@@ -39,13 +39,13 @@
   ],
   "interval_secs": 60,
   "theme": {
-    "mode": "Gradient",
+    "mode": "Solid",
     "gradient_angle": 270,
     "gradient_colors": [
       [
-        2,
-        4,
-        16,
+        144,
+        153,
+        255,
         255
       ],
       [
@@ -53,24 +53,12 @@
         0,
         80,
         255
-      ],
-      [
-        0,
-        60,
-        120,
-        255
-      ],
-      [
-        0,
-        200,
-        180,
-        255
       ]
     ],
     "solid_color": [
-      205,
-      54,
-      54,
+      63,
+      1,
+      1,
       255
     ],
     "apply_to_entire_window": true

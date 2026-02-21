@@ -1913,14 +1913,13 @@ pub fn render_control_panel_contents(
             ui.set_width(ui.available_width());
 
             // ===== Add Custom Text Section =====
-            render_section(ui, "ADD CUSTOM TEXT", |ui| {
+            render_section(ui, &format!("ADD CUSTOM TEXT  [{}]", state.quotes.len() + 1), |ui| {
                 // --- Main text input with A+/A-/color buttons to the right ---
                 ui.horizontal(|ui| {
                     // Textarea on the left
                     let text_width = (ui.available_width() - 80.0).max(50.0);
                     let mut text_response = None;
-                    let mut main_frame_rect = Rect::NOTHING;
-                    let main_frame_resp = egui::Frame::none()
+                    egui::Frame::none()
                         .fill(Color32::from_black_alpha(60))
                         .stroke(Stroke::new(1.0, NEON_CYAN.gamma_multiply(0.2)))
                         .rounding(Rounding::same(4.0))
@@ -1936,7 +1935,6 @@ pub fn render_control_panel_contents(
                             );
                             text_response = Some(resp);
                         });
-                    main_frame_rect = main_frame_resp.response.rect;
                     
                     let text_response = text_response.unwrap();
                     if text_response.changed() {
@@ -1959,15 +1957,6 @@ pub fn render_control_panel_contents(
 
                     // Buttons column on the right
                     ui.vertical(|ui| {
-                        // Floating reference number at 45° top-right (outside frame)
-                        ui.painter().text(
-                            main_frame_rect.right_top() + Vec2::new(2.0, -3.0),
-                            egui::Align2::LEFT_BOTTOM,
-                            format!("{}", state.quotes.len() + 1),
-                            FontId::proportional(9.0),
-                            Color32::from_gray(140),
-                        );
-
                         ui.horizontal(|ui| {
                             if ui
                                 .small_button(RichText::new("A+").color(Color32::WHITE).size(10.5))
@@ -2030,8 +2019,7 @@ pub fn render_control_panel_contents(
                 ui.horizontal(|ui| {
                     let text_width = (ui.available_width() - 80.0).max(50.0);
                     let mut sub_response = None;
-                    let mut sub_frame_rect = Rect::NOTHING;
-                    let sub_frame_resp = egui::Frame::none()
+                    egui::Frame::none()
                         .fill(Color32::from_black_alpha(60))
                         .stroke(Stroke::new(1.0, NEON_CYAN.gamma_multiply(0.2)))
                         .rounding(Rounding::same(4.0))
@@ -2046,7 +2034,6 @@ pub fn render_control_panel_contents(
                             );
                             sub_response = Some(resp);
                         });
-                    sub_frame_rect = sub_frame_resp.response.rect;
 
                     let sub_response = sub_response.unwrap();
                     if sub_response.changed() {
@@ -2075,13 +2062,6 @@ pub fn render_control_panel_contents(
 
                     ui.vertical(|ui| {
                         // Floating reference number at 45° top-right (outside frame)
-                        ui.painter().text(
-                            sub_frame_rect.right_top() + Vec2::new(2.0, -3.0),
-                            egui::Align2::LEFT_BOTTOM,
-                            format!("{}", state.quotes.len() + 1),
-                            FontId::proportional(9.0),
-                            Color32::from_gray(140),
-                        );
                         ui.horizontal(|ui| {
                             if ui
                                 .small_button(RichText::new("A+").color(Color32::WHITE).size(10.5))
