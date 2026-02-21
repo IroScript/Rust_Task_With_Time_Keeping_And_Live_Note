@@ -79,9 +79,9 @@
     "main_text_size": 24.0,
     "sub_text_size": 14.0,
     "main_text_color": [
-      255,
-      255,
-      255,
+      192,
+      59,
+      59,
       255
     ],
     "sub_text_color": [

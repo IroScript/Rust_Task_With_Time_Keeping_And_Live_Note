@@ -816,14 +816,14 @@ fn label_with_glow(
 ) -> egui::Response {
     let font_id = FontId::proportional(size);
     // Approximate size for allocation (avoids layout API differences across egui versions)
-    let approx_w = (text.len() as f32 * size * 0.55).max(20.0) + 10.0;
-    let approx_h = size * 1.8 + 10.0;
+    let approx_w = (text.len() as f32 * size * 0.55).max(20.0) + 2.0;
+    let approx_h = size * 1.8 + 2.0;
     let allocate_size = Vec2::new(approx_w, approx_h);
     let (rect, response) = ui.allocate_exact_size(allocate_size, Sense::hover());
     let pos = match align {
-        egui::Align2::LEFT_CENTER => rect.left_center() + Vec2::new(5.0, 0.0),
-        egui::Align2::RIGHT_CENTER => rect.right_center() - Vec2::new(5.0, 0.0),
-        _ => rect.center(),
+        egui::Align2::LEFT_CENTER => rect.left_center() + Vec2::new(0.0, -1.0),
+        egui::Align2::RIGHT_CENTER => rect.right_center() - Vec2::new(0.0, 1.0),
+        _ => rect.center() - Vec2::new(0.0, 1.0),
     };
     let offsets: [Vec2; 8] = [
         Vec2::new(0.5, 0.0),
@@ -1956,6 +1956,12 @@ pub fn render_control_panel_contents(
 
                     // Buttons column on the right
                     ui.vertical(|ui| {
+                        // Next index reference (top-right of textarea)
+                        ui.label(
+                            RichText::new(format!("{}", state.quotes.len() + 1))
+                                .size(9.5)
+                                .color(Color32::from_gray(140)),
+                        );
                         ui.horizontal(|ui| {
                             if ui
                                 .small_button(RichText::new("A+").color(Color32::WHITE).size(10.5))
@@ -2059,6 +2065,12 @@ pub fn render_control_panel_contents(
                     }
 
                     ui.vertical(|ui| {
+                        // Next index reference (top-right of textarea)
+                        ui.label(
+                            RichText::new(format!("{}", state.quotes.len() + 1))
+                                .size(9.5)
+                                .color(Color32::from_gray(140)),
+                        );
                         ui.horizontal(|ui| {
                             if ui
                                 .small_button(RichText::new("A+").color(Color32::WHITE).size(10.5))
@@ -2612,16 +2624,16 @@ fn render_section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut
                         let (mark_rect, _) =
                             ui.allocate_exact_size(Vec2::new(3.0, 12.0), Sense::hover());
                         ui.painter()
-                            .rect_filled(mark_rect, Rounding::same(2.0), NEON_CYAN);
+                            .rect_filled(mark_rect, Rounding::same(2.0), NEON_LIME);
 
-                        ui.add_space(6.0);
+                        ui.add_space(2.0);
 
                         label_with_glow(
                             ui,
                             title,
-                            NEON_CYAN,
+                            NEON_LIME,
                             10.0,
-                            NEON_CYAN.gamma_multiply(0.5),
+                            NEON_LIME.gamma_multiply(0.4),
                             egui::Align2::LEFT_CENTER,
                         );
 
@@ -2636,7 +2648,7 @@ fn render_section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut
                                     egui::pos2(line_rect.left(), mid_y),
                                     egui::pos2(line_rect.right(), mid_y),
                                 ],
-                                Stroke::new(0.5, NEON_CYAN.gamma_multiply(0.17)),
+                                Stroke::new(0.5, NEON_LIME.gamma_multiply(0.17)),
                             );
                         }
                     });
