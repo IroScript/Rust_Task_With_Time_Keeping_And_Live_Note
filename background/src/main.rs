@@ -25,6 +25,7 @@ struct PointLight1;
 struct TrackingState {
     hwnd: isize,
     frames: u32,
+    current_rotation: u8,
 }
 
 fn main() {
@@ -69,6 +70,7 @@ fn main() {
         .insert_resource(TrackingState {
             hwnd: target_hwnd,
             frames: 0,
+            current_rotation: 0,
         })
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -369,6 +371,7 @@ fn animate_scene(
 // --- Sync Window Process ---
 fn sync_window_process(
     mut q_window: Query<&mut Window, With<PrimaryWindow>>,
+    mut q_camera: Query<&mut Transform, With<Camera3d>>,
     mut tracking: ResMut<TrackingState>,
 ) {
     if let Ok(mut window) = q_window.get_single_mut() {
@@ -384,7 +387,7 @@ fn sync_window_process(
                 };
                 use windows::Win32::UI::Shell::{ITaskbarList, TaskbarList};
                 use windows::Win32::UI::WindowsAndMessaging::{
-                    FindWindowA, GetWindowRect, IsIconic,
+                    FindWindowA, GetPropW, GetWindowRect, IsIconic,
                 };
 
                 let main_hwnd = HWND(tracking.hwnd);
@@ -426,6 +429,25 @@ fn sync_window_process(
 
                             window.position = bevy::window::WindowPosition::At(IVec2::new(x, y));
                             window.resolution.set(width, height);
+                        }
+                    }
+
+                    // Check for rotation state property
+                    let mut property_name: Vec<u16> = "RotationState".encode_utf16().collect();
+                    property_name.push(0);
+
+                    let prop_val =
+                        GetPropW(main_hwnd, windows::core::PCWSTR(property_name.as_ptr()));
+                    let new_rotation = (prop_val.0 as isize & 0xFF) as u8;
+
+                    if new_rotation != tracking.current_rotation {
+                        tracking.current_rotation = new_rotation;
+                        // Rotate camera to match window rotation
+                        // 0=0, 1=90, 2=180, 3=270
+                        if let Ok(mut cam_transform) = q_camera.get_single_mut() {
+                            let angle = (new_rotation as f32) * (PI / 2.0);
+                            // We want to rotate around Z axis to match screen rotation
+                            cam_transform.rotation = Quat::from_rotation_z(-angle);
                         }
                     }
                 }

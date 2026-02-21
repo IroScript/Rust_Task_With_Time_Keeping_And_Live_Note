@@ -1,0 +1,16 @@
+[package]
+name = "rotating_window"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "rotating_window"
+path = "src/main.rs"
+
+[dependencies]
+# Pure WinAPI — zero external dependencies
+# All Windows API calls are done via raw extern "system" FFI
+
+[profile.release]
+opt-level = 3
+strip = true

@@ -201,6 +201,8 @@ pub mod icons {
     pub const CLOSE: TitleBarIcon = TitleBarIcon::new("\u{f110a}", "Close", 20.0, 13.2);
     pub const HIDE_HEADER: TitleBarIcon = TitleBarIcon::new("\u{f102}", "Hide Header", 20.0, 17.5);
     pub const SHOW_HEADER: TitleBarIcon = TitleBarIcon::new("\u{f103}", "Show Header", 20.0, 24.0);
+    pub const ROTATE: TitleBarIcon = TitleBarIcon::new("\u{f01e}", "Rotate Window", 20.0, 16.0);
+    pub const ANIMATE: TitleBarIcon = TitleBarIcon::new("\u{f04b}", "Animate Window", 20.0, 16.0);
 }
 
 // =============================================================================
@@ -271,6 +273,7 @@ pub enum TitleBarAction {
     CloseClicked,
     ShowHeader,
     HideHeader,
+    AnimateClicked,
 }
 
 // =============================================================================
@@ -360,6 +363,14 @@ pub struct AppState {
     // Custom manual resize state
     // (ResizeDirection, initial_cursor_x, initial_cursor_y, initial_window_x, initial_window_y, initial_width, initial_height)
     pub manual_resize_start: Option<(winit::window::ResizeDirection, i32, i32, i32, i32, u32, u32)>,
+
+    // Rotation state: 0=0, 1=90, 2=180, 3=270
+    pub rotation: u8,
+
+    // Bouncy window state
+    pub is_bouncing: bool,
+    pub bounce_vel_x: f32,
+    pub bounce_vel_y: f32,
 }
 
 impl Default for AppState {
@@ -390,6 +401,10 @@ impl Default for AppState {
                 bg_process: None,
                 bg_hwnd: None,
                 manual_resize_start: None,
+                rotation: 0,
+                is_bouncing: false,
+                bounce_vel_x: 5.0,
+                bounce_vel_y: 4.0,
             }
         } else {
             // Default initialization if no config found
@@ -466,6 +481,10 @@ impl Default for AppState {
                 bg_process: None,
                 bg_hwnd: None,
                 manual_resize_start: None,
+                rotation: 0,
+                is_bouncing: false,
+                bounce_vel_x: 5.0,
+                bounce_vel_y: 4.0,
             }
         }
     }
@@ -902,6 +921,17 @@ pub fn render_title_bar(
                     .clicked()
                     {
                         actions.push(TitleBarAction::ExportClicked);
+                    }
+                    if draw_icon_button(
+                        ui,
+                        &icons::ANIMATE,
+                        Color32::TRANSPARENT,
+                        Color32::WHITE,
+                        false,
+                    )
+                    .clicked()
+                    {
+                        actions.push(TitleBarAction::AnimateClicked);
                     }
                     if draw_icon_button(
                         ui,
@@ -3122,21 +3152,54 @@ impl AppRunner {
 
         let (app_state, egui_ctx, egui_state, render_state) = match (
             self.app_state.as_mut(),
-            self.egui_ctx.as_ref(),
+            self.egui_ctx.as_mut(),
             self.egui_state.as_mut(),
             self.render_state.as_mut(),
         ) {
-            (Some(app_state), Some(egui_ctx), Some(egui_state), Some(render_state)) => {
-                (app_state, egui_ctx, egui_state, render_state)
-            }
+            (Some(state), Some(ctx), Some(est), Some(rst)) => (state, ctx, est, rst),
             _ => {
-                // Restore cosmic-text state on early return
+                // Return states before returning
                 self.font_system = font_system;
                 self.swash_cache = swash_cache;
                 self.shaped_text_textures = tex_cache;
                 return;
             }
         };
+
+        // Window Bounce Physics
+        if app_state.is_bouncing {
+            if let (Ok(pos), Some(monitor)) = (window.outer_position(), window.current_monitor()) {
+                let size = window.outer_size();
+                let monitor_size = monitor.size();
+
+                let mut new_x = pos.x as f32 + app_state.bounce_vel_x;
+                let mut new_y = pos.y as f32 + app_state.bounce_vel_y;
+
+                // Bounce X
+                if new_x < 0.0 {
+                    new_x = 0.0;
+                    app_state.bounce_vel_x *= -1.0;
+                } else if new_x + size.width as f32 > monitor_size.width as f32 {
+                    new_x = monitor_size.width as f32 - size.width as f32;
+                    app_state.bounce_vel_x *= -1.0;
+                }
+
+                // Bounce Y
+                if new_y < 0.0 {
+                    new_y = 0.0;
+                    app_state.bounce_vel_y *= -1.0;
+                } else if new_y + size.height as f32 > monitor_size.height as f32 {
+                    new_y = monitor_size.height as f32 - size.height as f32;
+                    app_state.bounce_vel_y *= -1.0;
+                }
+
+                window.set_outer_position(winit::dpi::PhysicalPosition::new(
+                    new_x as i32,
+                    new_y as i32,
+                ));
+                window.request_redraw();
+            }
+        }
 
         let raw_input = egui_state.take_egui_input(window);
         let full_output = egui_ctx.run(raw_input, |ctx| {
@@ -3409,6 +3472,9 @@ impl AppRunner {
                     }
                     TitleBarAction::ShowHeader => {
                         app_state.title_bar_state.header_visible = true;
+                    }
+                    TitleBarAction::AnimateClicked => {
+                        app_state.is_bouncing = !app_state.is_bouncing;
                     }
                 }
             }
