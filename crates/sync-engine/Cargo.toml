@@ -1,0 +1,16 @@
+[package]
+name = "sync-engine"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+shared = { path = "../shared" }
+tokio.workspace = true
+yrs.workspace = true
+serde = { workspace = true, features = ["derive"] }
+dashmap.workspace = true
+tokio-stream.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+uuid.workspace = true

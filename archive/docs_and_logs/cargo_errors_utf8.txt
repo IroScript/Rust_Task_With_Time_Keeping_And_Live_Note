@@ -1,0 +1,295 @@
+﻿cargo : warning: 
+profiles for the non 
+root package will be 
+ignored, specify 
+profiles at the 
+workspace root:
+At line:1 char:1
++ cargo check 2>&1 | 
+Out-File -Encoding 
+utf8 
+cargo_errors_utf8.txt
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (warning: prof   
+ il...workspace roo    
+t::String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+package:   C:\Users\USE
+R\OneDrive\Desktop\Irak
+_Eid_Time\Task_List_Not
+e\backend\Cargo.toml
+workspace: C:\Users\USE
+R\OneDrive\Desktop\Irak
+_Eid_Time\Task_List_Not
+e\Cargo.toml
+    Checking frontend 
+v0.1.0 (C:\Users\USER\O
+neDrive\Desktop\Irak_Ei
+d_Time\Task_List_Note)
+error[E0615]: 
+attempted to take 
+value of method 
+`text_draw_pos` on 
+type `TextEditOutput`
+    --> 
+src\main.rs:2507:59
+     |
+2507 |             let 
+text_rect = out.galley.
+rect.translate(out.text
+_draw_pos.to_vec2());
+     |                 
+                       
+                   
+^^^^^^^^^^^^^ method, 
+not a field
+     |
+help: use parentheses 
+to call the method
+     |
+2507 |             let 
+text_rect = out.galley.
+rect.translate(out.text
+_draw_pos().to_vec2());
+     |                 
+                       
+                       
+         ++
+
+error[E0615]: 
+attempted to take 
+value of method 
+`text_draw_pos` on 
+type `TextEditOutput`
+    --> 
+src\main.rs:2537:43
+     |
+2537 |                 
+    let local = pos - 
+out.text_draw_pos; // 
+cursor position 
+matches the text, not 
+just the widget rect
+     |                 
+                       
+   ^^^^^^^^^^^^^ 
+method, not a field
+     |
+help: use parentheses 
+to call the method
+     |
+2537 |                 
+    let local = pos - 
+out.text_draw_pos(); 
+// cursor position 
+matches the text, not 
+just the widget rect
+     |                 
+                       
+                ++
+
+error[E0308]: 
+mismatched types
+    --> 
+src\main.rs:2540:61
+     |
+2540 |                 
+        let cursor = ga
+lley.cursor_from_pos(lo
+cal);
+     |                 
+                       
+     --------------- 
+^^^^^ expected `Vec2`, 
+found `Pos2`
+     |                 
+                       
+     |
+     |                 
+                       
+     arguments to this 
+method are incorrect
+     |
+note: method defined 
+here
+    --> C:\Users\USER\.
+cargo\registry\src\mirr
+ors.ustc.edu.cn-5857e57
+f01837ef8\epaint-0.30.0
+\src\text\text_layout_t
+ypes.rs:824:12
+     |
+ 824 |     pub fn 
+cursor_from_pos(&self, 
+pos: Vec2) -> Cursor {
+     |            
+^^^^^^^^^^^^^^^
+
+warning: use of 
+deprecated method `egui
+::Memory::is_anything_b
+eing_dragged`: Use 
+`Context::dragged_id` 
+instead
+    --> 
+src\main.rs:2545:68
+     |
+2545 |             } 
+else if out.response.ha
+s_focus() && 
+!ui.memory(|m| m.is_any
+thing_being_dragged()) 
+{
+     |                 
+                       
+                       
+     ^^^^^^^^^^^^^^^^^^
+^^^^^^^
+     |
+     = note: 
+`#[warn(deprecated)]` 
+on by default
+
+error[E0615]: 
+attempted to take 
+value of method 
+`text_draw_pos` on 
+type `TextEditOutput`
+    --> 
+src\main.rs:2584:75
+     |
+2584 |                 
+let sub_text_rect = out
+_sub.galley.rect.transl
+ate(out_sub.text_draw_p
+os.to_vec2());
+     |                 
+                       
+                       
+            
+^^^^^^^^^^^^^ method, 
+not a field
+     |
+help: use parentheses 
+to call the method
+     |
+2584 |                 
+let sub_text_rect = out
+_sub.galley.rect.transl
+ate(out_sub.text_draw_p
+os().to_vec2());
+     |                 
+                       
+                       
+                       
+  ++
+
+error[E0615]: 
+attempted to take 
+value of method 
+`text_draw_pos` on 
+type `TextEditOutput`
+    --> 
+src\main.rs:2612:51
+     |
+2612 |                 
+        let local = 
+pos - 
+out_sub.text_draw_pos;
+     |                 
+                       
+           
+^^^^^^^^^^^^^ method, 
+not a field
+     |
+help: use parentheses 
+to call the method
+     |
+2612 |                 
+        let local = 
+pos - out_sub.text_draw
+_pos();
+     |                 
+                       
+                       
+ ++
+
+error[E0308]: 
+mismatched types
+    --> 
+src\main.rs:2615:65
+     |
+2615 | ...             
+      let cursor = gall
+ey.cursor_from_pos(loca
+l);
+     |                 
+                       
+   --------------- 
+^^^^^ expected `Vec2`, 
+found `Pos2`
+     |                 
+                       
+   |
+     |                 
+                       
+   arguments to this 
+method are incorrect
+     |
+note: method defined 
+here
+    --> C:\Users\USER\.
+cargo\registry\src\mirr
+ors.ustc.edu.cn-5857e57
+f01837ef8\epaint-0.30.0
+\src\text\text_layout_t
+ypes.rs:824:12
+     |
+ 824 |     pub fn 
+cursor_from_pos(&self, 
+pos: Vec2) -> Cursor {
+     |            
+^^^^^^^^^^^^^^^
+
+warning: use of 
+deprecated method `egui
+::Memory::is_anything_b
+eing_dragged`: Use 
+`Context::dragged_id` 
+instead
+    --> 
+src\main.rs:2620:76
+     |
+2620 |                 
+} else if out_sub.respo
+nse.has_focus() && 
+!ui.memory(|m| m.is_any
+thing_being_dragged()) 
+{
+     |                 
+                       
+                       
+             ^^^^^^^^^^
+^^^^^^^^^^^^^^^
+
+Some errors have 
+detailed explanations: 
+E0308, E0615.
+For more information 
+about an error, try 
+`rustc --explain 
+E0308`.
+warning: `frontend` 
+(bin "frontend") 
+generated 2 warnings
+error: could not 
+compile `frontend` 
+(bin "frontend") due 
+to 6 previous errors; 
+2 warnings emitted

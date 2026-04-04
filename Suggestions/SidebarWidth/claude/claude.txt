@@ -1,0 +1,32 @@
+Now I have full context. The root cause: `panel_content_width` is computed from the static constant **before** the ScrollArea, so it doesn't account for the scrollbar width (≈12px). When the scrollbar appears, content overflows right. Fix: compute `panel_content_width` **inside** the ScrollArea callback from the actual `ui.available_width()`.Now fix the `text_width` and button widths inside `render_section` — they use `ui.available_width()` which is correct, but add a `ui.set_max_width` guard at the top of each section callback, and fix the `list_box_internal_width` which still uses the old pattern:Now let me also check the `render_section` inner frame margin — that `right: 8.0` combined with the outer `1.0` is exactly 9px. So inside the section, available width = `panel_content_width - 1(outer L) - 10(inner L) - 8(inner R) - 1(outer R) = panel_content_width - 20`. With the new dynamic `panel_content_width`, this all auto-adjusts. Let me verify no `panel_content_width` references remain in widget-sizing code, then output the file:
+
+
+Now let's also check the `SidePanel` frame margins — the `inner_margin` of `left: 10, right: 10` is set there. That's fine, egui accounts for it before we get `available_width` inside. Let me also verify the `render_section` inner frame `right: 8.0` margin doesn't cause issues by checking if any button inside uses full `available_width` without subtracting:Good — all 4 button calls use `ui.available_width() - 8.0` which is correct (small padding from the section border). Since `panel_content_width` is now live-computed from actual available space inside the ScrollArea, those will all auto-clamp. Let me do a final sanity check and copy to output:Clean, surgical diff — exactly 6 logical changes. Let me copy to outputs:**Root cause diagnosed and fixed.** Here's exactly what was wrong and what changed:
+
+---
+
+### The Bug
+
+`panel_content_width` was computed **before** the `ScrollArea` opened:
+
+```rust
+// OLD — computed OUTSIDE ScrollArea, doesn't know scrollbar width yet
+let panel_content_width = (CONTROL_PANEL_WIDTH - 40.0).max(0.0); // = 260px hardcoded
+egui::ScrollArea::vertical().show(ui, |ui| {
+    ui.set_width(panel_content_width); // ← already wrong when scrollbar appears
+```
+
+When egui's scrollbar appears (~12px wide), the interior loses those 12px — but `panel_content_width` still said 260px. Every widget sized against it overflowed 12px past the right edge, causing the cut-off you saw.
+
+---
+
+### The 6 Fixes Applied
+
+| Location | Old | New |
+|---|---|---|
+| `panel_content_width` declaration | Static `CONTROL_PANEL_WIDTH - 40.0` outside ScrollArea | `ui.available_width()` **inside** ScrollArea |
+| `ui.set_width/set_max_width` | Called after drag-detect block | Moved to top of ScrollArea, before everything |
+| `text_width` (main input, ×2) | `panel_content_width - 80.0` | `ui.available_width() - 80.0` |
+| `list_box_internal_width` | `panel_content_width - 48.0` | `ui.available_width() - 28.0` (tighter fit) |
+
+Now `panel_content_width` reflects **actual post-scrollbar space** on every frame. All buttons (`+ Add Text`, `Set Interval`, `⏸ Pause Rotation`, `Clear All`) already used `ui.available_width() - 8.0` so they self-correct automatically once the container width is right.

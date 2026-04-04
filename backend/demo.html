@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pure Rust Backend Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        h2 { color: #666; margin-top: 30px; }
+        input, button {
+            padding: 10px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover { background: #45a049; }
+        .output {
+            background: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #4CAF50;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .error {
+            border-left-color: #f44336;
+            color: #f44336;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🦀 Pure Rust Backend Demo</h1>
+        <p>Backend running at: <strong>http://localhost:3000</strong></p>
+
+        <!-- User Creation -->
+        <div class="section">
+            <h2>1. Create User</h2>
+            <input type="text" id="userName" placeholder="Name" value="John Doe">
+            <input type="email" id="userEmail" placeholder="Email" value="john@example.com">
+            <input type="text" id="userCountry" placeholder="Country Code" value="US">
+            <input type="text" id="userCompany" placeholder="Company Name" value="Test Company">
+            <button onclick="createUser()">Create User</button>
+            <div id="userOutput" class="output" style="display:none;"></div>
+        </div>
+
+        <!-- Document Creation -->
+        <div class="section">
+            <h2>2. Create Document</h2>
+            <input type="text" id="docUserId" placeholder="User ID (from step 1)">
+            <input type="text" id="docTitle" placeholder="Document Title" value="My First Document">
+            <input type="text" id="docContent" placeholder="Initial Content" value="Hello World!">
+            <button onclick="createDocument()">Create Document</button>
+            <div id="docOutput" class="output" style="display:none;"></div>
+        </div>
+
+        <!-- List Documents -->
+        <div class="section">
+            <h2>3. List Documents</h2>
+            <input type="text" id="listUserId" placeholder="User ID (optional - leave empty for all)">
+            <button onclick="listDocuments()">List Documents</button>
+            <div id="listOutput" class="output" style="display:none;"></div>
+        </div>
+
+        <!-- Get Document -->
+        <div class="section">
+            <h2>4. Get Document</h2>
+            <input type="text" id="getDocId" placeholder="Document ID">
+            <button onclick="getDocument()">Get Document</button>
+            <div id="getOutput" class="output" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000';
+
+        async function createUser() {
+            const output = document.getElementById('userOutput');
+            try {
+                const response = await fetch(`${API_BASE}/api/users`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('userName').value,
+                        email: document.getElementById('userEmail').value,
+                        country_code: document.getElementById('userCountry').value,
+                        company_name: document.getElementById('userCompany').value
+                    })
+                });
+                const data = await response.json();
+                output.style.display = 'block';
+                output.className = 'output';
+                output.textContent = JSON.stringify(data, null, 2);
+                
+                // Auto-fill user ID in document section
+                document.getElementById('docUserId').value = data.id;
+                document.getElementById('listUserId').value = data.id;
+            } catch (error) {
+                output.style.display = 'block';
+                output.className = 'output error';
+                output.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function createDocument() {
+            const output = document.getElementById('docOutput');
+            try {
+                const response = await fetch(`${API_BASE}/api/documents`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: document.getElementById('docUserId').value,
+                        title: document.getElementById('docTitle').value,
+                        initial_content: document.getElementById('docContent').value
+                    })
+                });
+                const data = await response.json();
+                output.style.display = 'block';
+                output.className = 'output';
+                output.textContent = JSON.stringify(data, null, 2);
+                
+                // Auto-fill document ID in get section
+                document.getElementById('getDocId').value = data.id;
+            } catch (error) {
+                output.style.display = 'block';
+                output.className = 'output error';
+                output.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function listDocuments() {
+            const output = document.getElementById('listOutput');
+            try {
+                const userId = document.getElementById('listUserId').value;
+                const url = userId 
+                    ? `${API_BASE}/api/documents?user_id=${userId}`
+                    : `${API_BASE}/api/documents`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                output.style.display = 'block';
+                output.className = 'output';
+                output.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                output.style.display = 'block';
+                output.className = 'output error';
+                output.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function getDocument() {
+            const output = document.getElementById('getOutput');
+            try {
+                const docId = document.getElementById('getDocId').value;
+                const response = await fetch(`${API_BASE}/api/documents/${docId}`);
+                const data = await response.json();
+                output.style.display = 'block';
+                output.className = 'output';
+                output.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                output.style.display = 'block';
+                output.className = 'output error';
+                output.textContent = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,286 @@
+cargo : warning: profiles for 
+the non root package will be 
+ignored, specify profiles at 
+the workspace root:
+At line:1 char:1
++ cargo check 2>&1 | Out-File 
+-Encoding ascii out.txt
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo          : 
+    NotSpecified: (warning:   
+  profil...workspace root::   
+ String) [], RemoteExcepti    
+on
+    + FullyQualifiedErrorId : 
+    NativeCommandError
+ 
+package:   C:\Users\USER\OneDr
+ive\Desktop\IrakFriday\RustAct
+ive\Rust_Note\backend\Cargo.to
+ml
+workspace: C:\Users\USER\OneDr
+ive\Desktop\IrakFriday\RustAct
+ive\Rust_Note\Cargo.toml
+    Checking quantum_logo 
+v0.1.0 (C:\Users\USER\OneDrive
+\Desktop\IrakFriday\RustActive
+\Rust_Note\background)
+error[E0425]: cannot find 
+value `WS_EX_NOACTIVATE` in 
+this scope
+    --> 
+background\src\main.rs:745:104
+     |
+ 745 |                     
+let target_style = ex_style | 
+WS_EX_TOOLWINDOW.0 as i32 | 
+WS_EX_LAYERED.0 as i32 | 
+WS_EX_NOACTIVATE.0 as i32;
+     |                        
+                              
+                              
+                    
+^^^^^^^^^^^^^^^^
+     |
+    ::: C:\Users\USER\.cargo\r
+egistry\src\index.crates.io-19
+49cf8c6b5b557f\windows-0.52.0\
+src\Windows\Win32\UI\WindowsAn
+dMessaging\mod.rs:5725:1
+     |
+5725 | pub const 
+SWP_NOACTIVATE: 
+SET_WINDOW_POS_FLAGS = 
+SET_WINDOW_POS_FLAGS(16u32);
+     | -----------------------
+----------------------- 
+similarly named constant 
+`SWP_NOACTIVATE` defined here
+     |
+help: a constant with a 
+similar name exists
+     |
+ 745 -                     
+let target_style = ex_style | 
+WS_EX_TOOLWINDOW.0 as i32 | 
+WS_EX_LAYERED.0 as i32 | 
+WS_EX_NOACTIVATE.0 as i32;
+ 745 +                     
+let target_style = ex_style | 
+WS_EX_TOOLWINDOW.0 as i32 | 
+WS_EX_LAYERED.0 as i32 | 
+SWP_NOACTIVATE.0 as i32;
+     |
+
+warning: unused import: 
+`WS_EX_TRANSPARENT`
+   --> 
+background\src\main.rs:738:88
+    |
+738 |                         
+GetWindowLongW, 
+SetWindowLongW, GWL_EXSTYLE, 
+WS_EX_TOOLWINDOW, 
+WS_EX_TRANSPARENT, 
+WS_EX_LAYERED,
+    |                         
+                              
+                              
+   ^^^^^^^^^^^^^^^^^
+    |
+    = note: 
+`#[warn(unused_imports)]` 
+(part of `#[warn(unused)]`) 
+on by default
+
+error[E0425]: cannot find 
+function, tuple struct or 
+tuple variant `HWND` in this 
+scope
+   --> background\src\intel_hd
+4000_compat.rs:290:29
+    |
+290 |             let 
+main_hwnd = 
+HWND(tracking.hwnd);
+    |                         
+    ^^^^ not found in this 
+scope
+
+error[E0425]: cannot find 
+value `WS_EX_NOACTIVATE` in 
+this scope
+    --> background\src\intel_h
+d4000_compat.rs:307:108
+     |
+ 307 |                        
+ let target_style = ex_style 
+| WS_EX_TOOLWINDOW.0 as i32 | 
+WS_EX_LAYERED.0 as i32 | 
+WS_EX_NOACTIVATE.0 as i32;
+     |                        
+                              
+                              
+                        
+^^^^^^^^^^^^^^^^
+     |
+    ::: C:\Users\USER\.cargo\r
+egistry\src\index.crates.io-19
+49cf8c6b5b557f\windows-0.52.0\
+src\Windows\Win32\UI\WindowsAn
+dMessaging\mod.rs:5725:1
+     |
+5725 | pub const 
+SWP_NOACTIVATE: 
+SET_WINDOW_POS_FLAGS = 
+SET_WINDOW_POS_FLAGS(16u32);
+     | -----------------------
+----------------------- 
+similarly named constant 
+`SWP_NOACTIVATE` defined here
+     |
+help: a constant with a 
+similar name exists
+     |
+ 307 -                        
+ let target_style = ex_style 
+| WS_EX_TOOLWINDOW.0 as i32 | 
+WS_EX_LAYERED.0 as i32 | 
+WS_EX_NOACTIVATE.0 as i32;
+ 307 +                        
+ let target_style = ex_style 
+| WS_EX_TOOLWINDOW.0 as i32 | 
+WS_EX_LAYERED.0 as i32 | 
+SWP_NOACTIVATE.0 as i32;
+     |
+
+error[E0425]: cannot find 
+function, tuple struct or 
+tuple variant `CoInitialize` 
+in this scope
+   --> background\src\intel_hd
+4000_compat.rs:316:52
+    |
+316 |                         
+if tracking.frames == 5 && 
+CoInitialize(None).is_ok() {
+    |                         
+                           
+^^^^^^^^^^^^ not found in 
+this scope
+
+error[E0425]: cannot find 
+function, tuple struct or 
+tuple variant 
+`CoCreateInstance` in this 
+scope
+   --> background\src\intel_hd
+4000_compat.rs:317:50
+    |
+317 | ...                   
+if let Ok(taskbar) = 
+CoCreateInstance::<_, 
+ITaskbarList>(
+    |                         
+                   
+^^^^^^^^^^^^^^^^ not found in 
+this scope
+
+error[E0425]: cannot find 
+type `ITaskbarList` in this 
+scope
+   --> background\src\intel_hd
+4000_compat.rs:317:72
+    |
+317 | ...                   
+if let Ok(taskbar) = 
+CoCreateInstance::<_, 
+ITaskbarList>(
+    |                         
+                              
+           ^^^^^^^^^^^^ not 
+found in this scope
+
+error[E0425]: cannot find 
+value `TaskbarList` in this 
+scope
+   --> background\src\intel_hd
+4000_compat.rs:318:34
+    |
+318 | ...                   
+&TaskbarList,
+    |                        
+^^^^^^^^^^^ not found in this 
+scope
+
+error[E0425]: cannot find 
+value `CLSCTX_INPROC_SERVER` 
+in this scope
+   --> background\src\intel_hd
+4000_compat.rs:320:33
+    |
+320 | ...                   
+CLSCTX_INPROC_SERVER,
+    |                       
+^^^^^^^^^^^^^^^^^^^^ not 
+found in this scope
+
+warning: unused import: 
+`WS_EX_TRANSPARENT`
+   --> background\src\intel_hd
+4000_compat.rs:301:92
+    |
+301 | ...                   
+GetWindowLongW, 
+SetWindowLongW, GWL_EXSTYLE, 
+WS_EX_TOOLWINDOW, 
+WS_EX_TRANSPARENT, 
+WS_EX_LAYERED,
+    |                         
+                              
+                              
+ ^^^^^^^^^^^^^^^^^
+    |
+    = note: 
+`#[warn(unused_imports)]` 
+(part of `#[warn(unused)]`) 
+on by default
+
+For more information about 
+this error, try `rustc 
+--explain E0425`.
+warning: `quantum_logo` (bin 
+"quantum_logo") generated 1 
+warning
+error: could not compile 
+`quantum_logo` (bin 
+"quantum_logo") due to 1 
+previous error; 1 warning 
+emitted
+warning: build failed, 
+waiting for other jobs to 
+finish...
+error[E0282]: type 
+annotations needed
+   --> background\src\intel_hd
+4000_compat.rs:322:41
+    |
+322 | ...                   
+let _ = taskbar.HrInit();
+    |                         
+      ^^^^^^^ cannot infer 
+type
+
+Some errors have detailed 
+explanations: E0282, E0425.
+For more information about an 
+error, try `rustc --explain 
+E0282`.
+warning: `quantum_logo` (bin 
+"intel_compat") generated 1 
+warning
+error: could not compile 
+`quantum_logo` (bin 
+"intel_compat") due to 8 
+previous errors; 1 warning 
+emitted

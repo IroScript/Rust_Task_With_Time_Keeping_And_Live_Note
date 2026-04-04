@@ -1,0 +1,39 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\USER\OneDrive\Desktop\Irak_Thu_Fri\Task_Note\backend\Cargo.toml
+workspace: C:\Users\USER\OneDrive\Desktop\Irak_Thu_Fri\Task_Note\Cargo.toml
+    Checking frontend v0.1.0 (C:\Users\USER\OneDrive\Desktop\Irak_Thu_Fri\Task_Note)
+warning: unused import: `live_note::LiveNoteView`
+ --> src\views\mod.rs:4:9
+  |
+4 | pub use live_note::LiveNoteView;
+  |         ^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0609]: no field `inner` on type `egui::Response`
+    --> src\main.rs:4750:28
+     |
+4750 |                         }).inner;
+     |                            ^^^^^ unknown field
+     |
+     = note: available fields are: `ctx`, `layer_id`, `id`, `rect`, `interact_rect` ... and 2 others
+
+error[E0609]: no field `inner` on type `egui::Response`
+    --> src\main.rs:4805:28
+     |
+4805 |                         }).inner;
+     |                            ^^^^^ unknown field
+     |
+     = note: available fields are: `ctx`, `layer_id`, `id`, `rect`, `interact_rect` ... and 2 others
+
+error[E0609]: no field `inner` on type `egui::Response`
+    --> src\main.rs:4860:28
+     |
+4860 |                         }).inner;
+     |                            ^^^^^ unknown field
+     |
+     = note: available fields are: `ctx`, `layer_id`, `id`, `rect`, `interact_rect` ... and 2 others
+
+For more information about this error, try `rustc --explain E0609`.
+warning: `frontend` (bin "frontend") generated 1 warning
+error: could not compile `frontend` (bin "frontend") due to 3 previous errors; 1 warning emitted

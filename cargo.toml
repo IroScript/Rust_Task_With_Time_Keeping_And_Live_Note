@@ -1,0 +1,133 @@
+[workspace]
+members = [
+    "crates/gateway",
+    "crates/sync-engine",
+    "crates/storage",
+    "crates/local-cache",
+    "crates/auth",
+    "crates/shared",
+    "backend",
+    "background",
+    "cli",
+]
+resolver = "2"
+
+[package]
+name = "frontend"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "frontend"
+path = "src/main.rs"
+
+[dependencies]
+egui = "0.30"
+egui-winit = "0.30"
+winit = "0.30"
+softbuffer = "0.4"
+cosmic-text = "0.13"
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm", "Win32_UI_Controls"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+proptest = "1.4"
+chrono = { version = "0.4", features = ["serde"] }
+
+# ============================================
+# CRITICAL: Performance Optimizations
+# ============================================
+[profile.release]
+opt-level = 3              # Maximum optimization
+lto = "thin"               # Link-time optimization (faster linking than "fat")
+codegen-units = 1          # Better optimization, slower compile
+strip = true               # Remove debug symbols (smaller binary)
+panic = "abort"            # Smaller binary, faster panics
+
+[profile.dev]
+opt-level = 1              # Some optimization even in debug mode
+
+# ============================================
+# Low-end PC optimizations
+# ============================================
+[profile.release-small]
+inherits = "release"
+opt-level = "z"            # Optimize for size
+lto = true
+codegen-units = 1
+strip = true
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.80"
+version = "0.1.0"
+
+[workspace.dependencies]
+# GUI and Rendering (সংশোধিত নাম)
+egui = "0.27"
+egui_wgpu = "0.27"
+wgpu = "0.19"
+cosmic-text = "0.12"  # এখানে হাইফেন হবে
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Web framework
+axum = { version = "0.7", features = ["ws"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["cors", "compression-gzip", "trace"] }
+
+# Database
+sqlx = { version = "0.7", features = ["postgres", "sqlite", "runtime-tokio", "uuid", "chrono"] }
+
+# CRDT
+yrs = "0.4"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# UUID
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+thiserror = "2.0"
+
+# Hashing
+sha2 = "0.10"
+
+# AWS SDK
+# aws-config = "1"
+# aws-sdk-s3 = "1"
+
+# Vault client
+# vaultrs = "0.7"
+
+# JWT
+jsonwebtoken = "9"
+
+# Compression
+lz4 = "1"
+
+# Concurrency
+dashmap = "6"
+tokio-stream = "0.1"
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+metrics = "0.22"
+metrics-exporter-prometheus = "0.14"
+
+# Configuration
+config = "0.14"
+
+# Testing
+rstest = "0.23"
+proptest = "1.4"
+wiremock = "0.6"
+test-strategy = "0.3"

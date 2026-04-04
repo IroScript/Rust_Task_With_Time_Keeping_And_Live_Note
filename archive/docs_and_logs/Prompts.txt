@@ -1,0 +1,89 @@
+1st pROMPT  : 26 Feb' 2026 10.43 AM :
+    Central Pannel (or Display) : 
+    1. I want to display all quotes on the screen.
+    2. So all texts from Text Lists to be displayed on the central pannel.
+    3. All Texts , go to next Text just put a gap of 10px between them. But all texts should be there and a sidebar will allow to see all texts
+    4. At the edge of border of right side of the central pannel, put a scroll bar to scroll all the texts.
+    5. At the edge of border of right side of the central pannel, put a option to hide , unhide button just with that row of text.
+    6. Put Also a hide unhide Button in text list field in Side pannel area just with that row of text. 
+    7. Instead of Delete Text use Icon.
+    8. Also Hide unhide Icon, Not Text.
+    9. Texts Lists from side pannel is actually less visible, Increase Font Size, Make color deep, and when I click Panel Font Color, This will also applied to the text. Inface This selection of color should be applied to all the text in the Side pannel. Including anything, Any Text.
+
+End of 1st Prompt : 26 Feb' 2026 10.43 AM Prompt.
+
+
+
+2nd Prompt : 26 Feb' 2026 11.15 AM :
+
+    1. While You applied those, There are some little issues:
+        a. Text lists Outer Box may be css box, it has exceeded the border of the window. So it should be inside the window. and it should follow current other box sizes like Add Custom Text Box, Line Gaps, Interval Seconds.
+        b. I am not seeing the Delete and hide button to all texts in the Text list.
+        c. While delete Buttons or hide unhide button create a small area for both buttons. So that it will not overlap with the text. and it should be inside the window.
+        d. If texts exceeds the border of the window, Add 3 dots icon at the right side of the text list, just before the delete and hide unhide button. 
+
+End of 2nd Prompt : 26 Feb' 2026 11.15 AM :
+
+
+3rd Prompt : 26 Feb' 2026 1.00 PM :
+    1. I see the Side Panel Txt field boxes your recently edited, but you did a great mistake. First box of first text is within the border of the text list css box, but second box is lager that first one, third text filed is more lage than 2nd one. So all the text field should be of same size. 
+
+end of 3rd Prompt : 26 Feb' 2026 1.00 PM :
+
+
+
+4th Prompt : 27 Feb' 2026 12.40 AM :
+
+    1. When in small window, Left Clicking and holding with left key, and dragging the mouse, it should move the window. But when I release the left key, it should not move the window. and Rememebr that the mouse position should be on empty area or non text area. So clicking any non text area or empty area and dragging the mouse, it should move the window. But when I release the left key, it should not move the window.
+
+    2. Left Clicking on any empty area of small window condition, Clicking plus icon on Keyboard should add a new text field. This means the existing text editiong those are current named as add Custom Texts those two fields will be popped up outside of the window but adjacent to the window.
+
+
+
+    Go to suggestions folder and Listen Very Carefully: 
+
+    You should not messup design......
+
+    Should not touch other non relavant things those are outside of this prompt....
+
+    I have given this prompt to claude, write code with suggestion and write prompt: From these text lists holding any text I can move its position from top to bottom anywhere...............Hide button icon and delete button icon should be closed , reduce 75% gap between these two buttons,,,,,,,,,,,,Hide means This text will be disappeared from central or main display...............Display texts will follow the text field semi rounded rectangular design,,,,,,,or simply they will be appeared as separated, with a background glow............
+
+
+    I told or my intention was to only to give me the corrected blocks, But It may be given a complete code block almost 2000 lines......
+
+
+    Which was unexpected.....
+
+    You go to these files and read and filter out whats truly needed.....
+
+    Or If Claude truly written new designs then You have to implement all of them.....
+
+    Cause claude always gives some good design....
+
+
+    So, You carefully apply them without my core things
+
+end of 4th Prompt : 27 Feb' 2026 12.40 AM :
+
+
+
+5th Prompt : 27 Feb' 2026 1.10 AM :
+
+    1. When in small window, Left Clicking and holding with left key, and dragging the mouse, it should move the window. But when I release the left key, it should not move the window. and Rememebr that the mouse position should be on empty area or non text area. So clicking any non text area or empty area and dragging the mouse, it should move the window. But when I release the left key, it should not move the window.
+
+    2. Left Clicking on any empty area of small window condition, Clicking plus (+) icon on Keyboard should add a new text field. This means the existing text editing those are current named as add Custom Texts those two fields, size, color, add text button will be popped up outside of the window but adjacent to the window. Clicking right click will also popped up those fields. That is, add Custom Texts those two fields, size, color, add text button will be popped 
+
+End of 5th Prompt : 27 Feb' 2026 1.10 AM :
+
+
+
+
+6th Prompt : 27 Feb' 2026 1.47 PM :
+
+    1. Double click on any text from central display or side pannel will make it editable from that place, also this text will be shown in add custom text fields for editing purpose.
+    2. And No default text will be there if left empty
+    3. The only edited text, the size applied on it, the color applied on it, the interval applied on it, the line gaps applied on it will be only for that text, that is not universal.
+    4. First edited text will be at top....and laters based on the editing or text adding time.
+    5. Editing Cursor will be shown in the text field where I am editing. Its applicable both for Main display and pannel section texts or quotes.
+
+End of 6th Prompt : 27 Feb' 2026 1.47 PM :

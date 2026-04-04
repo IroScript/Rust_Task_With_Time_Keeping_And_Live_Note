@@ -1,0 +1,20 @@
+﻿cargo :     Finished 
+`dev` profile 
+[unoptimized + 
+debuginfo] target(s) 
+in 0.27s
+At line:1 char:1
++ cargo check 2>&1 | 
+Out-File -Encoding 
+utf8 check.txt
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (    Finished    
+ `d...get(s) in 0.2    
+7s:String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 

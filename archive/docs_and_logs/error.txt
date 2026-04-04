@@ -1,0 +1,22 @@
+    Checking daily-motivation v0.1.0 (C:\Users\USER\OneDrive\Desktop\Irak_Temp\RustTask)
+error[E0502]: cannot borrow `*ui` as mutable because it is also borrowed as immutable
+    --> src\main.rs:1524:21
+     |
+1520 |       let painter = ui.painter();
+     |                     -- immutable borrow occurs here
+...
+1524 |       let card_resp = ui.allocate_ui_with_layout(
+     |  _____________________^
+1525 | |         Vec2::new(card_width, 0.0),
+1526 | |         egui::Layout::top_down(egui::Align::Center),
+1527 | |         |ui| {
+...    |
+1601 | |         },
+1602 | |     );
+     | |_____^ mutable borrow occurs here
+...
+1679 |       painter.set(bg_shape_idx, egui::Shape::Vec(bg_shapes));
+     |       ------- immutable borrow later used here
+
+For more information about this error, try `rustc --explain E0502`.
+error: could not compile `daily-motivation` (bin "daily-motivation") due to 1 previous error

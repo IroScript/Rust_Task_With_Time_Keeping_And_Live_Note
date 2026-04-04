@@ -1,0 +1,6 @@
+1723:    pub fn save_current_input(&mut self) {
+4193:                                    state.save_current_input();
+4313:                                            state.save_current_input();
+4624:                    state.save_current_input();
+4954:                                                    state.save_current_input();
+4977:                                                    state.save_current_input();

@@ -1,0 +1,19 @@
+# Cargo.toml — Pure native Rust (no WASM, no browser)
+
+[package]
+name    = "rotate-demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eframe = "0.28"    # egui framework — GPU-rendered native GUI
+
+# ─────────────────────────────────────────────────────────
+# Build & run:
+#   cargo run
+#
+# That's it. No trunk, no wasm-pack, no wasm32 target,
+# no index.html, no browser. A native desktop window
+# with OpenGL/wgpu rendering and real rotation via
+# the Painter API + 2D rotation matrix.
+# ─────────────────────────────────────────────────────────

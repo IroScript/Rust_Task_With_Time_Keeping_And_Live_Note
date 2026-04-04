@@ -1,0 +1,19 @@
+these are some huge huge documentation
+Needs huge time,
+
+1. Build a login system, Icon of profile can be placed at top left of title bar.... Use Country Code, Country wise, company wise, user wise data, uuid use, Or it can be signed with google or any others....
+
+The reason I am saying is because it will create huge issue later if the base is not correct////
+
+2. Second thing is,
+Currently you have to work with Completely free or open source resources,,,,,
+As If it grows then I will invest money on it.....
+
+3. You should never use any specific service like aws, digital ocean or heruku,,,,,,rather you will use global variables, global cases, that I can use later for any of the cases,,,and if your documentation you are using PostgreSQL then I have already https://console.aiven.io/account account for testing purpose......You can Use it,,,,,If credentials are required then use them,,,
+
+
+4. And tell me which services are required....where to create account that you can work with them.....
+
+5. As, These documentation requires huge time, first start what I am saying,,,,,Later as it will grow slowly we can use all of them....
+
+6. But prioritize live editing feature, Fasted way to get, use data, fasted way to app startup.....

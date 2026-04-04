@@ -1,0 +1,400 @@
+// ─────────────────────────────────────────────────────────────
+// Rotate Demo — Pure native Rust GUI (egui / eframe)
+// NOT web/WASM — this is a native desktop app with GPU rendering
+// Rotation via Painter API + 2D rotation matrix on all coords
+// Text rotation via TextShape { angle } — NOT painter.text()
+// Every symbol, word, method, class preserved from HTML version
+// ─────────────────────────────────────────────────────────────
+
+use eframe::egui;
+use egui::*;
+use epaint::TextShape;
+use std::f32::consts::FRAC_PI_2;
+
+// ══════════════════════════════════════════════════════════════
+//  Colors — exact matches to CSS :root variables
+// ══════════════════════════════════════════════════════════════
+const BG:      Color32 = Color32::from_rgb(0x0d, 0x0d, 0x0d);
+const PANEL:   Color32 = Color32::from_rgb(0x14, 0x14, 0x14);
+const BORDER:  Color32 = Color32::from_rgb(0x2a, 0x2a, 0x2a);
+const ACCENT:  Color32 = Color32::from_rgb(0xe8, 0xff, 0x47);  // --accent:  #e8ff47
+const ACCENT2: Color32 = Color32::from_rgb(0xff, 0x47, 0x57);  // --accent2: #ff4757
+const ACCENT3: Color32 = Color32::from_rgb(0x00, 0xd2, 0xff);  // --accent3: #00d2ff
+const ACCENT4: Color32 = Color32::from_rgb(0xb0, 0x88, 0xf9);  // --accent4: #b088f9
+const TEXT_C:  Color32 = Color32::from_rgb(0xf0, 0xf0, 0xf0);
+const MUTED:   Color32 = Color32::from_rgb(0x55, 0x55, 0x55);
+
+// ══════════════════════════════════════════════════════════════
+//  BoxData — represents each child box (all 9 preserved)
+// ══════════════════════════════════════════════════════════════
+#[derive(Clone)]
+struct BoxData {
+    label:     &'static str,
+    title:     &'static str,
+    value:     &'static str,
+    bar_width: f32,      // 0.0 .. 1.0
+    color:     Color32,
+    wide:      bool,
+}
+
+// ── All 9 boxes — nothing deleted, nothing changed ──
+fn all_boxes() -> [BoxData; 9] {
+    [
+        BoxData { label: "Box 01",          title: "CPU Usage",         value: "74%",      bar_width: 0.74, color: ACCENT,  wide: false },
+        BoxData { label: "Box 02",          title: "Memory",            value: "3.2 GB",   bar_width: 0.55, color: ACCENT2, wide: false },
+        BoxData { label: "Box 03",          title: "Network",           value: "\u{2191} 88ms",   bar_width: 0.30, color: ACCENT3, wide: false },
+        BoxData { label: "Box 04 \u{2014} Wide",   title: "Disk I/O Activity", value: "1.4 TB",   bar_width: 0.80, color: ACCENT4, wide: true  },
+        BoxData { label: "Box 05",          title: "Threads",           value: "128",      bar_width: 0.60, color: ACCENT,  wide: false },
+        BoxData { label: "Box 06",          title: "Errors",            value: "0",        bar_width: 0.00, color: ACCENT2, wide: false },
+        BoxData { label: "Box 07",          title: "Requests",          value: "4.2k",     bar_width: 0.90, color: ACCENT3, wide: false },
+        BoxData { label: "Box 08 \u{2014} Wide",   title: "Active Sessions",   value: "217 live", bar_width: 0.65, color: ACCENT4, wide: true  },
+        BoxData { label: "Box 09",          title: "Uptime",            value: "99.9%",    bar_width: 0.99, color: ACCENT,  wide: false },
+    ]
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RotateApp — the entire application state
+// ══════════════════════════════════════════════════════════════
+struct RotateApp {
+    step:          i32,
+    target_angle:  f32,   // radians — where we want to be
+    current_angle: f32,   // radians — smoothly interpolated
+}
+
+impl RotateApp {
+    fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        // Dark theme matching CSS :root variables
+        let mut visuals = egui::Visuals::dark();
+        visuals.panel_fill = BG;
+        cc.egui_ctx.set_visuals(visuals);
+
+        Self {
+            step:          0,
+            target_angle:  0.0,
+            current_angle: 0.0,
+        }
+    }
+
+    // ── rotate() — preserved exactly from JS version ──
+    //    step += 1;
+    //    const angle = step * 90;
+    fn rotate(&mut self) {
+        self.step += 1;
+        self.target_angle = self.step as f32 * FRAC_PI_2;  // 90° in radians
+    }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  eframe::App — the main loop (replaces the browser event loop)
+// ══════════════════════════════════════════════════════════════
+impl eframe::App for RotateApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // ── Smooth animation (replaces CSS transition) ──
+        // cubic-bezier feel via exponential interpolation
+        let dt = ctx.input(|i| i.predicted_dt);
+        let speed = 8.0_f32;
+        self.current_angle += (self.target_angle - self.current_angle)
+            * (1.0 - (-speed * dt).exp());
+
+        if (self.current_angle - self.target_angle).abs() > 0.001 {
+            ctx.request_repaint();  // keep animating
+        }
+
+        // ── CentralPanel (replaces <body>) ──
+        egui::CentralPanel::default()
+            .frame(egui::Frame::none().fill(BG).inner_margin(40.0))
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+
+                    // ── CONTROLS (replaces <div class="controls">) ──
+                    ui.horizontal(|ui| {
+                        // ⟳ Rotate button
+                        let btn = egui::Button::new(
+                            RichText::new("\u{27F3} Rotate")
+                                .size(15.0)
+                                .strong()
+                                .color(BG)
+                        )
+                        .fill(ACCENT)
+                        .min_size(vec2(140.0, 42.0));
+
+                        if ui.add(btn).clicked() {
+                            self.rotate();
+                        }
+
+                        ui.add_space(20.0);
+
+                        // Step / Angle label
+                        let display_angle = (self.step * 90) % 360;
+                        ui.label(RichText::new("Step: ").size(12.0).color(MUTED));
+                        ui.label(RichText::new(format!("{}", self.step)).size(12.0).color(ACCENT).strong());
+                        ui.label(RichText::new(" | Angle: ").size(12.0).color(MUTED));
+                        ui.label(RichText::new(format!("{}\u{00B0}", display_angle)).size(12.0).color(ACCENT).strong());
+                    });
+
+                    ui.add_space(40.0);
+
+                    // ── SCENE (replaces <div class="scene">) ──
+                    // Allocate painter area for custom rotated rendering
+                    let (resp, painter) = ui.allocate_painter(
+                        vec2(620.0, 580.0),
+                        egui::Sense::hover(),
+                    );
+                    let center = resp.rect.center();
+
+                    // ░░ MASTER BOX — paint everything rotated ░░
+                    paint_master_box(&painter, center, self.current_angle);
+                    // ░░ end master box ░░
+                });
+            });
+    }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  2D Rotation helpers — this IS the rotation mechanism
+//  (replaces CSS transform: rotate(Ndeg))
+// ══════════════════════════════════════════════════════════════
+
+/// Rotate a point around a center using 2D rotation matrix
+///   x' = cx + (x-cx)·cos(θ) − (y-cy)·sin(θ)
+///   y' = cy + (x-cx)·sin(θ) + (y-cy)·cos(θ)
+fn rot_point(p: Pos2, center: Pos2, cos_a: f32, sin_a: f32) -> Pos2 {
+    let dx = p.x - center.x;
+    let dy = p.y - center.y;
+    pos2(
+        center.x + dx * cos_a - dy * sin_a,
+        center.y + dx * sin_a + dy * cos_a,
+    )
+}
+
+/// Draw a rotated filled rectangle via convex_polygon
+fn rotated_rect(
+    painter: &Painter,
+    center: Pos2,
+    rect: Rect,
+    cos_a: f32,
+    sin_a: f32,
+    fill: Color32,
+    stroke: Stroke,
+) {
+    let corners = vec![
+        rot_point(rect.left_top(),     center, cos_a, sin_a),
+        rot_point(rect.right_top(),    center, cos_a, sin_a),
+        rot_point(rect.right_bottom(), center, cos_a, sin_a),
+        rot_point(rect.left_bottom(),  center, cos_a, sin_a),
+    ];
+    painter.add(epaint::Shape::convex_polygon(corners, fill, stroke));
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Rotated text helper — uses TextShape with angle field
+//  (painter.text() does NOT rotate glyphs, only position)
+//  TextShape { angle } rotates the actual rendered glyphs
+// ══════════════════════════════════════════════════════════════
+
+/// Draw text that is actually rotated (glyphs rotate with the angle).
+/// This is the FIX for the painter.text() limitation.
+/// painter.text() only moves position but glyphs stay axis-aligned.
+/// TextShape { angle } rotates the actual text rendering.
+fn paint_rotated_text(
+    painter: &Painter,
+    pos: Pos2,              // already-rotated position
+    anchor: Align2,         // alignment anchor
+    text: &str,
+    font: FontId,
+    color: Color32,
+    angle: f32,             // rotation angle in radians
+) {
+    let galley = painter.layout_no_wrap(
+        text.to_string(),
+        font,
+        color,
+    );
+
+    // Calculate anchored position (Align2 offset)
+    let galley_size = galley.size();
+    let offset = vec2(
+        match anchor.x() {
+            Align::LEFT  => 0.0,
+            Align::Center => -galley_size.x * 0.5,
+            Align::RIGHT => -galley_size.x,
+            _ => 0.0,
+        },
+        match anchor.y() {
+            Align::TOP    => 0.0,
+            Align::Center => -galley_size.y * 0.5,
+            Align::BOTTOM => -galley_size.y,
+            _ => 0.0,
+        },
+    );
+
+    // Rotate the offset vector by the angle so it aligns with rotated frame
+    let cos_a = angle.cos();
+    let sin_a = angle.sin();
+    let rotated_offset = vec2(
+        offset.x * cos_a - offset.y * sin_a,
+        offset.x * sin_a + offset.y * cos_a,
+    );
+
+    let final_pos = pos + rotated_offset;
+
+    let text_shape = TextShape {
+        pos: final_pos,
+        galley,
+        underline: Stroke::NONE,
+        fallback_color: color,
+        override_text_color: Some(color),
+        opacity_factor: 1.0,
+        angle,              // ✅ THIS is the key — rotates actual glyphs
+    };
+
+    painter.add(text_shape);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Paint the master box + all 9 child boxes, fully rotated
+//  (replaces the entire <div class="master-box"> HTML tree)
+//  ALL text now uses paint_rotated_text() with TextShape
+//  so glyphs rotate WITH the boxes — not just their positions
+// ══════════════════════════════════════════════════════════════
+fn paint_master_box(painter: &Painter, center: Pos2, angle: f32) {
+    let cos_a = angle.cos();
+    let sin_a = angle.sin();
+    let rot = |p: Pos2| rot_point(p, center, cos_a, sin_a);
+
+    // ── Master box dimensions ──
+    let master_w = 560.0_f32;
+    let master_h = 500.0_f32;
+    let master_rect = Rect::from_center_size(center, vec2(master_w, master_h));
+
+    // Master box background + 2px border
+    rotated_rect(
+        painter, center, master_rect,
+        cos_a, sin_a,
+        PANEL,
+        Stroke::new(2.0, BORDER),
+    );
+
+    // "MASTER BOX" corner tag
+    let tag_rect = Rect::from_min_size(
+        pos2(master_rect.left() + 20.0, master_rect.top() - 11.0),
+        vec2(90.0, 16.0),
+    );
+    rotated_rect(painter, center, tag_rect, cos_a, sin_a, ACCENT, Stroke::NONE);
+
+    // ✅ FIXED: "MASTER BOX" text now rotates with the box
+    paint_rotated_text(
+        painter,
+        rot(tag_rect.center()),
+        Align2::CENTER_CENTER,
+        "MASTER BOX",
+        FontId::monospace(9.0),
+        BG,
+        angle,
+    );
+
+    // ── Grid layout (3 columns, matching CSS grid) ──
+    let padding = 28.0_f32;
+    let gap     = 16.0_f32;
+    let inner_w = master_w - padding * 2.0;
+    let col_w   = (inner_w - gap * 2.0) / 3.0;
+    let row_h   = 96.0_f32;
+    let start_x = master_rect.left() + padding;
+    let start_y = master_rect.top() + padding + 8.0;
+
+    let boxes = all_boxes();
+    let mut col: usize = 0;
+    let mut row: usize = 0;
+
+    for b in &boxes {
+        let span = if b.wide { 2 } else { 1 };
+        let w = col_w * span as f32 + gap * (span - 1) as f32;
+        let x = start_x + col as f32 * (col_w + gap);
+        let y = start_y + row as f32 * (row_h + gap);
+
+        // ── Child box background + 1px border ──
+        let box_rect = Rect::from_min_size(pos2(x, y), vec2(w, row_h));
+        rotated_rect(painter, center, box_rect, cos_a, sin_a,
+            PANEL, Stroke::new(1.0, BORDER));
+
+        // ── Left color accent bar (3px, like .box::after) ──
+        let accent_rect = Rect::from_min_size(pos2(x, y), vec2(3.0, row_h));
+        rotated_rect(painter, center, accent_rect, cos_a, sin_a,
+            b.color, Stroke::NONE);
+
+        // ── .box-label ── ✅ FIXED: uses TextShape with angle
+        paint_rotated_text(
+            painter,
+            rot(pos2(x + 14.0, y + 14.0)),
+            Align2::LEFT_CENTER,
+            b.label,
+            FontId::monospace(9.0),
+            MUTED,
+            angle,
+        );
+
+        // ── .box-title ── ✅ FIXED: uses TextShape with angle
+        paint_rotated_text(
+            painter,
+            rot(pos2(x + 14.0, y + 34.0)),
+            Align2::LEFT_CENTER,
+            b.title,
+            FontId::proportional(14.0),
+            TEXT_C,
+            angle,
+        );
+
+        // ── .box-value ── ✅ FIXED: uses TextShape with angle
+        paint_rotated_text(
+            painter,
+            rot(pos2(x + 14.0, y + 58.0)),
+            Align2::LEFT_CENTER,
+            b.value,
+            FontId::monospace(18.0),
+            b.color,
+            angle,
+        );
+
+        // ── .bar-track ──
+        let bar_y = y + 80.0;
+        let track_rect = Rect::from_min_size(
+            pos2(x + 14.0, bar_y),
+            vec2(w - 28.0, 3.0),
+        );
+        rotated_rect(painter, center, track_rect, cos_a, sin_a,
+            BORDER, Stroke::NONE);
+
+        // ── .bar-fill ──
+        let fill_w = (w - 28.0) * b.bar_width;
+        if fill_w > 0.0 {
+            let fill_rect = Rect::from_min_size(
+                pos2(x + 14.0, bar_y),
+                vec2(fill_w, 3.0),
+            );
+            rotated_rect(painter, center, fill_rect, cos_a, sin_a,
+                b.color, Stroke::NONE);
+        }
+
+        // Advance grid position
+        col += span;
+        if col >= 3 { col = 0; row += 1; }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  main — entry point (native desktop window, not a browser)
+// ══════════════════════════════════════════════════════════════
+fn main() -> eframe::Result {
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([800.0, 700.0])
+            .with_title("Rotate Demo"),
+        ..Default::default()
+    };
+
+    eframe::run_native(
+        "Rotate Demo",
+        options,
+        Box::new(|cc| Ok(Box::new(RotateApp::new(cc)))),
+    )
+}

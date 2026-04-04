@@ -1,0 +1,18 @@
+Now I have a clear picture of all the requirements. Let me implement all four features:
+
+Drag-to-reorder text list items (up/down buttons)
+Compact hide/delete buttons (icons only, 75% gap reduction)
+Hide = disappear from main display (filter hidden quotes from rotation)
+Main display quotes styled as semi-rounded glowing cards
+Ran a command, created a fileRan a command, created a fileCopy reference imageScriptCreating the complete updated main.rs with all four features implementedmain.rsDoneLet me read the skill file first, then carefully analyze the provided code.Reading the full source code document provided by userReading the full source code document provided by userReading the full source code document provided by userDoneNow let me carefully implement all 4 changes as a clean diff-style patch document:Created a file, ran a command, read a fileCreated a file, ran a command, read a fileCreating the complete patch file with all 4 featuresPATCH_COMPLETE.mdCopy to outputsScriptPresented fileDoneHere's the complete patch with all 4 features. Apply them in order:
+STEP 1 — AppState — Add drag_reorder_from field + move_quote() + next_visible_index() methods + replace next_quote/prev_quote to skip hidden items.
+STEP 2 — TEXT LIST section — Full replacement of the list render_section(...) block. Key changes:
+
+Left column: ▲▼ buttons (14px wide, stacked) for reorder
+ui.spacing_mut().item_spacing.x = 1.0 → reduces gap between hide/delete from ~8px to 1px (~87% reduction)
+Icons replaced: ◉ = visible, ◎ = hidden, ✕ = delete (no emoji, pure symbols — smaller and cleaner)
+Hidden items show a faint ⊘ hidden badge and dim to 38% opacity
+
+STEP 3 — render_quote_card() function — New standalone function that draws each quote as a dark glass card with: 3-layer expanding cyan outer glow, semi-rounded corners (r=18), inner glass rim highlight, corner tick accents. Called from the main display area instead of the old flat text rendering.
+STEP 4 — Title bar counter — Shows (N hidden) badge in amber when any quotes are hidden.
+STEP 5 — Auto-rotation — Already handled by Step 1d's next_visible_index — hidden quotes are automatically skipped during timed rotation.Patch completeDocument · 

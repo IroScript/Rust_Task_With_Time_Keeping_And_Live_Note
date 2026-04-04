@@ -1,0 +1,182 @@
+এখন সব issue পরিষ্কার। ৫টা root cause পেলাম:
+
+1. `d.remove::<scroll_area::State>()` প্রতি frame-এ call হচ্ছে → `content_size` হারিয়ে যাচ্ছে → ScrollArea 0px height হয়ে যাচ্ছে → **text invisible**
+2. `allocate_ui_with_layout` height forcing সঠিকভাবে কাজ করছে না কারণ inner content (TextEdit's desired_rows) প্রতিরোধ করছে
+3. `layout_quote_text`-এ `line_height` apply হচ্ছে না — `main_line_gap` stored আছে কিন্তু TextFormat-এ যাচ্ছে না
+4. Slider range 1.0–3.0, কিন্তু চাই 0.0–50.0
+5. `between_gap` card-এ apply হচ্ছে না (শুধু edit mode-এ আছে)Now let me find the two edit-mode call sites:Now fix the scroll state reset bug (root cause of text invisible):---
+
+## পাওয়া Bug গুলো এবং Fix সমূহ
+
+### Bug 1 — Text Invisible at Any Scale < 100% (Root Cause)
+```
+d.remove::<egui::scroll_area::State>()  ← প্রতি frame এ এটা call হচ্ছে
+```
+এটা ScrollArea এর `content_size` মুছে ফেলছে → পরের frame-এ ScrollArea ভাবছে content = 0px → height collapse → text দেখা যাচ্ছে না।
+
+**Fix**: শুধু `offset.y = 0.0` reset করো, পুরো State মুছবে না:
+```rust
+// আগের ভুল কোড:
+d.remove::<egui::scroll_area::State>(id.with("scroll_main"));
+
+// সঠিক কোড:
+if let Some(state) = d.get_temp_mut::<egui::scroll_area::State>(scroll_id) {
+    state.offset.y = 0.0;  // শুধু offset reset, content_size অক্ষত
+}
+```
+Sub text scroll এর জন্যও same fix apply করতে হবে।
+
+---
+
+### Bug 2 — 10% Scale-এ Card খুব বড় দেখাচ্ছে
+**Root cause**: `desired_rows = ((20.0 * card_scale).ceil() as usize).max(1)` এ scale 0.1 দিলে = `ceil(2.0) = 2`। TextEdit 2 rows minimum চায়। কিন্তু এই `desired_rows` শুধু TextEdit-এর minimum height। ScrollArea `max_height` দিয়ে capped হওয়া উচিত।
+
+আসল সমস্যা: `allocate_ui_with_layout`-এর ভেতরে যদি কোনো widget unexpected space নেয় (যেমন TextEdit internal margin), তাহলে outer cursor বেশি advance করে।
+
+**Fix**: `desired_rows = 1` সবসময়, এবং TextEdit-এ `.margin(Vec2::ZERO)` যোগ করো:
+```rust
+let dynamic_rows = 1usize;  // always minimum
+
+egui::TextEdit::multiline(&mut edit_text)
+    .desired_rows(dynamic_rows)
+    .margin(Vec2::ZERO)  // ← এটা add করো — internal padding সরাবে
+    // ...
+```
+
+---
+
+### Bug 3 — Line Gap কাজ করছে না
+`layout_quote_text` এ `TextFormat` এ `line_height: None` ছিল (default)। `main_line_gap` stored কিন্তু apply হচ্ছিল না।
+
+**Fix** (already applied in file):
+```rust
+fn layout_quote_text(
+    ...
+    line_gap: f32,   // ← নতুন parameter (0.0–50.0)
+) {
+    let line_height_px = default_size * (0.98 + line_gap.clamp(0.0, 50.0) * 2.02 / 50.0);
+    
+    egui::TextFormat {
+        font_id: ...,
+        color: ...,
+        line_height: Some(line_height_px),  // ← এখন apply হচ্ছে
+        ..Default::default()
+    }
+}
+```
+
+Gap mapping:
+| Gap Value | Line Height | Effect |
+|---|---|---|
+| `0.0` | `0.98×` font | Lines overlap 2% |
+| `0.5` | `1.0×` font | Lines just touching |
+| `5.0` | `~1.18×` font | Normal spacing |
+| `50.0` | `3.0×` font | Very spacious |
+
+---
+
+### Bug 4 — Slider Range Wrong
+```rust
+// আগে:
+egui::Slider::new(&mut main_gap, 1.0..=3.0).step_by(0.1)
+
+// হবে:
+egui::Slider::new(&mut main_gap, 0.0_f32..=50.0).step_by(0.5)
+```
+Line 4722 এবং Line 4772 দুটোতেই change করতে হবে।
+
+---
+
+### Bug 5 — Default Values Update
+```rust
+// আগে (line 710-711):
+main_line_gap: 1.2,
+sub_line_gap: 1.2,
+
+// হবে:
+main_line_gap: 5.0,   // 0-50 scale এ 5.0 ≈ 1.18× height (আগের 1.2x এর কাছাকাছি)
+sub_line_gap: 5.0,
+```
+
+---
+
+### Bug 6 — Between Gap Card-এ Apply হচ্ছে না
+Line 3218 area তে separator এর আগে/পরে gap যোগ করো:
+```rust
+if !quote_sub.is_empty() && card_scale > 0.05 {
+    // Between gap — card_scale দিয়ে scale করো
+    let gap = text_style.between_gap * card_scale;
+    if gap > 0.5 { ui.add_space(gap); }
+    
+    // separator drawing...
+    
+    if gap > 0.5 { ui.add_space(gap); }
+    
+    // sub text...
+}
+```
+
+---
+
+### Sub Text Scroll Reset Fix (same as Bug 1)
+Line ~3253-3256:
+```rust
+// আগে:
+d.remove::<egui::scroll_area::State>(id.with("scroll_sub"));
+
+// হবে:
+let sub_scroll_id = id.with("scroll_sub");
+if let Some(s) = d.get_temp_mut::<egui::scroll_area::State>(sub_scroll_id) {
+    s.offset.y = 0.0;
+}
+```
+
+---
+
+সব change একসাথে apply করার পরে build করো। সবচেয়ে critical fix হলো **Bug 1** (scroll State removal) — এটা fix হলেই text visible হবে। বাকিগুলো height scaling এবং line gap এর জন্য।
+
+
+
+
+
+Now fix the separator section to apply `between_gap` inside the card:Now fix the slider ranges and defaults:Now verify the file builds (check for syntax errors by looking at critical changed sections):সব change সঠিকভাবে landed। চলো output এ দিই:সব changes একটা summary:
+
+---
+
+### Applied Changes (৯টি surgical fix)
+
+**🔴 Critical — Text Invisible Bug (Bug 1)**
+`d.remove::<scroll_area::State>()` → `scroll_state.offset.y = 0.0`
+প্রতি frame এ full State remove করলে `content_size = 0` হয়ে ScrollArea collapse করে। এখন শুধু offset reset হয়।
+
+**🔴 Critical — Sub Text Same Bug**
+Same fix for `scroll_sub` ID.
+
+**🟠 Height Scaling Fix**
+```
+main_scroll_height: (card_max_height * 0.6).max(0.0)
+→ (card_max_height * 0.65).max(main_size + 4.0)   // min = 1 line always visible
+
+sub_scroll_height: (sub_size * 2.5 * card_scale).min(80.0 * card_scale).max(0.0)
+→ (card_max_height * 0.35).max(sub_size + 4.0).min(80.0)  // proportional + min visibility
+
+dynamic_rows: ((20.0 * card_scale).ceil() as usize).max(1)
+→ 1usize  // TextEdit no longer fights ScrollArea for height
+```
+
+**🟠 TextEdit Internal Padding Remove**
+`.margin(Vec2::ZERO)` — main এবং sub দুটো TextEdit-এ। এটা TextEdit এর internal 4px vertical padding সরায় যা card height inflate করছিল।
+
+**🟡 Line Gap এখন actually কাজ করে**
+`layout_quote_text` এ `line_gap: f32` parameter যোগ, `TextFormat { line_height: Some(...) }` apply।
+Gap scale: `0.0 = 0.98×` (2% overlap) → `5.0 ≈ 1.18×` (normal) → `50.0 = 3.0×` (spacious)
+
+**🟡 Slider Range**
+`1.0..=3.0 step 0.1` → `0.0..=50.0 step 0.5` (main ও sub দুটোতেই)
+
+**🟡 Default Values**
+`main_line_gap: 1.2` → `5.0` (নতুন scale-এ same feel)
+`sub_line_gap: 1.2` → `5.0`
+
+**🟢 Between Gap Card-এ Apply**
+Separator এর আগে ও পরে `text_style.between_gap * card_scale` px space। Scale হয় তাই ছোট card-এ ছোট gap।

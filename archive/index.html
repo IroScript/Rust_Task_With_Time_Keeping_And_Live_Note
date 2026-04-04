@@ -1,0 +1,1914 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            color: #FFFFFF;
+            font-family: 'Noto Sans Bengali', 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            padding: 0;
+            margin: 0;
+            user-select: none;
+            border: 2px solid rgba(255,255,255,0.3);
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        .main-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            -webkit-app-region: drag;
+            transition: all 0.3s ease;
+        }
+        
+        .header.header-hidden {
+            display: none;
+        }
+        
+        .title {
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            flex: 1;
+            cursor: move;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 8px;
+            -webkit-app-region: no-drag;
+        }
+        
+        button {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.4);
+            color: #FFFFFF;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            -webkit-app-region: no-drag;
+            pointer-events: auto;
+        }
+        
+        button:hover {
+            background: rgba(255,255,255,0.4);
+            transform: scale(1.05);
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        .content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .content.control-hidden .control-panel {
+            display: none;
+            width: 0;
+        }
+        
+        .content.control-hidden .display-area {
+            flex: 1;
+            border-right: none;
+        }
+        
+        .display-area {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            border-right: 1px solid rgba(255,255,255,0.2);
+            position: relative;
+        }
+        
+        #quote {
+            font-size: 24px;
+            line-height: 1.6;
+            letter-spacing: 0.5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+            animation: fadeIn 0.8s ease-in;
+            font-weight: 600;
+            text-align: center;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .subtitle {
+            font-size: 11px;
+            margin-top: 15px;
+            opacity: 0.9;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .subtitle:hover {
+            background: rgba(255,255,255,0.1);
+            opacity: 1;
+        }
+        
+        .subtitle-input {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.4);
+            color: #FFFFFF;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: inherit;
+            text-align: center;
+            width: 300px;
+        }
+        
+        .subtitle-input::placeholder {
+            color: rgba(255,255,255,0.6);
+        }
+        
+        .subtitle-input:focus {
+            outline: none;
+            background: rgba(255,255,255,0.3);
+            border-color: rgba(255,255,255,0.6);
+        }
+        
+        .button-group {
+            position: fixed;
+            top: 70px;
+            right: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: rgba(0,0,0,0.1);
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            z-index: 1000;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+            -webkit-app-region: no-drag;
+            pointer-events: auto;
+        }
+        
+        .button-group.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .toggle-panel-btn {
+            background: none;
+            border: none;
+            padding: 4px 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #FFFFFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+        }
+        
+        .toggle-panel-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: scale(1.05);
+        }
+        
+        #showHeaderBtn {
+            background: none;
+            border: none;
+            padding: 4px 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #FFFFFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+        }
+        
+        #showHeaderBtn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: scale(1.05);
+        }
+        
+        .control-panel {
+            flex: 1;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.1);
+        }
+        
+        .section {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .section-title {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: block;
+            text-transform: uppercase;
+        }
+        
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 6px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #FFFFFF;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 11px;
+            margin-bottom: 8px;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 8px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #FFFFFF;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 11px;
+            margin-bottom: 8px;
+            resize: vertical;
+            min-height: 60px;
+            max-height: 150px;
+        }
+        
+        textarea::placeholder {
+            color: rgba(255,255,255,0.6);
+        }
+        
+        textarea:focus {
+            outline: none;
+            background: rgba(255,255,255,0.25);
+            border-color: rgba(255,255,255,0.5);
+        }
+        
+        input[type="text"]::placeholder,
+        input[type="number"]::placeholder {
+            color: rgba(255,255,255,0.6);
+        }
+        
+        input[type="text"]:focus,
+        input[type="number"]:focus {
+            outline: none;
+            background: rgba(255,255,255,0.25);
+            border-color: rgba(255,255,255,0.5);
+        }
+        
+        .input-wrapper {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+            align-items: flex-start;
+        }
+        
+        .input-wrapper input {
+            flex: 1;
+        }
+        
+        .input-wrapper textarea {
+            flex: 1;
+        }
+        
+        .size-btn {
+            background: rgba(200, 100, 255, 0.6);
+            border-color: rgba(200, 100, 255, 1);
+            padding: 6px 10px;
+            font-size: 11px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        
+        .size-btn:hover {
+            background: rgba(200, 100, 255, 0.8);
+        }
+        
+        .text-size-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        
+        .size-adjust-btn {
+            background: rgba(100, 200, 255, 0.6);
+            border-color: rgba(100, 200, 255, 1);
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: bold;
+            flex-shrink: 0;
+            width: 28px;
+        }
+        
+        .size-adjust-btn:hover {
+            background: rgba(100, 200, 255, 0.8);
+        }
+        
+        .color-btn {
+            background: rgba(255, 100, 100, 0.6);
+            border-color: rgba(255, 100, 100, 1);
+            padding: 4px 8px;
+            font-size: 11px;
+            flex-shrink: 0;
+            height: fit-content;
+            margin-top: 0;
+        }
+        
+        .color-btn:hover {
+            background: rgba(255, 100, 100, 0.8);
+        }
+        
+        .add-btn {
+            background: rgba(76, 175, 80, 0.6);
+            border-color: rgba(76, 175, 80, 1);
+            width: 100%;
+            padding: 8px;
+        }
+        
+        .line-gap-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .line-gap-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+        }
+        
+        .line-gap-item label {
+            min-width: 120px;
+            color: rgba(255,255,255,0.9);
+        }
+        
+        .line-gap-item input[type="range"] {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.2);
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        .line-gap-item input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: rgba(100, 200, 255, 0.9);
+            cursor: pointer;
+            border: 1px solid rgba(100, 200, 255, 1);
+        }
+        
+        .line-gap-item input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: rgba(100, 200, 255, 0.9);
+            cursor: pointer;
+            border: 1px solid rgba(100, 200, 255, 1);
+        }
+        
+        .line-gap-item span {
+            min-width: 30px;
+            text-align: right;
+            color: rgba(100, 200, 255, 1);
+            font-weight: bold;
+        }
+        
+        .add-btn:hover {
+            background: rgba(76, 175, 80, 0.8);
+        }
+        
+        .texts-list {
+            background: rgba(0,0,0,0.2);
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        
+        .text-item {
+            background: rgba(255,255,255,0.1);
+            padding: 6px 8px;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            font-size: 9px;
+            gap: 8px;
+        }
+        
+        .text-item-content {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .text-item-content:hover {
+            background: rgba(100, 200, 255, 0.2);
+            padding: 4px;
+            border-radius: 4px;
+        }
+        
+        .text-item button {
+            padding: 2px 6px;
+            font-size: 9px;
+            background: rgba(255, 70, 70, 0.6);
+            border-color: rgba(255, 70, 70, 1);
+            flex-shrink: 0;
+        }
+        
+        .text-item button:hover {
+            background: rgba(255, 70, 70, 0.8);
+        }
+        
+        .info {
+            font-size: 9px;
+            opacity: 0.8;
+            margin-top: 8px;
+            padding: 6px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+        
+        .pulse-animation #quote {
+            animation: pulse 3s ease-in-out infinite;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0) rotate(0deg); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px) rotate(-0.5deg); }
+            20%, 40%, 60%, 80% { transform: translateX(5px) rotate(0.5deg); }
+        }
+        
+        .theme-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(4px);
+        }
+        
+        .theme-modal-content {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.95), rgba(118, 75, 162, 0.95));
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 400px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 2px solid rgba(255,255,255,0.2);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        
+        .theme-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 10px;
+        }
+        
+        .theme-header h3 {
+            margin: 0;
+            color: white;
+            font-size: 16px;
+        }
+        
+        .close-theme-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .theme-section {
+            margin-bottom: 15px;
+        }
+        
+        .mode-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .mode-btn {
+            flex: 1;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.9);
+            transition: all 0.2s ease;
+        }
+        
+        .mode-btn:hover {
+            background: rgba(255,255,255,0.3);
+            border-color: rgba(255,255,255,0.6);
+        }
+        
+        .mode-btn.active {
+            background: rgba(100, 200, 255, 0.8);
+            border-color: rgba(100, 200, 255, 1);
+            color: white;
+        }
+        
+        .solid-color-section {
+            display: none;
+        }
+        
+        .solid-color-section.active {
+            display: block;
+        }
+        
+        .gradient-section {
+            display: block;
+        }
+        
+        .gradient-section.hidden {
+            display: none;
+        }
+        
+        .solid-color-input-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+        }
+        
+        .solid-color-input-group label {
+            color: rgba(255,255,255,0.9);
+            font-size: 12px;
+            min-width: 80px;
+        }
+        
+        .solid-color-input-group input[type="color"] {
+            width: 60px;
+            height: 50px;
+            border: 2px solid rgba(255,255,255,0.4);
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .theme-label {
+            display: block;
+            color: rgba(255,255,255,0.9);
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+        
+        .angle-controls {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+        
+        .angle-btn {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: rgba(255,255,255,0.9);
+            padding: 6px 4px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .angle-btn:hover {
+            background: rgba(255,255,255,0.3);
+            border-color: rgba(255,255,255,0.6);
+        }
+        
+        .angle-btn.active {
+            background: rgba(100, 200, 255, 0.8);
+            border-color: rgba(100, 200, 255, 1);
+            color: white;
+        }
+        
+        .color-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .color-input-group {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        
+        .color-input-group input[type="color"] {
+            width: 40px;
+            height: 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .color-input-group label {
+            flex: 1;
+            color: rgba(255,255,255,0.8);
+            font-size: 11px;
+        }
+        
+        .remove-color-btn {
+            background: rgba(255, 70, 70, 0.6);
+            border-color: rgba(255, 70, 70, 1);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        
+        .remove-color-btn:hover {
+            background: rgba(255, 70, 70, 0.8);
+        }
+        
+        .add-color-btn {
+            background: rgba(76, 175, 80, 0.6);
+            border: 1px solid rgba(76, 175, 80, 1);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s ease;
+        }
+        
+        .add-color-btn:hover {
+            background: rgba(76, 175, 80, 0.8);
+        }
+        
+        .add-color-btn:disabled {
+            background: rgba(100, 100, 100, 0.5);
+            cursor: not-allowed;
+            border-color: rgba(100, 100, 100, 0.7);
+        }
+        
+        .preset-gradients {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+        }
+        
+        .preset-btn {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: rgba(255,255,255,0.9);
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .preset-btn:hover {
+            background: rgba(255,255,255,0.3);
+            border-color: rgba(255,255,255,0.6);
+        }
+        
+        .theme-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            padding-top: 15px;
+        }
+        
+        .apply-theme-btn, .reset-theme-btn {
+            flex: 1;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+        }
+        
+        .apply-theme-btn {
+            background: rgba(76, 175, 80, 0.7);
+            border: 1px solid rgba(76, 175, 80, 1);
+            color: white;
+        }
+        
+        .apply-theme-btn:hover {
+            background: rgba(76, 175, 80, 0.9);
+        }
+        
+        .reset-theme-btn {
+            background: rgba(33, 150, 243, 0.7);
+            border: 1px solid rgba(33, 150, 243, 1);
+            color: white;
+        }
+        
+        .reset-theme-btn:hover {
+            background: rgba(33, 150, 243, 0.9);
+        }
+        
+        .export-report-btn {
+            flex: 1;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            background: rgba(255, 152, 0, 0.7);
+            border: 1px solid rgba(255, 152, 0, 1);
+            color: white;
+            transition: all 0.2s ease;
+        }
+        
+        .export-report-btn:hover {
+            background: rgba(255, 152, 0, 0.9);
+        }
+    </style>
+</head>
+<body class="pulse-animation">
+    <div class="main-container">
+        <div class="header">
+            <div class="title">💪 Daily Motivation 🚀</div>
+            <div class="controls">
+                <button id="themeBtn" title="Change Theme">🎨</button>
+                <button id="hideHeaderBtn" title="Hide Header">▲</button>
+                <button id="zoomIn" title="Zoom In">🔍+</button>
+                <button id="zoomOut" title="Zoom Out">🔍-</button>
+                <button id="minimize" title="Minimize">_</button>
+                <button id="close" title="Close">✕</button>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="display-area">
+                <div class="button-group" id="buttonGroup">
+                    <button class="toggle-panel-btn" id="togglePanelBtn" title="Toggle Control Panel">☰</button>
+                    <button class="toggle-panel-btn" id="showHeaderBtn" title="Show Header" style="display: none;">∧</button>
+                </div>
+                <div id="quote">Loading...</div>
+                <input type="text" class="subtitle-input" id="subtitleInput" placeholder="Click to edit subtitle...">
+                <div class="subtitle" id="subtitleDisplay">Keep pushing - You're doing great! 🌟</div>
+            </div>
+            
+            <div class="control-panel">
+                <div class="section">
+                    <label class="section-title">Add Custom Text</label>
+                    <div class="input-wrapper">
+                        <textarea id="textInput" placeholder="Main text... (Press Shift+Enter for new lines, Enter to submit)"></textarea>
+                        <div class="text-size-controls">
+                            <button class="size-adjust-btn" id="mainTextIncBtn" title="Increase Size">A+</button>
+                            <button class="size-adjust-btn" id="mainTextDecBtn" title="Decrease Size">A-</button>
+                        </div>
+                        <button class="color-btn" id="mainColorBtn" title="Set Color">🎨</button>
+                    </div>
+                    <div class="input-wrapper">
+                        <textarea id="subtextInput" placeholder="Supporting text... (Press Shift+Enter for new lines, Enter to submit)"></textarea>
+                        <div class="text-size-controls">
+                            <button class="size-adjust-btn" id="subtextIncBtn" title="Increase Size">A+</button>
+                            <button class="size-adjust-btn" id="subtextDecBtn" title="Decrease Size">A-</button>
+                        </div>
+                        <button class="color-btn" id="subtextColorBtn" title="Set Color">🎨</button>
+                    </div>
+                    <button class="add-btn" id="addBtn">+ Add Text</button>
+                </div>
+                
+                <div class="section">
+                    <label class="section-title">Line Gaps</label>
+                    <div class="line-gap-controls">
+                        <div class="line-gap-item">
+                            <label>Main Text Gap</label>
+                            <input type="range" id="mainTextGapInput" min="1" max="3" step="0.1" value="1.6">
+                            <span id="mainTextGapValue">1.6</span>
+                        </div>
+                        <div class="line-gap-item">
+                            <label>Supporting Text Gap</label>
+                            <input type="range" id="subtextGapInput" min="1" max="3" step="0.1" value="1.6">
+                            <span id="subtextGapValue">1.6</span>
+                        </div>
+                        <div class="line-gap-item">
+                            <label>Gap Between Texts</label>
+                            <input type="range" id="betweenGapInput" min="0" max="50" step="1" value="0">
+                            <span id="betweenGapValue">0</span>px
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <label class="section-title">Interval (Seconds)</label>
+                    <input type="number" id="intervalInput" placeholder="8" value="8" min="1" max="60">
+                    <button class="add-btn" id="updateIntervalBtn" style="background: rgba(33, 150, 243, 0.6); border-color: rgba(33, 150, 243, 1);">Set Interval</button>
+                </div>
+                
+                <div class="section">
+                    <label class="section-title">Text List (<span id="textCount">0</span>)</label>
+                    <div class="texts-list" id="textsList"></div>
+                    <button class="add-btn" id="clearBtn" style="background: rgba(255, 152, 0, 0.6); border-color: rgba(255, 152, 0, 1); margin-top: 8px;">Clear All</button>
+                </div>
+                
+                <div class="info">
+                    Current Interval: <span id="currentInterval">8s</span><br>
+                    Texts Count: <span id="statsCount">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Theme Modal -->
+    <div id="themeModal" class="theme-modal" style="display: none;">
+        <div class="theme-modal-content">
+            <div class="theme-header">
+                <h3>Customize Theme</h3>
+                <button id="closeThemeBtn" class="close-theme-btn">✕</button>
+            </div>
+            
+            <div class="theme-section">
+                <label class="theme-label">Background Mode</label>
+                <div class="mode-toggle">
+                    <button class="mode-btn active" data-mode="gradient">Gradient Color</button>
+                    <button class="mode-btn" data-mode="solid">Solid (1) Color</button>
+                </div>
+            </div>
+            
+            <div class="theme-section gradient-section" id="gradientSection">
+                <label class="theme-label">Gradient Angle</label>
+                <div class="angle-controls">
+                    <button class="angle-btn" data-angle="0">0°</button>
+                    <button class="angle-btn" data-angle="45">45°</button>
+                    <button class="angle-btn" data-angle="90">90°</button>
+                    <button class="angle-btn" data-angle="135">135°</button>
+                    <button class="angle-btn" data-angle="180">180°</button>
+                    <button class="angle-btn" data-angle="225">225°</button>
+                    <button class="angle-btn" data-angle="270">270°</button>
+                    <button class="angle-btn" data-angle="315">315°</button>
+                </div>
+                <span>Current angle: <span id="angleDisplay">90</span>°</span>
+            </div>
+            
+            <div class="theme-section gradient-section">
+                <label class="theme-label">Gradient Colors</label>
+                <div id="colorContainer" class="color-container"></div>
+                <button id="addColorBtn" class="add-color-btn">+ Add Color (Max 5)</button>
+            </div>
+            
+            <div class="theme-section gradient-section">
+                <label class="theme-label">Preset Gradients</label>
+                <div class="preset-gradients">
+                    <button class="preset-btn" data-preset="purple-pink">Purple to Pink</button>
+                    <button class="preset-btn" data-preset="blue-cyan">Blue to Cyan</button>
+                    <button class="preset-btn" data-preset="orange-red">Orange to Red</button>
+                    <button class="preset-btn" data-preset="green-teal">Green to Teal</button>
+                </div>
+            </div>
+            
+            <div class="theme-section solid-color-section" id="solidColorSection">
+                <label class="theme-label">Solid Color</label>
+                <div class="solid-color-input-group">
+                    <label>Select Color:</label>
+                    <input type="color" id="solidColorInput" value="#667eea">
+                </div>
+            </div>
+            
+            <div class="theme-actions">
+                <button id="applyThemeBtn" class="apply-theme-btn">Apply Theme</button>
+                <button id="resetThemeBtn" class="reset-theme-btn">Reset</button>
+                <button id="exportReportBtn" class="export-report-btn">📊 Export Report</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let index = 0;
+        let textSize = 24;
+        let interval = 8000;
+        let intervalTimer = null;
+        let editingSubtitle = false;
+        let currentSubtitles = {};
+        let customMainTextSize = 24;
+        let customSubtextSize = 11;
+        let mainTextColor = '#FFFFFF';
+        let subtextColor = '#FFFFFF';
+        let mainTextLineGap = 1.6;
+        let subtextLineGap = 1.6;
+        let betweenTextGap = 0;
+        
+        // Theme variables
+        let gradientAngle = 90;
+        let gradientColors = ['#667eea', '#764ba2'];
+        let themeModeType = 'gradient'; // 'gradient' or 'solid'
+        let solidColor = '#667eea';
+        
+        
+        let quotesArray = [
+            { quote: 'এখনই কাজে মনোযোগ দাও - ফোকাস তোমার শক্তি', subtext: 'Keep pushing - You\'re doing great! 🌟' },
+            { quote: 'প্রতিটি মুহূর্ত গুরুত্বপূর্ণ - কাজ চালিয়ে যাও', subtext: 'Keep pushing - You\'re doing great! 🌟' },
+            { quote: 'সফলতা ধৈর্যের ফল - হার মানিও না', subtext: 'Keep pushing - You\'re doing great! 🌟' },
+            { quote: 'Focus on the work - Success is near', subtext: 'Keep pushing - You\'re doing great! 🌟' },
+            { quote: 'Stay disciplined - Great things take time', subtext: 'Keep pushing - You\'re doing great! 🌟' },
+            { quote: 'তুমি পারবে - শুধু চেষ্টা চালিয়ে যাও', subtext: 'Keep pushing - You\'re doing great! 🌟' },
+            { quote: 'Dreams need action - Start now', subtext: 'Keep pushing - You\'re doing great! 🌟' },
+            { quote: 'প্রতিদিন একটু এগিয়ে যাও - লক্ষ্য কাছে', subtext: 'Keep pushing - You\'re doing great! 🌟' },
+            { quote: 'Consistency beats talent - Keep going', subtext: 'Keep pushing - You\'re doing great! 🌟' },
+            { quote: 'বিশ্রাম নাও কিন্তু হাল ছাড়ো না', subtext: 'Keep pushing - You\'re doing great! 🌟' }
+        ];
+        
+        // Load from storage
+        function loadTexts() {
+            const saved = localStorage.getItem('motivationTexts');
+            if (saved) {
+                quotesArray = JSON.parse(saved);
+                console.log('Loaded', quotesArray.length, 'quotes from storage');
+            }
+            const savedInterval = localStorage.getItem('motivationInterval');
+            if (savedInterval) {
+                interval = parseInt(savedInterval);
+                console.log('Loaded interval:', interval, 'ms from storage');
+                document.getElementById('intervalInput').value = Math.round(interval / 1000);
+            }
+            const savedSubtitle = localStorage.getItem('currentSubtitle');
+            if (savedSubtitle) {
+                document.getElementById('subtitleDisplay').textContent = savedSubtitle;
+            }
+            const savedLineGaps = localStorage.getItem('lineGaps');
+            if (savedLineGaps) {
+                const gaps = JSON.parse(savedLineGaps);
+                mainTextLineGap = gaps.mainTextLineGap || 1.6;
+                subtextLineGap = gaps.subtextLineGap || 1.6;
+                betweenTextGap = gaps.betweenTextGap || 0;
+                
+                document.getElementById('mainTextGapInput').value = mainTextLineGap;
+                document.getElementById('mainTextGapValue').textContent = mainTextLineGap.toFixed(1);
+                document.getElementById('subtextGapInput').value = subtextLineGap;
+                document.getElementById('subtextGapValue').textContent = subtextLineGap.toFixed(1);
+                document.getElementById('betweenGapInput').value = betweenTextGap;
+                document.getElementById('betweenGapValue').textContent = betweenTextGap;
+            }
+        }
+        
+        // Save to storage
+        function saveTexts() {
+            localStorage.setItem('motivationTexts', JSON.stringify(quotesArray));
+            localStorage.setItem('motivationInterval', interval.toString());
+            console.log('Saved interval:', interval, 'ms to storage');
+            localStorage.setItem('lineGaps', JSON.stringify({
+                mainTextLineGap: mainTextLineGap,
+                subtextLineGap: subtextLineGap,
+                betweenTextGap: betweenTextGap
+            }));
+        }
+        
+        loadTexts();
+        updateDisplay();
+        startRotation();
+        
+        // Display current quote
+        function updateDisplay(animate = true) {
+            if (quotesArray.length === 0) {
+                document.getElementById('quote').textContent = 'Add your first text!';
+                document.getElementById('subtitleDisplay').textContent = '';
+                return;
+            }
+            if (index >= quotesArray.length) {
+                index = 0;
+            }
+            const current = quotesArray[index];
+            const quoteEl = document.getElementById('quote');
+            const subtitleEl = document.getElementById('subtitleDisplay');
+            
+            if (animate) {
+                quoteEl.style.animation = 'none';
+                setTimeout(() => {
+                    quoteEl.textContent = current.quote;
+                    quoteEl.style.animation = 'fadeIn 0.8s ease-in';
+                    quoteEl.style.fontSize = customMainTextSize + 'px';
+                    quoteEl.style.color = mainTextColor;
+                    quoteEl.style.lineHeight = mainTextLineGap;
+                }, 50);
+            } else {
+                quoteEl.textContent = current.quote;
+                quoteEl.style.animation = 'none';
+                quoteEl.style.fontSize = customMainTextSize + 'px';
+                quoteEl.style.color = mainTextColor;
+                quoteEl.style.lineHeight = mainTextLineGap;
+            }
+            
+            subtitleEl.textContent = current.subtext;
+            subtitleEl.style.fontSize = customSubtextSize + 'px';
+            subtitleEl.style.color = subtextColor;
+            subtitleEl.style.lineHeight = subtextLineGap;
+            subtitleEl.style.marginTop = betweenTextGap + 'px';
+        }
+        
+        // Start rotation
+        function startRotation() {
+            if (intervalTimer) {
+                clearInterval(intervalTimer);
+                console.log('Previous interval cleared');
+            }
+            if (quotesArray.length === 0) {
+                console.log('No quotes to rotate');
+                return;
+            }
+            console.log('Starting rotation with interval:', interval, 'ms');
+            intervalTimer = setInterval(() => {
+                if (quotesArray.length > 0) {
+                    index = (index + 1) % quotesArray.length;
+                    console.log('Rotating to quote', index);
+                    updateDisplay();
+                }
+            }, interval);
+        }
+        
+        // Update texts list UI
+        function updateTextsList() {
+            const listEl = document.getElementById('textsList');
+            listEl.innerHTML = '';
+            quotesArray.forEach((item, idx) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'text-item';
+                
+                const contentDiv = document.createElement('div');
+                contentDiv.style.flex = '1';
+                contentDiv.style.textAlign = 'left';
+                contentDiv.style.cursor = 'pointer';
+                contentDiv.className = 'text-item-content';
+                contentDiv.innerHTML = `
+                    <div><strong>${idx + 1}.</strong> ${item.quote}</div>
+                    <div style="font-size: 9px; opacity: 0.8; margin-top: 2px;">💬 ${item.subtext}</div>
+                `;
+                
+                // Single click - display the text
+                contentDiv.addEventListener('click', () => {
+                    index = idx;
+                    updateDisplay();
+                });
+                
+                // Double click - edit the text
+                contentDiv.addEventListener('dblclick', () => {
+                    editTextItem(idx);
+                });
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.style.marginLeft = '8px';
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteText(idx);
+                };
+                
+                itemDiv.appendChild(contentDiv);
+                itemDiv.appendChild(deleteBtn);
+                listEl.appendChild(itemDiv);
+            });
+            document.getElementById('textCount').textContent = quotesArray.length;
+            document.getElementById('statsCount').textContent = quotesArray.length;
+        }
+        
+        // Edit text item from list
+        window.editTextItem = function(idx) {
+            const item = quotesArray[idx];
+            document.getElementById('textInput').value = item.quote;
+            document.getElementById('subtextInput').value = item.subtext;
+            deleteText(idx);
+            document.getElementById('textInput').focus();
+        };
+        
+        // Double click on display to edit current text
+        document.getElementById('quote').addEventListener('dblclick', () => {
+            if (quotesArray.length > 0 && index < quotesArray.length) {
+                editTextItem(index);
+            }
+        });
+        
+        document.getElementById('subtitleDisplay').addEventListener('dblclick', () => {
+            if (quotesArray.length > 0 && index < quotesArray.length) {
+                editTextItem(index);
+            }
+        });
+        
+        // Add text
+        document.getElementById('addBtn').addEventListener('click', () => {
+            const input = document.getElementById('textInput');
+            const subinput = document.getElementById('subtextInput');
+            const text = input.value.trim();
+            const subtext = subinput.value.trim();
+            
+            if (text) {
+                quotesArray.push({
+                    quote: text,
+                    subtext: subtext || 'Keep pushing - You\'re doing great! 🌟'
+                });
+                input.value = '';
+                subinput.value = '';
+                saveTexts();
+                updateTextsList();
+                index = quotesArray.length - 1;
+                updateDisplay();
+                input.focus();
+            }
+        });
+        
+        // Delete text
+        window.deleteText = function(idx) {
+            quotesArray.splice(idx, 1);
+            if (index >= quotesArray.length && index > 0) {
+                index = quotesArray.length - 1;
+            }
+            saveTexts();
+            updateTextsList();
+            updateDisplay();
+        };
+        
+        // Clear all
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            if (confirm('Clear all texts?')) {
+                quotesArray = [];
+                index = 0;
+                saveTexts();
+                updateTextsList();
+                updateDisplay();
+            }
+        });
+        
+        // Update interval
+        document.getElementById('updateIntervalBtn').addEventListener('click', () => {
+            const input = document.getElementById('intervalInput');
+            const val = parseInt(input.value);
+            
+            if (!isNaN(val) && val > 0 && val <= 60) {
+                interval = val * 1000; // Convert seconds to milliseconds
+                console.log('Interval updated to:', interval, 'ms (' + val + 's)');
+                saveTexts(); // Make sure to save
+                document.getElementById('currentInterval').textContent = val + 's';
+                startRotation(); // Restart rotation with new interval
+                console.log('Rotation restarted');
+            } else {
+                alert('Please enter a valid number between 1 and 60');
+            }
+        });
+        
+        // Main text size buttons
+        document.getElementById('mainTextIncBtn').addEventListener('click', () => {
+            if (customMainTextSize < 100) {
+                customMainTextSize += 2;
+                updatePreview();
+            }
+        });
+        
+        document.getElementById('mainTextDecBtn').addEventListener('click', () => {
+            if (customMainTextSize > 12) {
+                customMainTextSize -= 2;
+                updatePreview();
+            }
+        });
+        
+        // Supporting text size buttons
+        document.getElementById('subtextIncBtn').addEventListener('click', () => {
+            if (customSubtextSize < 50) {
+                customSubtextSize += 2;
+                updatePreview();
+            }
+        });
+        
+        document.getElementById('subtextDecBtn').addEventListener('click', () => {
+            if (customSubtextSize > 8) {
+                customSubtextSize -= 2;
+                updatePreview();
+            }
+        });
+        
+        // Color buttons
+        document.getElementById('mainColorBtn').addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'color';
+            input.value = mainTextColor === '#FFFFFF' ? '#ffffff' : mainTextColor;
+            input.addEventListener('change', (e) => {
+                mainTextColor = e.target.value;
+                updatePreview();
+            });
+            input.click();
+        });
+        
+        document.getElementById('subtextColorBtn').addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'color';
+            input.value = subtextColor === '#FFFFFF' ? '#ffffff' : subtextColor;
+            input.addEventListener('change', (e) => {
+                subtextColor = e.target.value;
+                updatePreview();
+            });
+            input.click();
+        });
+        
+        // Live preview while typing
+        document.getElementById('textInput').addEventListener('input', updatePreview);
+        document.getElementById('subtextInput').addEventListener('input', updatePreview);
+        
+        // Line gap controls
+        document.getElementById('mainTextGapInput').addEventListener('input', (e) => {
+            mainTextLineGap = parseFloat(e.target.value);
+            document.getElementById('mainTextGapValue').textContent = mainTextLineGap.toFixed(1);
+            updateDisplay(false);
+            updatePreview();
+            saveTexts();
+        });
+        
+        document.getElementById('subtextGapInput').addEventListener('input', (e) => {
+            subtextLineGap = parseFloat(e.target.value);
+            document.getElementById('subtextGapValue').textContent = subtextLineGap.toFixed(1);
+            updateDisplay(false);
+            updatePreview();
+            saveTexts();
+        });
+        
+        document.getElementById('betweenGapInput').addEventListener('input', (e) => {
+            betweenTextGap = parseInt(e.target.value);
+            document.getElementById('betweenGapValue').textContent = betweenTextGap;
+            updateDisplay(false);
+            updatePreview();
+            saveTexts();
+        });
+        
+        function updatePreview() {
+            const quoteEl = document.getElementById('quote');
+            const subtitleEl = document.getElementById('subtitleDisplay');
+            
+            const mainText = document.getElementById('textInput').value;
+            const subText = document.getElementById('subtextInput').value;
+            
+            // Disable animation during preview
+            quoteEl.style.animation = 'none';
+            
+            if (mainText) {
+                quoteEl.textContent = mainText;
+                quoteEl.style.fontSize = customMainTextSize + 'px';
+                quoteEl.style.color = mainTextColor;
+                quoteEl.style.lineHeight = mainTextLineGap;
+                quoteEl.style.opacity = '1';
+            } else {
+                quoteEl.textContent = 'Type text to preview...';
+                quoteEl.style.fontSize = customMainTextSize + 'px';
+                quoteEl.style.color = mainTextColor;
+                quoteEl.style.lineHeight = mainTextLineGap;
+                quoteEl.style.opacity = '0.6';
+            }
+            
+            if (subText) {
+                subtitleEl.textContent = subText;
+                subtitleEl.style.fontSize = customSubtextSize + 'px';
+                subtitleEl.style.color = subtextColor;
+                subtitleEl.style.lineHeight = subtextLineGap;
+                subtitleEl.style.marginTop = betweenTextGap + 'px';
+                subtitleEl.style.opacity = '1';
+            } else {
+                subtitleEl.textContent = '';
+                subtitleEl.style.opacity = '0.6';
+            }
+        }
+        
+        // Zoom in
+        document.getElementById('zoomIn').addEventListener('click', () => {
+            if (textSize < 48) {
+                textSize += 2;
+                document.getElementById('quote').style.fontSize = textSize + 'px';
+            }
+        });
+        
+        // Zoom out
+        document.getElementById('zoomOut').addEventListener('click', () => {
+            if (textSize > 12) {
+                textSize -= 2;
+                document.getElementById('quote').style.fontSize = textSize + 'px';
+            }
+        });
+        
+        // Subtitle edit
+        document.getElementById('subtitleDisplay').addEventListener('click', () => {
+            const display = document.getElementById('subtitleDisplay');
+            const input = document.getElementById('subtitleInput');
+            input.value = display.textContent;
+            display.style.display = 'none';
+            input.style.display = 'block';
+            input.focus();
+            input.select();
+        });
+        
+        document.getElementById('subtitleInput').addEventListener('blur', saveSubtitle);
+        document.getElementById('subtitleInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                saveSubtitle();
+            }
+        });
+        
+        function saveSubtitle() {
+            const input = document.getElementById('subtitleInput');
+            const display = document.getElementById('subtitleDisplay');
+            const newSubtitle = input.value.trim() || 'Keep pushing - You\'re doing great! 🌟';
+            
+            display.textContent = newSubtitle;
+            input.style.display = 'none';
+            display.style.display = 'block';
+            
+            // Update current index
+            if (quotesArray.length > 0) {
+                quotesArray[index].subtext = newSubtitle;
+                saveTexts();
+                updateTextsList();
+            }
+            localStorage.setItem('currentSubtitle', newSubtitle);
+        }
+        
+        // Load theme from storage
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('appTheme');
+            if (savedTheme) {
+                const theme = JSON.parse(savedTheme);
+                gradientAngle = theme.angle || 90;
+                gradientColors = theme.colors || ['#667eea', '#764ba2'];
+                themeModeType = theme.mode || 'gradient';
+                solidColor = theme.solidColor || '#667eea';
+                applyBackground();
+            }
+        }
+        
+        // Apply background (gradient or solid)
+        function applyBackground() {
+            if (themeModeType === 'solid') {
+                document.body.style.background = solidColor;
+            } else {
+                const colorStops = gradientColors.join(', ');
+                document.body.style.background = `linear-gradient(${gradientAngle}deg, ${colorStops})`;
+            }
+        }
+        
+        // Legacy function for compatibility
+        function applyGradient() {
+            applyBackground();
+        }
+        
+        // Save theme to storage
+        function saveTheme() {
+            localStorage.setItem('appTheme', JSON.stringify({
+                angle: gradientAngle,
+                colors: gradientColors,
+                mode: themeModeType,
+                solidColor: solidColor
+            }));
+        }
+        
+        // Initialize theme
+        loadTheme();
+        
+        // Theme Modal Functions
+        function initializeThemeModal() {
+            const themeModal = document.getElementById('themeModal');
+            const themeBtn = document.getElementById('themeBtn');
+            const closeThemeBtn = document.getElementById('closeThemeBtn');
+            const applyThemeBtn = document.getElementById('applyThemeBtn');
+            const resetThemeBtn = document.getElementById('resetThemeBtn');
+            const addColorBtn = document.getElementById('addColorBtn');
+            const modeButtons = document.querySelectorAll('.mode-btn');
+            const solidColorInput = document.getElementById('solidColorInput');
+            const gradientSections = document.querySelectorAll('.gradient-section');
+            const solidColorSection = document.getElementById('solidColorSection');
+            
+            // Mode toggle function
+            function setThemeMode(mode) {
+                themeModeType = mode;
+                
+                // Update button states
+                modeButtons.forEach(btn => {
+                    if (btn.dataset.mode === mode) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+                
+                // Show/hide sections
+                if (mode === 'solid') {
+                    gradientSections.forEach(section => section.classList.add('hidden'));
+                    solidColorSection.classList.add('active');
+                } else {
+                    gradientSections.forEach(section => section.classList.remove('hidden'));
+                    solidColorSection.classList.remove('active');
+                }
+                
+                applyBackground();
+            }
+            
+            // Mode button listeners
+            modeButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    setThemeMode(e.target.dataset.mode);
+                });
+            });
+            
+            // Solid color input listener
+            solidColorInput.addEventListener('change', (e) => {
+                solidColor = e.target.value;
+                applyBackground();
+            });
+            
+            solidColorInput.addEventListener('input', (e) => {
+                solidColor = e.target.value;
+                applyBackground();
+            });
+            
+            // Update color inputs in modal
+            function updateColorInputs() {
+                const container = document.getElementById('colorContainer');
+                container.innerHTML = '';
+                gradientColors.forEach((color, idx) => {
+                    const group = document.createElement('div');
+                    group.className = 'color-input-group';
+                    group.innerHTML = `
+                        <label>Color ${idx + 1}</label>
+                        <input type="color" value="${color}" class="theme-color-input" data-index="${idx}">
+                        ${gradientColors.length > 2 ? `<button class="remove-color-btn" data-index="${idx}">Remove</button>` : ''}
+                    `;
+                    container.appendChild(group);
+                });
+                
+                // Add event listeners to color inputs
+                document.querySelectorAll('.theme-color-input').forEach(input => {
+                    input.addEventListener('change', (e) => {
+                        const idx = parseInt(e.target.dataset.index);
+                        gradientColors[idx] = e.target.value;
+                        applyGradient();
+                    });
+                });
+                
+                // Add event listeners to remove buttons
+                document.querySelectorAll('.remove-color-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const idx = parseInt(e.target.dataset.index);
+                        if (gradientColors.length > 2) {
+                            gradientColors.splice(idx, 1);
+                            updateColorInputs();
+                            applyGradient();
+                        }
+                    });
+                });
+                
+                // Update add color button state
+                addColorBtn.disabled = gradientColors.length >= 5;
+                addColorBtn.textContent = gradientColors.length >= 5 ? '✓ Max 5 Colors' : '+ Add Color (Max 5)';
+            }
+            
+            // Update angle buttons
+            function updateAngleButtons() {
+                document.querySelectorAll('.angle-btn').forEach(btn => {
+                    const angle = parseInt(btn.dataset.angle);
+                    if (angle === gradientAngle) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+                document.getElementById('angleDisplay').textContent = gradientAngle;
+            }
+            
+            // Open theme modal
+            themeBtn.addEventListener('click', () => {
+                themeModal.style.display = 'flex';
+                solidColorInput.value = solidColor;
+                setThemeMode(themeModeType);
+                updateColorInputs();
+                updateAngleButtons();
+            });
+            
+            // Close theme modal
+            closeThemeBtn.addEventListener('click', () => {
+                themeModal.style.display = 'none';
+            });
+            
+            // Close on outside click
+            themeModal.addEventListener('click', (e) => {
+                if (e.target === themeModal) {
+                    themeModal.style.display = 'none';
+                }
+            });
+            
+            // Angle buttons
+            document.querySelectorAll('.angle-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    gradientAngle = parseInt(e.target.dataset.angle);
+                    applyGradient();
+                    updateAngleButtons();
+                });
+            });
+            
+            // Add color
+            addColorBtn.addEventListener('click', () => {
+                if (gradientColors.length < 5) {
+                    const lastColor = gradientColors[gradientColors.length - 1];
+                    gradientColors.push(lastColor);
+                    updateColorInputs();
+                    applyGradient();
+                }
+            });
+            
+            // Preset gradients
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const preset = e.target.dataset.preset;
+                    switch(preset) {
+                        case 'purple-pink':
+                            gradientColors = ['#667eea', '#764ba2', '#f093fb'];
+                            break;
+                        case 'blue-cyan':
+                            gradientColors = ['#00c6ff', '#0072ff'];
+                            break;
+                        case 'orange-red':
+                            gradientColors = ['#ff6b6b', '#ee5a2a'];
+                            break;
+                        case 'green-teal':
+                            gradientColors = ['#00d2fc', '#3a47d5'];
+                            break;
+                    }
+                    applyGradient();
+                    updateColorInputs();
+                });
+            });
+            
+            // Apply theme
+            applyThemeBtn.addEventListener('click', () => {
+                saveTheme();
+                themeModal.style.display = 'none';
+            });
+            
+            // Reset
+            resetThemeBtn.addEventListener('click', () => {
+                gradientAngle = 90;
+                gradientColors = ['#667eea', '#764ba2'];
+                themeModeType = 'gradient';
+                solidColor = '#667eea';
+                applyBackground();
+                setThemeMode('gradient');
+                solidColorInput.value = solidColor;
+                updateColorInputs();
+                updateAngleButtons();
+                saveTheme();
+                themeModal.style.display = 'none';
+            });
+        }
+        
+        initializeThemeModal();
+        
+        // Minimize
+        document.getElementById('minimize').addEventListener('click', () => {
+            const { ipcRenderer } = require('electron');
+            ipcRenderer.send('minimize-window');
+        });
+        
+        // Close
+        document.getElementById('close').addEventListener('click', () => {
+            window.close();
+        });
+        
+        // Toggle control panel
+        document.getElementById('togglePanelBtn').addEventListener('click', () => {
+            const content = document.querySelector('.content');
+            const btn = document.getElementById('togglePanelBtn');
+            content.classList.toggle('control-hidden');
+            
+            // Update button emoji only
+            if (content.classList.contains('control-hidden')) {
+                btn.textContent = '✕';
+            } else {
+                btn.textContent = '☰';
+            }
+            resetButtonTimeout();
+        });
+        
+        // Toggle header visibility
+        document.getElementById('hideHeaderBtn').addEventListener('click', () => {
+            const header = document.querySelector('.header');
+            const showHeaderBtn = document.getElementById('showHeaderBtn');
+            header.classList.add('header-hidden');
+            showHeaderBtn.style.display = 'block';
+            resetButtonTimeout();
+            console.log('Header hidden');
+        });
+        
+        // Show header
+        document.getElementById('showHeaderBtn').addEventListener('click', () => {
+            const header = document.querySelector('.header');
+            const showHeaderBtn = document.getElementById('showHeaderBtn');
+            header.classList.remove('header-hidden');
+            showHeaderBtn.style.display = 'none';
+            resetButtonTimeout();
+            console.log('Header shown');
+        });
+        
+        // Auto-hide buttons after 5 seconds of inactivity
+        let buttonHideTimeout = null;
+        const buttonGroup = document.getElementById('buttonGroup');
+        
+        function hideButtons() {
+            buttonGroup.classList.add('hidden');
+        }
+        
+        function showButtons() {
+            if (buttonGroup) {
+                buttonGroup.classList.remove('hidden');
+            }
+        }
+        
+        function resetButtonTimeout() {
+            clearTimeout(buttonHideTimeout);
+            showButtons();
+            buttonHideTimeout = setTimeout(hideButtons, 5000);
+        }
+        
+        // Show buttons on mouse move
+        document.addEventListener('mousemove', () => {
+            resetButtonTimeout();
+        });
+        
+        // Also show buttons when mouse enters the window
+        document.addEventListener('mouseenter', resetButtonTimeout);
+        
+        // Initial hide after 5 seconds
+        buttonHideTimeout = setTimeout(hideButtons, 5000);
+        
+        // Allow Enter key to add text (Shift+Enter for new lines)
+        document.getElementById('textInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById('addBtn').click();
+            }
+        });
+        
+        document.getElementById('subtextInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById('addBtn').click();
+            }
+        });
+        
+        // Allow Enter key for interval
+        document.getElementById('intervalInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('updateIntervalBtn').click();
+            }
+        });
+        
+        // Initialize
+        updateTextsList();
+        document.getElementById('currentInterval').textContent = (interval / 1000) + 's';
+        document.getElementById('subtitleInput').style.display = 'none';
+        
+        // ============ TEXT TRACKING & DATABASE ============
+        let currentRunId = null;
+        let intervalCountTracker = 0;
+        let runStartTime = null;
+        
+        // Initialize text tracking on app load
+        const { ipcRenderer: ipcRendererTracking } = require('electron');
+        
+        // Start text run when app loads and first quote displays
+        function trackTextRunStart() {
+            if (quotesArray.length === 0) return;
+            
+            const currentQuote = quotesArray[index];
+            runStartTime = new Date();
+            intervalCountTracker = 0;
+            
+            ipcRendererTracking.send('start-text-run', {
+                textMain: currentQuote.quote,
+                textSupporting: currentQuote.subtext,
+                setInterval: interval / 1000 // convert to seconds
+            });
+            
+            ipcRendererTracking.once('text-run-started', (data) => {
+                currentRunId = data.runId;
+                console.log('✓ Text run started with ID:', currentRunId, 'Quote:', currentQuote.quote.substring(0, 30));
+            });
+        }
+        
+        // Update stats when text rotates
+        function updateTextRunStats() {
+            if (currentRunId && runStartTime) {
+                intervalCountTracker++;
+                const elapsedMs = new Date() - runStartTime;
+                const elapsedMinutes = elapsedMs / 60000; // convert to minutes
+                
+                console.log('📊 Sending stats update:');
+                console.log('  - RunID: ' + currentRunId);
+                console.log('  - Rotations: ' + intervalCountTracker);
+                console.log('  - Elapsed: ' + elapsedMinutes.toFixed(2) + ' mins (' + elapsedMs + 'ms)');
+                
+                ipcRendererTracking.send('update-text-stats', {
+                    runId: currentRunId,
+                    intervalCount: intervalCountTracker,
+                    durationMinutes: elapsedMinutes
+                });
+            }
+        }
+        
+        // End text run when user closes app or stops using
+        function trackTextRunEnd() {
+            if (currentRunId && runStartTime) {
+                // Calculate final duration
+                const elapsedMs = new Date() - runStartTime;
+                const finalDurationMinutes = elapsedMs / 60000;
+                
+                // Update one final time with complete duration
+                ipcRendererTracking.send('update-text-stats', {
+                    runId: currentRunId,
+                    intervalCount: intervalCountTracker,
+                    durationMinutes: finalDurationMinutes
+                });
+                
+                console.log('✓ Final stats saved - Duration:', finalDurationMinutes.toFixed(2), 'min, Rotations:', intervalCountTracker);
+                
+                // Send end signal
+                ipcRendererTracking.send('end-text-run', {
+                    runId: currentRunId
+                });
+                
+                console.log('✓ Text run ended with ID:', currentRunId);
+                
+                currentRunId = null;
+                intervalCountTracker = 0;
+                runStartTime = null;
+            }
+        }
+        
+        // Track when user closes app
+        window.addEventListener('beforeunload', () => {
+            trackTextRunEnd();
+        });
+        
+        // Start tracking when rotation begins
+        const originalStartRotation = startRotation;
+        startRotation = function() {
+            // Start tracking if not already started
+            if (!currentRunId && quotesArray.length > 0) {
+                trackTextRunStart();
+                // Send initial stats after a short delay to ensure DB record is created
+                setTimeout(() => {
+                    if (currentRunId) {
+                        updateTextRunStats();
+                    }
+                }, 100);
+            }
+            
+            // Clear old interval
+            if (intervalTimer) {
+                clearInterval(intervalTimer);
+                console.log('Previous interval cleared');
+            }
+            if (quotesArray.length === 0) {
+                console.log('No quotes to rotate');
+                return;
+            }
+            console.log('Starting rotation with interval:', interval, 'ms');
+            intervalTimer = setInterval(() => {
+                if (quotesArray.length > 0) {
+                    index = (index + 1) % quotesArray.length;
+                    console.log('Rotating to quote', index);
+                    updateDisplay();
+                    updateTextRunStats(); // Track every rotation
+                }
+            }, interval);
+        };
+        
+        // Export report button
+        document.getElementById('exportReportBtn').addEventListener('click', () => {
+            console.log('📊 Export button clicked');
+            console.log('Current Run ID:', currentRunId);
+            console.log('Interval Count Tracker:', intervalCountTracker);
+            console.log('Run Start Time:', runStartTime);
+            
+            // IMPORTANT: Flush/save current stats BEFORE exporting
+            if (currentRunId && runStartTime) {
+                const elapsedMs = new Date() - runStartTime;
+                const finalDurationMinutes = elapsedMs / 60000;
+                
+                console.log('📝 Saving final stats before export:');
+                console.log('  - Duration: ' + finalDurationMinutes.toFixed(2) + ' min');
+                console.log('  - Rotations: ' + intervalCountTracker);
+                
+                // Send final update to database
+                ipcRendererTracking.send('update-text-stats', {
+                    runId: currentRunId,
+                    intervalCount: intervalCountTracker,
+                    durationMinutes: finalDurationMinutes
+                });
+                
+                // Small delay to ensure DB update is saved
+                setTimeout(() => {
+                    console.log('✓ Stats saved, proceeding with export');
+                    ipcRendererTracking.send('export-report', {});
+                }, 300);
+            } else {
+                console.log('ℹ️ No active run, exporting current data');
+                ipcRendererTracking.send('export-report', {});
+            }
+            
+            // Handle export responses
+            ipcRendererTracking.on('export-success', (data) => {
+                alert('✅ Report exported successfully!\\nFile: ' + data.filePath);
+                // Restart tracking after export
+                if (quotesArray.length > 0) {
+                    trackTextRunStart();
+                }
+            });
+            
+            ipcRendererTracking.on('export-error', (data) => {
+                alert('❌ Error exporting report:\\n' + data.error);
+            });
+        });
+    </script>
+</body>
+</html>

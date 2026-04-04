@@ -1,0 +1,145 @@
+এই বারের সমস্যাটা ধরেছি। Gemini-র JS script `findBlock` function Branch B কে সঠিকভাবে extract করলেও, Gemini তারপর manually আরেকটি str_replace করে `is_being_edited` variable সহ `card_resp = ui.allocate_ui_with_layout(` line-এর structure টা unstable করে ফেলেছে।
+
+নিচে নতুন, আরও precise prompt দেওয়া হলো। এই বার **কোনো script নেই**, সরাসরি line-number-guided str_replace।
+
+---
+
+```
+Read src/main.rs carefully. Do NOT use any Python/JS/Rust scripts. Use only direct file edits (str_replace_editor). Do NOT delete any variables. Do NOT add ui.push_id() wrappers. Do NOT add nested ScrollArea inside the outer ScrollArea.
+
+─────────────────────────────────────────
+STEP 1: Read the current state first
+─────────────────────────────────────────
+
+Read src/main.rs lines 2762-2780 and confirm the structure looks like:
+
+    let card_resp = ui.allocate_ui_with_layout(
+        Vec2::new(card_width, 0.0),
+        egui::Layout::top_down(alignment),
+        |ui| {
+            ui.set_width(card_width);
+            
+            if !is_being_edited {
+                // Fixed height mode when NOT editing
+                ui.set_height(120.0);
+                egui::ScrollArea::vertical()
+                    .max_height(100.0)
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        ui.set_width(card_width - 32.0);
+                        ui.add_space(10.0);
+
+Also read lines 3074-3082 and confirm it ends like:
+
+            ui.add_space(10.0); // bottom padding
+                    }); // Close ScrollArea
+        } else {
+            // Dynamic height mode when editing - expands with content
+            ui.add_space(10.0);
+
+Also read lines 3376-3385 to confirm the else block and closure ends like:
+
+            ui.add_space(10.0); // bottom padding
+            }
+        },
+    );
+
+    let card_rect = card_resp.response.rect;
+
+If ANY of these confirmations fail (the structure has already been modified), STOP and report what you actually see. Do not proceed with edits if the structure differs.
+
+─────────────────────────────────────────
+STEP 2: Make exactly ONE str_replace edit
+─────────────────────────────────────────
+
+ONLY if Step 1 confirms the structure as described, make this single edit:
+
+Find the EXACT string (old_str):
+            ui.set_width(card_width);
+            
+            if !is_being_edited {
+                // Fixed height mode when NOT editing
+                ui.set_height(120.0);
+                egui::ScrollArea::vertical()
+                    .max_height(100.0)
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        ui.set_width(card_width - 32.0);
+                        ui.add_space(10.0);
+
+Replace with (new_str):
+            ui.set_width(card_width);
+            ui.set_min_height(120.0);
+
+            {
+                ui.add_space(10.0);
+
+This replaces the `if !is_being_edited { ScrollArea {` opening with a simple block opening.
+
+─────────────────────────────────────────
+STEP 3: Make exactly ONE more str_replace edit
+─────────────────────────────────────────
+
+Find the EXACT string (old_str):
+            ui.add_space(10.0); // bottom padding
+                    }); // Close ScrollArea
+        } else {
+            // Dynamic height mode when editing - expands with content
+            ui.add_space(10.0);
+
+Replace with (new_str):
+            ui.add_space(10.0); // bottom padding
+            }
+
+This removes the ScrollArea closing, the else keyword, and the redundant ui.add_space(10.0) at the top of Branch B (keeping only one ui.add_space at the start, from Step 2).
+
+─────────────────────────────────────────
+STEP 4: Fix the closing brace
+─────────────────────────────────────────
+
+Find the EXACT string (old_str):
+            ui.add_space(10.0); // bottom padding
+            }
+        },
+    );
+
+    let card_rect = card_resp.response.rect;
+
+Replace with (new_str):
+            ui.add_space(10.0); // bottom padding
+        },
+    );
+
+    let card_rect = card_resp.response.rect;
+
+This removes the extra `}` that was the if/else closing brace — now that the if/else is gone, the block `{ ... }` introduced in Step 2 closes via the already-existing structure.
+
+─────────────────────────────────────────
+STEP 5: Run cargo check
+─────────────────────────────────────────
+
+Run: cargo check
+
+If there are ANY errors, read the error lines, fix only the reported errors, and run cargo check again.
+
+Do NOT make any other changes. Do NOT touch render_main_content. Do NOT remove any variables. Do NOT add id_salt or push_id. Just these 3 surgical str_replace edits.
+
+─────────────────────────────────────────
+WHAT THIS ACHIEVES (for your understanding)
+─────────────────────────────────────────
+- Removes the inner ScrollArea from each card (fixes text scrolling independently of the card background)
+- Keeps ALL editing logic intact: hover-edit, char selection, omni-drag, sub-text editing, format toolbar
+- Cards now have a minimum height of 120px but expand to fit content
+- No nested ScrollAreas anywhere
+- render_quote_card still returns egui::Response correctly
+```
+
+---
+
+এই prompt-এ তিনটি key পরিবর্তন করা হয়েছে আগের prompts থেকে:
+
+**১. Verification step** — Gemini প্রথমে line পড়বে এবং confirm করবে structure ঠিক আছে কিনা। আগের বারে script blindly run করে ভুল করেছিল।
+
+**২. Block replacement not function replacement** — পুরো `if/else` block delete করার বদলে শুধু opening এবং closing markers swap করছি। এতে Branch B-র editing code এক লাইনও পরিবর্তন হবে না।
+
+**৩. No post-processing cleanup** — Gemini-কে variable cleanup করতে বলা হয়নি। `is_being_edited` variable unused warning দেখাবে কিন্তু compile হবে — editing feature intact থাকবে।

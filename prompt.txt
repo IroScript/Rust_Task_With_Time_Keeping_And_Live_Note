@@ -1,0 +1,497 @@
+=============================================================
+ROLE & EXPERTISE
+=============================================================
+
+Act as an Expert Full-Stack Rust Developer specializing in:
+- Extreme memory optimization for severely constrained hardware
+- egui / eframe (Pure Rust GUI — Immediate Mode)
+- Axum (Async HTTP Backend)
+- SQLite3 via rusqlite (Embedded Database)
+- Tokio single-threaded runtime
+- Virtual Scrolling / Windowing techniques in native GUI
+
+=============================================================
+EXISTING PROJECT CONTEXT
+=============================================================
+
+Repository: https://github.com/IroScript/Rust_Task_With_Time_Keeping_And_Live_Note
+
+This is a Pure Rust desktop application. Study the repo structure:
+- It uses egui/eframe for the GUI (NO browser, NO HTML, NO JavaScript)
+- It is a Task Manager with Time Keeping and Live Note features
+- Cards/Tasks are the primary data unit
+
+The app currently has:
+- Task creation and management
+- Time tracking (start/stop timer per task)
+- Live note editing within each task/card
+
+I want to EXTEND this project to handle massive text data
+inside each card's "Live Note" section.
+
+=============================================================
+HARDWARE CONSTRAINTS (ABSOLUTE — NON-NEGOTIABLE)
+=============================================================
+
+Target Machine Specifications:
+┌─────────────────────────────────────────────┐
+│  CPU:     Single-core Pentium (1st Gen)     │
+│  RAM:     500 MB TOTAL system memory        │
+│  Disk:    HDD (not SSD) — slow I/O          │
+│  OS:      Linux (EXT4) or Windows (NTFS)    │
+│  Network: localhost only (127.0.0.1)        │
+└─────────────────────────────────────────────┘
+
+Memory Budget:
+- OS overhead:              ~200 MB
+- Remaining for our app:    ~300 MB
+- egui frontend target:     < 30 MB RAM
+- Axum backend target:      < 20 MB RAM
+- SQLite page cache:        ~10 MB (PRAGMA cache_size)
+- Total app footprint:      < 60 MB RAM MAXIMUM
+
+CPU Budget:
+- Single-core means NO parallel processing
+- tokio runtime MUST use:
+    #[tokio::main(flavor = "current_thread")]
+- All operations must be non-blocking but single-threaded
+- Avoid CPU-heavy serialization; keep JSON payloads tiny
+
+=============================================================
+DATA SCALE
+=============================================================
+
+Per Card:
+- A single card's "Live Note" can contain up to 500 GB of text
+- That means billions of lines of text in ONE card
+- Average line length: ~80-120 characters (UTF-8)
+- Estimated lines per card: ~4-6 billion lines (worst case)
+
+Total System:
+- Millions of cards exist in the database
+- Total database size could be in the hundreds of terabytes
+- SQLite max file size = 140 TB (theoretical), so we may
+  need database sharding per card for extreme cases
+
+=============================================================
+CRITICAL PRINCIPLE: NEVER LOAD FULL TEXT INTO MEMORY
+=============================================================
+
+At NO point should the full 500 GB text of a card exist in:
+- Rust's heap memory (String, Vec<u8>, etc.)
+- egui's text buffer
+- Axum's response body (accumulated)
+- SQLite's result set (fully materialized)
+
+ONLY the currently visible "window" of text (30-50 lines,
+roughly 5-10 KB) should exist in RAM at any given moment.
+
+=============================================================
+ARCHITECTURE OVERVIEW
+=============================================================
+
+┌──────────────────────────────────────────────────────────┐
+│                    SINGLE MACHINE                        │
+│                  (localhost only)                         │
+│                                                          │
+│  ┌─────────────┐   HTTP (JSON)   ┌─────────────────┐    │
+│  │  egui App   │ ◄────────────► │   Axum Server    │    │
+│  │ (Frontend)  │  localhost:3000 │   (Backend)      │    │
+│  │             │                 │                  │    │
+│  │ - ScrollArea│                 │ - GET /api/...   │    │
+│  │ - Text Pool │                 │ - Query SQLite   │    │
+│  │ - Offset    │                 │ - Return JSON    │    │
+│  │   Calc      │                 │                  │    │
+│  └─────────────┘                 └────────┬─────────┘    │
+│                                           │              │
+│                                    rusqlite│              │
+│                                           │              │
+│                                  ┌────────▼─────────┐    │
+│                                  │    SQLite3 DB     │    │
+│                                  │                   │    │
+│                                  │ cards table       │    │
+│                                  │ card_chunks table │    │
+│                                  │ (indexed by       │    │
+│                                  │  card_id +        │    │
+│                                  │  line_number)     │    │
+│                                  └───────────────────┘    │
+└──────────────────────────────────────────────────────────┘
+
+=============================================================
+PART 1: DATABASE SCHEMA (schema.sql)
+=============================================================
+
+Design TWO tables:
+
+TABLE 1: cards
+- id              INTEGER PRIMARY KEY AUTOINCREMENT
+- title           TEXT NOT NULL
+- total_lines     INTEGER NOT NULL DEFAULT 0
+- created_at      TEXT NOT NULL (ISO 8601)
+- updated_at      TEXT NOT NULL (ISO 8601)
+
+TABLE 2: card_chunks
+- id              INTEGER PRIMARY KEY AUTOINCREMENT
+- card_id         INTEGER NOT NULL (FK → cards.id)
+- line_number     INTEGER NOT NULL
+- line_text       TEXT NOT NULL
+
+INDEXES (Critical for performance):
+- CREATE INDEX idx_card_chunks_lookup
+  ON card_chunks(card_id, line_number);
+
+This composite index allows SQLite's B-Tree to find any
+arbitrary range of lines in O(log n) time, even among
+billions of rows.
+
+PRAGMA Optimizations (set on every connection open):
+- PRAGMA journal_mode = WAL;         -- Write-Ahead Log for concurrency
+- PRAGMA synchronous = NORMAL;       -- Balance safety/speed
+- PRAGMA cache_size = -10000;        -- Limit cache to ~10 MB
+- PRAGMA temp_store = MEMORY;        -- Small temp ops in RAM
+- PRAGMA mmap_size = 0;              -- Disable mmap (500MB RAM)
+- PRAGMA page_size = 4096;           -- Match OS page size
+
+=============================================================
+PART 2: AXUM BACKEND (backend/main.rs)
+=============================================================
+
+Requirements:
+
+1. Runtime: #[tokio::main(flavor = "current_thread")]
+   - Single-core CPU cannot benefit from multi-threading
+   - Reduces thread overhead and context switching
+
+2. Endpoints:
+
+   GET /api/cards
+   → Returns paginated list of cards (id, title, total_lines)
+   → Query params: ?page=1&per_page=50
+   → Used for card list/dashboard view
+
+   GET /api/cards/:card_id/lines
+   → Returns a specific range of lines for a card
+   → Query params: ?start_line=500000&limit=50
+   → SQL: SELECT line_number, line_text
+          FROM card_chunks
+          WHERE card_id = ?1 AND line_number >= ?2
+          ORDER BY line_number ASC
+          LIMIT ?3
+   → Response: JSON array of {line_number, line_text}
+   → Response size: ~5-10 KB maximum
+
+   PUT /api/cards/:card_id/lines/:line_number
+   → Updates a single line's text
+   → Body: { "line_text": "updated content" }
+   → SQL: UPDATE card_chunks
+          SET line_text = ?1
+          WHERE card_id = ?2 AND line_number = ?3
+
+   POST /api/cards/:card_id/ingest
+   → Streaming upload endpoint for ingesting large text files
+   → Reads request body as a Stream (not buffered!)
+   → Uses BufReader logic to read line-by-line
+   → Inserts in batches of 10,000 lines per SQLite transaction
+   → Updates cards.total_lines after completion
+   → RAM usage stays flat regardless of file size
+
+   GET /api/cards/:card_id/meta
+   → Returns card metadata including total_lines
+   → Used by frontend to calculate scrollbar height
+
+3. Connection Pool:
+   - Use r2d2_sqlite or a simple Arc<Mutex<Connection>>
+   - Since single-threaded, a single connection is fine
+   - Prepare statements once and reuse (prepare_cached)
+
+4. Error Handling:
+   - Return proper HTTP status codes
+   - 404 for missing cards
+   - 416 Range Not Satisfiable for out-of-range lines
+   - 500 for database errors
+
+5. CORS:
+   - Not needed (same machine, egui uses HTTP client not browser)
+   - But add tower_http::cors just in case for debugging
+
+=============================================================
+PART 3: EGUI FRONTEND — PURE RUST VIRTUAL SCROLLING
+=============================================================
+
+THIS IS THE MOST CRITICAL PART.
+
+There is NO browser. There is NO DOM. There is NO JavaScript.
+Everything is Pure Rust using egui's immediate mode rendering.
+
+Architecture of the Virtual Scroller:
+
+struct LiveNoteViewer {
+    card_id: i64,
+    total_lines: i64,          // from /api/cards/:id/meta
+
+    // The "window" of currently loaded text
+    loaded_lines: Vec<LineEntry>,  // ALWAYS ≤ 100 entries
+    loaded_start: i64,             // first line_number in buffer
+    loaded_end: i64,               // last line_number in buffer
+
+    // Scroll state
+    scroll_offset: f32,
+    line_height: f32,          // pixels per line (monospace)
+    visible_count: usize,      // lines visible on screen
+
+    // Async fetch state
+    is_fetching: bool,
+    pending_request: Option<...>,
+
+    // Edit state
+    editing_line: Option<i64>,
+    edit_buffer: String,
+}
+
+struct LineEntry {
+    line_number: i64,
+    text: String,
+}
+
+Virtual Scrolling Logic (step by step):
+
+STEP 1: Calculate Geometry
+  - On each frame, measure the available height of the
+    ScrollArea in pixels
+  - visible_count = (available_height / line_height) as usize
+  - Total scrollable height = total_lines * line_height
+    (this could be enormous, but egui handles virtual ranges)
+
+STEP 2: Determine Required Line Range
+  - Based on scroll_offset:
+    first_visible_line = (scroll_offset / line_height) as i64
+    last_visible_line = first_visible_line + visible_count
+  - Add a buffer zone: prefetch 25 lines above and below
+    fetch_start = max(0, first_visible_line - 25)
+    fetch_end = min(total_lines, last_visible_line + 25)
+
+STEP 3: Check if Data is Already Loaded
+  - If fetch_start >= loaded_start AND fetch_end <= loaded_end:
+      → Data already in memory, skip fetch
+  - Otherwise:
+      → Trigger async HTTP request to Axum
+
+STEP 4: Async Fetch (Non-blocking!)
+  - Use ehttp (egui's built-in HTTP) or reqwest with
+    tokio::spawn_local for single-threaded async
+  - DO NOT block the UI thread!
+  - While fetching, show the old data or a subtle
+    loading indicator
+  - On response:
+      → Parse JSON into Vec<LineEntry>
+      → Replace loaded_lines (drop old data = free RAM)
+      → Update loaded_start and loaded_end
+
+STEP 5: Render
+  - In egui::ScrollArea::vertical():
+      → Add invisible spacing at top:
+        ui.add_space(loaded_start as f32 * line_height)
+      → Render each line in loaded_lines as ui.label()
+        or ui.monospace() — ONLY these lines exist in the
+        render tree
+      → Add invisible spacing at bottom:
+        remaining = total_lines - loaded_end
+        ui.add_space(remaining as f32 * line_height)
+  - This creates the ILLUSION of scrolling through billions
+    of lines while only 50-100 lines exist in memory
+
+STEP 6: Editing a Line
+  - When user clicks a line:
+      → Set editing_line = Some(line_number)
+      → Copy line text into edit_buffer
+      → Show egui::TextEdit::singleline(&mut self.edit_buffer)
+  - On Enter or focus loss:
+      → Send PUT /api/cards/:id/lines/:line_number
+      → Update the local loaded_lines entry
+      → Clear editing_line
+
+Memory Management Rules:
+  - loaded_lines.len() must NEVER exceed 150
+  - When new data arrives, old data is DROPPED (not accumulated)
+  - String allocations are small (~100 chars per line × 100 lines
+    = ~10 KB)
+  - Total egui frontend memory: < 30 MB
+
+=============================================================
+PART 4: DATA INGESTION (CLI or Background Task)
+=============================================================
+
+For importing a 500 GB text file into the database:
+
+fn ingest_file(db_path: &str, card_id: i64, file_path: &str) {
+    // 1. Open file with BufReader (8 KB internal buffer)
+    // 2. Read line by line — NEVER load whole file
+    // 3. Every 10,000 lines:
+    //    - BEGIN TRANSACTION
+    //    - INSERT 10,000 rows into card_chunks
+    //    - COMMIT
+    // 4. After all lines inserted:
+    //    - UPDATE cards SET total_lines = ? WHERE id = ?
+    // 5. Total RAM used: < 5 MB regardless of file size
+}
+
+Use prepared statements (prepare_cached) for INSERT
+to avoid re-parsing SQL on every line.
+
+Progress reporting: Print progress every 100,000 lines
+to stdout so user knows it's working.
+
+=============================================================
+PART 5: PROJECT STRUCTURE
+=============================================================
+
+Rust_Task_With_Time_Keeping_And_Live_Note/
+├── Cargo.toml                    (workspace)
+├── schema.sql                    (SQLite schema + indexes)
+├── backend/
+│   ├── Cargo.toml
+│   └── src/
+│       ├── main.rs               (Axum server entry point)
+│       ├── db.rs                 (SQLite connection + queries)
+│       ├── routes/
+│       │   ├── mod.rs
+│       │   ├── cards.rs          (card CRUD endpoints)
+│       │   └── lines.rs         (line fetch/update endpoints)
+│       └── models.rs            (Request/Response structs)
+├── frontend/
+│   ├── Cargo.toml
+│   └── src/
+│       ├── main.rs               (eframe entry point)
+│       ├── app.rs                (Main App struct, egui impl)
+│       ├── views/
+│       │   ├── mod.rs
+│       │   ├── dashboard.rs      (Card list view)
+│       │   ├── task_view.rs      (Task + Timer view)
+│       │   └── live_note.rs     (Virtual Scrolling Note Editor)
+│       ├── api_client.rs        (HTTP calls to Axum backend)
+│       └── virtual_scroller.rs  (Core scrolling logic)
+├── cli/
+│   ├── Cargo.toml
+│   └── src/
+│       └── main.rs               (Data ingestion CLI tool)
+└── data/
+    └── app.db                    (SQLite database file)
+
+=============================================================
+PART 6: CARGO DEPENDENCIES
+=============================================================
+
+[backend]
+axum = "0.7"
+tokio = { version = "1", features = ["rt", "macros"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+tower-http = { version = "0.5", features = ["cors"] }
+
+[frontend]
+eframe = "0.28"
+egui = "0.28"
+ehttp = "0.5"                    # Non-blocking HTTP for egui
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[cli]
+rusqlite = { version = "0.31", features = ["bundled"] }
+indicatif = "0.17"               # Progress bar for ingestion
+
+=============================================================
+PART 7: CRITICAL OPTIMIZATION NOTES
+=============================================================
+
+1. SQLite WAL Mode:
+   - Allows the backend to READ while the CLI is WRITING
+   - Essential during data ingestion
+
+2. Prepared Statement Caching:
+   - The line-fetch query runs thousands of times per session
+   - prepare_cached() avoids re-parsing SQL every time
+
+3. egui Repaint Strategy:
+   - Do NOT call ctx.request_repaint() every frame
+   - Only repaint when:
+     a) User is actively scrolling
+     b) HTTP response arrives
+     c) Timer is running (for time keeping feature)
+   - This saves CPU on single-core Pentium
+
+4. Debounced Fetching:
+   - When user scrolls fast, don't fire 100 HTTP requests
+   - Wait 50-100ms after scroll stops, then fetch
+   - Cancel any in-flight request before sending new one
+
+5. Connection Keep-Alive:
+   - egui → Axum connection should stay open (HTTP/1.1)
+   - Avoid TCP handshake overhead on every scroll
+
+6. Text Rendering:
+   - Use monospace font in egui for consistent line_height
+   - This makes scroll offset calculation exact
+   - Proportional fonts would require measuring each line
+
+7. No String Cloning:
+   - When replacing loaded_lines, use std::mem::replace
+     or swap to avoid temporary double-allocation
+   - Drop old Vec BEFORE allocating new one if possible
+
+=============================================================
+DELIVERABLES
+=============================================================
+
+Please write the COMPLETE, COMPILABLE code for:
+
+1. schema.sql — Full database schema with indexes and PRAGMAs
+2. backend/src/main.rs — Complete Axum server
+3. backend/src/db.rs — SQLite connection and query functions
+4. backend/src/routes/lines.rs — Line fetch/update handlers
+5. frontend/src/main.rs — eframe entry point
+6. frontend/src/virtual_scroller.rs — The core virtual
+   scrolling component for egui
+7. frontend/src/api_client.rs — Non-blocking HTTP client
+8. cli/src/main.rs — Data ingestion tool
+
+Every file must compile. Every function must handle errors.
+Memory usage must stay under 60 MB total for the whole stack.
+The system must work on a 500 MB RAM single-core Pentium PC.
+
+=============================================================
+END OF PROMPT
+=============================================================
+
+
+
+
+আর্কিটেকচার ফ্লো (কারেক্টেড — Pure Rust, No JS):
+
+  ইউজার স্ক্রল করলো (egui ScrollArea)
+           │
+           ▼
+  egui ক্যালকুলেট করলো: "লাইন ৫,০০,০০০ থেকে ৫,০০,০৫০ দরকার"
+           │
+           ▼
+  ehttp দিয়ে Axum-কে HTTP GET রিকোয়েস্ট পাঠালো
+  GET http://127.0.0.1:3000/api/cards/42/lines?start_line=500000&limit=50
+           │
+           ▼
+  Axum রিসিভ করলো → rusqlite দিয়ে SQLite কুয়েরি করলো
+  SELECT line_text FROM card_chunks
+  WHERE card_id=42 AND line_number >= 500000
+  ORDER BY line_number LIMIT 50
+           │
+           ▼
+  SQLite B-Tree ইনডেক্স ব্যবহার করে O(log n) এ ডেটা আনলো
+           │
+           ▼
+  Axum ছোট JSON রেসপন্স পাঠালো (~5 KB)
+           │
+           ▼
+  egui পুরনো ডেটা DROP করলো (মেমোরি ফ্রি)
+  নতুন ৫০ লাইন রেন্ডার করলো
+  উপরে-নিচে invisible spacing দিয়ে স্ক্রলবার ঠিক রাখলো
+
+  মোট র‍্যাম ব্যবহার: ~৫-১০ KB (শুধু ৫০ লাইনের টেক্সট)

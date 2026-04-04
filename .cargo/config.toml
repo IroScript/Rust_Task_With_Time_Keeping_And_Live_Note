@@ -1,0 +1,11 @@
+[http]
+check-revoke = false
+timeout = 300
+low-speed-limit = 0
+
+[net]
+git-fetch-with-cli = true
+retry = 10
+
+[registries.crates-io]
+protocol = "sparse"

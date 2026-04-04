@@ -1,0 +1,646 @@
+# Daily Motivation App — Complete UI Layout Reference
+
+---
+
+## OVERALL STRUCTURE
+
+**Body/Root Container:**
+- Background: Linear gradient, 135deg angle, colors: #667eea → #764ba2 → #f093fb (purple → violet → pink)
+- Text color: #FFFFFF
+- Font family: Noto Sans Bengali, Segoe UI, Arial (fallback chain)
+- Layout: Flexbox, column direction
+- Height: 100vh (full screen)
+- Border: 2px solid rgba(255,255,255, 0.3)
+- Overflow: hidden
+- Pulse animation always active: scale 1.0 → 1.02 → 1.0, 3 second cycle, infinite
+
+**Main Container (inside body):**
+- Flexbox, column direction
+- Width: 100%, Height: 100%
+- Two children: Header Bar (top) + Content Area (bottom, fills remaining space)
+
+---
+
+## SECTION 1 — HEADER BAR
+
+**Position:** Top of screen, full width
+**Background:** rgba(0,0,0, 0.2)
+**Border-bottom:** 1px solid rgba(255,255,255, 0.2)
+**Padding:** 12px top/bottom, 15px left/right
+**Layout:** Flexbox, row, space-between alignment, vertically centered
+**Draggable region:** Yes (entire header is app drag zone)
+**Transition:** all 0.3s ease
+**Hide state class:** When hidden → display: none
+
+**Left Side — App Title:**
+- Text: `💪 Daily Motivation 🚀`
+- Font size: 14px
+- Font weight: Bold
+- Text shadow: 1px 1px 2px rgba(0,0,0, 0.3)
+- Cursor: move
+
+**Right Side — Control Buttons (6 buttons, left to right):**
+
+All 6 buttons share this base style:
+- Background: rgba(255,255,255, 0.2)
+- Border: 1px solid rgba(255,255,255, 0.4)
+- Color: #FFFFFF
+- Padding: 5px top/bottom, 10px left/right
+- Border-radius: 5px
+- Font size: 11px, Bold
+- Hover state: background rgba(255,255,255, 0.4), scale(1.05)
+- Active/click state: scale(0.98)
+- Transition: all 0.3s ease
+- Gap between buttons: 8px
+
+| Order | Button ID | Label | Tooltip |
+|-------|-----------|-------|---------|
+| 1 | themeBtn | 🎨 | Change Theme |
+| 2 | hideHeaderBtn | ▲ | Hide Header |
+| 3 | zoomIn | 🔍+ | Zoom In |
+| 4 | zoomOut | 🔍- | Zoom Out |
+| 5 | minimize | _ | Minimize |
+| 6 | close | ✕ | Close |
+
+---
+
+## SECTION 2 — CONTENT AREA
+
+**Layout:** Flexbox, row direction
+**Fills:** All remaining height below header
+**Two side-by-side panels:** Display Area (left) + Control Panel (right)
+
+**When Control Panel is hidden:**
+- Display Area expands to full width
+- Toggle button icon changes from ☰ to ✕
+- Transition: all 0.3s ease
+
+---
+
+## SECTION 3 — DISPLAY AREA (Left Panel)
+
+**Flex weight:** 2 (takes 2/3 of width)
+**Border-right:** 1px solid rgba(255,255,255, 0.2)
+**Layout:** Flexbox, column, centered both axes
+**Padding:** 20px
+**Position:** relative
+
+### 3.1 — Floating Button Group
+
+**Position:** Fixed, top: 70px, right: 10px
+**Background:** rgba(0,0,0, 0.1)
+**Border:** 1px solid rgba(255,255,255, 0.2)
+**Border-radius:** 8px
+**Padding:** 8px
+**Gap between buttons:** 6px
+**Direction:** Column (stacked vertically)
+**Z-index:** 1000
+**Auto-hide behavior:** After 5 seconds of mouse inactivity → opacity: 0, pointer-events: none. Mouse movement anywhere on screen → opacity: 1, pointer-events restored. Transition: opacity 0.3s ease.
+
+**Button 1 — Toggle Panel (ID: togglePanelBtn):**
+- Default icon: ☰
+- After panel hidden: icon becomes ✕
+- Size: 28×28px
+- Background: none
+- Border: none
+- Color: #FFFFFF
+- Font size: 16px
+- Hover: background rgba(255,255,255, 0.2), scale(1.05)
+- Border-radius: 4px
+
+**Button 2 — Show Header (ID: showHeaderBtn):**
+- Icon: ∧
+- Default state: display none (hidden)
+- Appears only when header is hidden
+- Same size and style as Toggle Panel button
+- Clicking it: restores header, hides this button again
+
+### 3.2 — Main Quote Text (ID: quote)
+
+- Font size: 24px default (adjustable via A+/A- buttons, range 12px–100px, step 2px)
+- Font weight: 600
+- Line height: 1.6 default (adjustable via slider)
+- Text align: center
+- Color: #FFFFFF default (adjustable via color picker)
+- Text shadow: 2px 2px 4px rgba(0,0,0, 0.4)
+- White-space: pre-wrap (supports manual line breaks)
+- Word-wrap: break-word
+- Animation on rotation: fadeIn — opacity 0→1, translateY -10px→0, duration 0.8s ease-in
+- Double-click action: loads this item's text into textInput and subtextInput for editing, removes from list
+
+### 3.3 — Subtitle Edit Input (ID: subtitleInput)
+
+- Default state: display none (hidden)
+- Appears when subtitleDisplay is clicked
+- Type: text input
+- Width: 300px
+- Background: rgba(255,255,255, 0.2)
+- Border: 1px solid rgba(255,255,255, 0.4)
+- Color: #FFFFFF
+- Padding: 5px 8px
+- Border-radius: 4px
+- Font size: 11px
+- Text align: center
+- Placeholder: "Click to edit subtitle..."
+- Placeholder color: rgba(255,255,255, 0.6)
+- Focus: background rgba(255,255,255, 0.3), border rgba(255,255,255, 0.6)
+- Enter key or blur: saves subtitle, hides input, shows subtitleDisplay again
+
+### 3.4 — Subtitle Display Text (ID: subtitleDisplay)
+
+- Default text: "Keep pushing - You're doing great! 🌟"
+- Font size: 11px default (adjustable via A+/A- buttons, range 8px–50px, step 2px)
+- Margin-top: 15px default (overridden by "Gap Between Texts" slider, 0–50px)
+- Opacity: 0.9 default
+- Color: #FFFFFF default (adjustable)
+- Line height: 1.6 default (adjustable via slider)
+- White-space: pre-wrap
+- Word-wrap: break-word
+- Cursor: pointer
+- Padding: 5px 10px
+- Border-radius: 4px
+- Hover: background rgba(255,255,255, 0.1), opacity 1
+- Single click: shows subtitleInput for inline editing
+- Double-click: full item edit mode (same as double-click on quote)
+
+---
+
+## SECTION 4 — CONTROL PANEL (Right Panel)
+
+**Flex weight:** 1 (takes 1/3 of width)
+**Background:** rgba(0,0,0, 0.1)
+**Padding:** 15px
+**Layout:** Flexbox, column direction
+**Gap between sections:** 10px
+**Overflow-y:** auto (scrollable if content overflows)
+
+**All Sections share this style:**
+- Background: rgba(255,255,255, 0.1)
+- Padding: 10px
+- Border-radius: 8px
+- Border: 1px solid rgba(255,255,255, 0.2)
+
+**All Section Titles share:**
+- Font size: 12px
+- Font weight: Bold
+- Display: block
+- Margin-bottom: 8px
+- Text-transform: uppercase
+
+**All text inputs and number inputs share:**
+- Width: 100%
+- Padding: 6px
+- Background: rgba(255,255,255, 0.15)
+- Border: 1px solid rgba(255,255,255, 0.3)
+- Color: #FFFFFF
+- Border-radius: 4px
+- Font family: inherited
+- Font size: 11px
+- Margin-bottom: 8px
+- Placeholder color: rgba(255,255,255, 0.6)
+- Focus: background rgba(255,255,255, 0.25), border rgba(255,255,255, 0.5)
+
+**All textareas share same style as inputs plus:**
+- Resize: vertical
+- Min-height: 60px
+- Max-height: 150px
+
+---
+
+### Control Panel — Section 1: ADD CUSTOM TEXT
+
+**Section Title:** "ADD CUSTOM TEXT"
+
+**Row 1 — Main Text Input Row (horizontal flex, gap 6px):**
+
+- **Main Text Textarea (ID: textInput)**
+  - Flex: 1 (takes most of row width)
+  - Placeholder: "Main text... (Press Shift+Enter for new lines, Enter to submit)"
+  - Enter key (no shift): triggers Add button
+  - Shift+Enter: inserts new line
+  - Live preview: typing here updates quote display in real time
+
+- **Size Buttons Column (stacked vertically, gap 3px):**
+  - **Button A+ (ID: mainTextIncBtn):** increases main text size by 2px, max 100px
+  - **Button A- (ID: mainTextDecBtn):** decreases main text size by 2px, min 12px
+  - Both buttons style: background rgba(100,200,255, 0.6) — light blue, border rgba(100,200,255, 1.0), padding 4px 8px, font 11px bold, width 28px, flex-shrink 0
+
+- **Color Picker Button (ID: mainColorBtn):**
+  - Label: 🎨
+  - Background: rgba(255,100,100, 0.6) — red/coral
+  - Border: rgba(255,100,100, 1.0)
+  - Padding: 4px 8px, font 11px
+  - Flex-shrink: 0
+  - Opens native color picker on click, applies color to main text in real time
+
+**Row 2 — Supporting Text Input Row (same structure as Row 1):**
+
+- **Supporting Text Textarea (ID: subtextInput)**
+  - Placeholder: "Supporting text... (Press Shift+Enter for new lines, Enter to submit)"
+  - Enter key (no shift): triggers Add button
+  - Live preview: typing updates subtitleDisplay in real time
+
+- **Size Buttons Column:**
+  - **Button A+ (ID: subtextIncBtn):** increases subtext size by 2px, max 50px
+  - **Button A- (ID: subtextDecBtn):** decreases subtext size by 2px, min 8px
+  - Same blue style as main text size buttons
+
+- **Color Picker Button (ID: subtextColorBtn):**
+  - Label: 🎨
+  - Same red style as main color button
+  - Opens native color picker, applies to subtitle text
+
+**Add Text Button (ID: addBtn):**
+- Text: `+ Add Text`
+- Width: 100%
+- Padding: 8px
+- Background: rgba(76,175,80, 0.6) — green
+- Border: 1px solid rgba(76,175,80, 1.0)
+- Color: white
+- Hover: rgba(76,175,80, 0.8)
+
+---
+
+### Control Panel — Section 2: LINE GAPS
+
+**Section Title:** "LINE GAPS"
+
+**3 slider rows, each row layout:** Flex, row, aligned center, gap 8px, font 11px
+
+**Row 1 — Main Text Gap:**
+- Label text: "Main Text Gap" — min-width 120px, color rgba(255,255,255, 0.9)
+- Slider (ID: mainTextGapInput): type range, min 1.0, max 3.0, step 0.1, default value **1.6**
+- Value display (ID: mainTextGapValue): shows current value e.g. "1.6", color rgba(100,200,255, 1.0) — cyan, bold, min-width 30px, right aligned
+- Live update: dragging slider instantly updates quote line-height and saves to storage
+
+**Row 2 — Supporting Text Gap:**
+- Label text: "Supporting Text Gap"
+- Slider (ID: subtextGapInput): type range, min 1.0, max 3.0, step 0.1, default value **1.6**
+- Value display (ID: subtextGapValue): same cyan style
+- Live update: instantly updates subtitle line-height
+
+**Row 3 — Gap Between Texts:**
+- Label text: "Gap Between Texts"
+- Slider (ID: betweenGapInput): type range, min 0, max 50, step 1, default value **0**
+- Value display (ID: betweenGapValue): same cyan style, followed by "px" text
+- Live update: controls margin-top of subtitleDisplay (0px–50px)
+
+**All slider track style:**
+- Height: 6px
+- Border-radius: 3px
+- Background: rgba(255,255,255, 0.2)
+- Appearance: none (custom styled)
+
+**All slider thumb style:**
+- Width: 14px, Height: 14px
+- Shape: circle (border-radius 50%)
+- Background: rgba(100,200,255, 0.9) — cyan
+- Border: 1px solid rgba(100,200,255, 1.0)
+- Cursor: pointer
+
+---
+
+### Control Panel — Section 3: INTERVAL (SECONDS)
+
+**Section Title:** "INTERVAL (SECONDS)"
+
+**Number Input (ID: intervalInput):**
+- Type: number
+- Default value: **8**
+- Placeholder: "8"
+- Min: 1, Max: 60
+- Width: 100%
+- Enter key: triggers Set Interval button
+
+**Set Interval Button (ID: updateIntervalBtn):**
+- Text: "Set Interval"
+- Width: 100%
+- Padding: 8px
+- Background: rgba(33,150,243, 0.6) — blue
+- Border: 1px solid rgba(33,150,243, 1.0)
+- Color: white
+- Hover: rgba(33,150,243, 0.8)
+- Behavior: validates input (1–60), converts seconds to milliseconds, restarts rotation timer, saves to storage, updates Info Bar display
+
+---
+
+### Control Panel — Section 4: TEXT LIST
+
+**Section Title:** `TEXT LIST (N)` — where N = live count of items (ID: textCount)
+
+**Scrollable List Container (ID: textsList):**
+- Background: rgba(0,0,0, 0.2)
+- Border-radius: 6px
+- Max-height: 200px
+- Overflow-y: auto
+- Padding: 8px
+
+**Each Text Item (dynamically generated):**
+- Background: rgba(255,255,255, 0.1)
+- Border: 1px solid rgba(255,255,255, 0.2)
+- Padding: 6px 8px
+- Margin-bottom: 4px
+- Border-radius: 4px
+- Font size: 9px
+- Layout: Flex, row, space-between, align-items flex-start, gap 8px
+
+- **Left content area (flex: 1):**
+  - Line 1: `**N.** [main quote text]` — bold number prefix
+  - Line 2: `💬 [supporting text]` — font 9px, opacity 0.8, margin-top 2px
+  - Cursor: pointer
+  - Single click: jumps display to that quote immediately
+  - Double click: loads item into textInput + subtextInput for editing, removes from list
+  - Hover: background rgba(100,200,255, 0.2), padding 4px, border-radius 4px
+
+- **Delete Button (right side):**
+  - Text: "Delete"
+  - Padding: 2px 6px
+  - Font size: 9px
+  - Background: rgba(255,70,70, 0.6) — red
+  - Border: rgba(255,70,70, 1.0)
+  - Margin-left: 8px
+  - Hover: rgba(255,70,70, 0.8)
+  - Click: removes item, updates list and display
+
+**Clear All Button (ID: clearBtn):**
+- Text: "Clear All"
+- Width: 100%
+- Margin-top: 8px
+- Background: rgba(255,152,0, 0.6) — orange
+- Border: 1px solid rgba(255,152,0, 1.0)
+- Hover: rgba(255,152,0, 0.8)
+- Behavior: shows confirm dialog before clearing
+
+---
+
+### Control Panel — Section 5: INFO BAR
+
+**Style:** Font size 9px, opacity 0.8, background rgba(0,0,0, 0.3), border-radius 4px, padding 6px, margin-top 8px
+
+**Line 1:** `Current Interval: Xs` — where X updates dynamically (ID: currentInterval)
+**Line 2:** `Texts Count: N` — where N updates dynamically (ID: statsCount)
+
+---
+
+## SECTION 5 — THEME MODAL (Full Screen Popup)
+
+**Trigger:** Clicking 🎨 button in header bar
+
+**Overlay (ID: themeModal):**
+- Default state: display none
+- Active state: display flex
+- Position: fixed, covers entire screen (top/left/right/bottom: 0)
+- Background: rgba(0,0,0, 0.6)
+- Backdrop-filter: blur(4px)
+- Z-index: 10000
+- Alignment: center both axes
+- Click outside modal box: closes modal
+
+**Modal Box:**
+- Background: linear-gradient(135deg, rgba(102,126,234, 0.95) → rgba(118,75,162, 0.95))
+- Border-radius: 12px
+- Padding: 20px
+- Max-width: 400px
+- Width: 90%
+- Max-height: 80vh
+- Overflow-y: auto
+- Border: 2px solid rgba(255,255,255, 0.2)
+- Box-shadow: 0 8px 32px rgba(0,0,0, 0.3)
+
+### Modal Header Row:
+- Layout: Flex, row, space-between, vertically centered
+- Margin-bottom: 15px
+- Border-bottom: 1px solid rgba(255,255,255, 0.2)
+- Padding-bottom: 10px
+- **Title text:** "Customize Theme" — 16px, white, margin 0
+- **Close button (ID: closeThemeBtn):** label ✕, 25×25px, no border, no background, white, font 20px, cursor pointer
+
+---
+
+### Modal Section 1 — Background Mode
+
+**Label:** "BACKGROUND MODE" — 12px bold uppercase, margin-bottom 8px
+
+**Mode Toggle Row (2 buttons side by side, gap 8px):**
+
+- **Button: "Gradient Color"** — data-mode="gradient"
+- **Button: "Solid (1) Color"** — data-mode="solid"
+
+Both buttons base style:
+- Flex: 1 each
+- Padding: 8px
+- Border-radius: 6px
+- Font: 12px bold
+- Border: 2px solid rgba(255,255,255, 0.3)
+- Background: rgba(255,255,255, 0.2)
+- Color: rgba(255,255,255, 0.9)
+- Transition: all 0.2s ease
+
+Active state: background rgba(100,200,255, 0.8), border rgba(100,200,255, 1.0), color white
+Hover state: background rgba(255,255,255, 0.3), border rgba(255,255,255, 0.6)
+
+**Mode switching behavior:**
+- Gradient mode selected: shows all gradient sections, hides solid color section
+- Solid mode selected: hides all gradient sections, shows solid color section
+- Background updates live when switching
+
+---
+
+### Modal Section 2 — Gradient Angle (Gradient mode only)
+
+**Label:** "GRADIENT ANGLE"
+
+**8 Angle Buttons in 4×2 grid (gap 6px):**
+
+| Button | Value |
+|--------|-------|
+| 0° | 0 |
+| 45° | 45 |
+| 90° | 90 |
+| 135° | 135 |
+| 180° | 180 |
+| 225° | 225 |
+| 270° | 270 |
+| 315° | 315 |
+
+Each angle button style:
+- Background: rgba(255,255,255, 0.2)
+- Border: 2px solid rgba(255,255,255, 0.3)
+- Color: rgba(255,255,255, 0.9)
+- Padding: 6px 4px
+- Border-radius: 4px
+- Font: 11px
+- Transition: all 0.2s ease
+- Hover: rgba(255,255,255, 0.3), border rgba(255,255,255, 0.6)
+- Active/selected: background rgba(100,200,255, 0.8), border rgba(100,200,255, 1.0), color white
+
+**Current angle text:** "Current angle: X°" where X = selected angle (ID: angleDisplay)
+Background gradient updates in real time when angle selected.
+
+---
+
+### Modal Section 3 — Gradient Colors (Gradient mode only)
+
+**Label:** "GRADIENT COLORS"
+
+**Dynamic Color Input Groups (ID: colorContainer):**
+- Default: 2 colors (#667eea, #764ba2)
+- Min: 2 colors, Max: 5 colors
+- Each group layout: Flex row, gap 6px, aligned center
+
+Each color row contains:
+- **Label:** "Color N" — flex 1, color rgba(255,255,255, 0.8), font 11px
+- **Color picker input:** width 40px, height 30px, no border, border-radius 4px, cursor pointer — changes gradient live on input/change
+- **Remove button** (only shown when more than 2 colors exist): text "Remove", background rgba(255,70,70, 0.6) red, border rgba(255,70,70, 1.0), padding 4px 8px, font 10px, border-radius 4px
+
+**Add Color Button (ID: addColorBtn):**
+- Width: 100%
+- Background: rgba(76,175,80, 0.6) — green
+- Border: 1px solid rgba(76,175,80, 1.0)
+- Color: white
+- Padding: 6px 12px
+- Border-radius: 4px
+- Font: 11px
+- Normal text: `+ Add Color (Max 5)`
+- Disabled state (at 5 colors): background rgba(100,100,100, 0.5), border rgba(100,100,100, 0.7), text changes to `✓ Max 5 Colors`, cursor not-allowed
+
+---
+
+### Modal Section 4 — Preset Gradients (Gradient mode only)
+
+**Label:** "PRESET GRADIENTS"
+
+**4 buttons in 2×2 grid (gap 6px):**
+
+| Button Label | Colors Applied |
+|-------------|----------------|
+| Purple to Pink | #667eea → #764ba2 → #f093fb |
+| Blue to Cyan | #00c6ff → #0072ff |
+| Orange to Red | #ff6b6b → #ee5a2a |
+| Green to Teal | #00d2fc → #3a47d5 |
+
+Each preset button style:
+- Background: rgba(255,255,255, 0.2)
+- Border: 2px solid rgba(255,255,255, 0.3)
+- Color: rgba(255,255,255, 0.9)
+- Padding: 8px
+- Border-radius: 6px
+- Font: 11px
+- Hover: rgba(255,255,255, 0.3), border rgba(255,255,255, 0.6)
+- Click: applies that color set to gradient, updates color inputs and live background
+
+---
+
+### Modal Section 5 — Solid Color (Solid mode only, hidden in Gradient mode)
+
+**Label:** "SOLID COLOR"
+
+**Color Input Group:**
+- Layout: Flex, gap 8px, centered, padding 15px
+- Background: rgba(255,255,255, 0.1)
+- Border-radius: 8px
+- **Label text:** "Select Color:" — color rgba(255,255,255, 0.9), font 12px, min-width 80px
+- **Color picker (ID: solidColorInput):** width 60px, height 50px, border 2px solid rgba(255,255,255, 0.4), border-radius 6px, cursor pointer, default value #667eea
+- Live update on both `input` and `change` events — body background changes immediately
+
+---
+
+### Modal Footer — 3 Action Buttons (side by side, gap 8px, margin-top 15px)
+
+**Divider above footer:** border-top 1px solid rgba(255,255,255, 0.2), padding-top 15px
+
+**Button 1 — Apply Theme (ID: applyThemeBtn):**
+- Text: "Apply Theme"
+- Flex: 1
+- Padding: 8px
+- Border-radius: 6px
+- Font: 12px bold
+- Background: rgba(76,175,80, 0.7) — green
+- Border: 1px solid rgba(76,175,80, 1.0)
+- Color: white
+- Hover: rgba(76,175,80, 0.9)
+- Action: saves theme to localStorage, closes modal
+
+**Button 2 — Reset (ID: resetThemeBtn):**
+- Text: "Reset"
+- Flex: 1
+- Padding: 8px
+- Border-radius: 6px
+- Font: 12px bold
+- Background: rgba(33,150,243, 0.7) — blue
+- Border: 1px solid rgba(33,150,243, 1.0)
+- Color: white
+- Hover: rgba(33,150,243, 0.9)
+- Action: resets to defaults (angle 90, colors #667eea → #764ba2, gradient mode), saves, closes modal
+
+**Button 3 — Export Report (ID: exportReportBtn):**
+- Text: `📊 Export Report`
+- Flex: 1
+- Padding: 8px
+- Border-radius: 6px
+- Font: 12px bold
+- Background: rgba(255,152,0, 0.7) — orange
+- Border: 1px solid rgba(255,152,0, 1.0)
+- Color: white
+- Hover: rgba(255,152,0, 0.9)
+- Action: saves current session stats to DB first (300ms delay), then triggers file export, shows success/error alert
+
+---
+
+## SECTION 6 — ANIMATIONS
+
+| Name | Behavior | Applied To |
+|------|----------|------------|
+| fadeIn | opacity 0→1, translateY -10px→0, 0.8s ease-in | Quote text on every rotation change |
+| pulse | scale 1.0→1.02→1.0, 3s ease-in-out, infinite | Entire body always |
+| Button auto-hide | opacity 1→0 after 5s inactivity, restores on any mouse movement, transition 0.3s | Floating button group |
+
+---
+
+## SECTION 7 — DATA PERSISTENCE (localStorage)
+
+| Key | What is saved |
+|-----|---------------|
+| motivationTexts | Full array of quote objects (quote + subtext) |
+| motivationInterval | Rotation interval in milliseconds |
+| currentSubtitle | Last edited subtitle text |
+| lineGaps | Object: mainTextLineGap, subtextLineGap, betweenTextGap |
+| appTheme | Object: angle, colors array, mode, solidColor |
+
+All saved automatically on every change. Loaded on app start.
+
+---
+
+## SECTION 8 — SESSION TRACKING (Background Logic, No Visible UI)
+
+Runs silently in background via Electron IPC:
+- On app load + first rotation start: sends `start-text-run` with current quote text and interval setting
+- On every rotation: sends `update-text-stats` with runId, rotation count, elapsed minutes
+- On Export Report click: flushes final stats before export (300ms delay), then sends `export-report`
+- On window close (beforeunload): sends final `update-text-stats` then `end-text-run`
+- Receives: `text-run-started` (gets runId back), `export-success` (shows alert with file path), `export-error` (shows error alert)
+
+---
+
+## SECTION 9 — COMPLETE KEYBOARD SHORTCUTS
+
+| Input Field | Key | Action |
+|------------|-----|--------|
+| Main Text Textarea | Enter (no shift) | Triggers Add button |
+| Main Text Textarea | Shift + Enter | Inserts new line |
+| Supporting Text Textarea | Enter (no shift) | Triggers Add button |
+| Supporting Text Textarea | Shift + Enter | Inserts new line |
+| Interval Number Input | Enter | Triggers Set Interval button |
+| Subtitle Edit Input | Enter | Saves subtitle |
+| Subtitle Edit Input | Blur (click away) | Saves subtitle |
+
+---
+
+## SECTION 10 — CONTROL PANEL TOGGLE STATES SUMMARY
+
+| State | Display Area | Control Panel | Toggle Button Icon |
+|-------|-------------|---------------|-------------------|
+| Default (open) | flex: 2 | flex: 1, visible | ☰ |
+| Panel hidden | flex: 1, full width | display none | ✕ |
+
+Transition on both states: all 0.3s ease

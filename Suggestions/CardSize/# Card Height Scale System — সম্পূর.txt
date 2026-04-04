@@ -1,0 +1,310 @@
+# Card Height Scale System — সম্পূর্ণ Fix Guide (AI Coding Prompt)
+
+---
+
+## 🔍 Root Cause Analysis
+
+কোডে `render_quote_card()` ফাংশনে এই লাইনগুলো সমস্যা তৈরি করছে:
+
+```rust
+let card_max_height = 450.0 * card_scale;
+let card_min_height = 120.0 * card_scale;  // এটা 0% এ 0 হয়
+```
+
+কিন্তু `egui::ScrollArea`, `TextEdit::multiline(..).desired_rows(20)`, এবং `ui.allocate_ui_with_layout()` — এগুলোর নিজস্ব minimum intrinsic height আছে। `desired_rows(20)` একা-ই অনেক height নেয়। `ScrollArea` এর `auto_shrink([false, false])` জিনিসটা shrink হতে দেয় না। তাই 0% এ card কখনো সত্যিকারের 0px হয় না।
+
+---
+
+## 📋 AI Coding Prompt (Kiro বা যেকোনো AI Tool এ দাও)
+
+```
+TASK: Fix card height scaling system in render_quote_card() function.
+FILE: src/main.rs
+LANGUAGE: Rust + egui
+
+═══════════════════════════════════════════════════
+PROBLEM STATEMENT
+═══════════════════════════════════════════════════
+
+Currently, when card_scale = 0.0 (0%), the card does NOT collapse 
+to zero height. It still shows because:
+
+1. TextEdit::multiline().desired_rows(20) forces large intrinsic height
+2. ScrollArea with auto_shrink([false, false]) prevents shrinking  
+3. ui.allocate_ui_with_layout() has no hard height clamp
+4. Padding (ui.add_space(10.0)) still adds pixels even at 0 scale
+
+EXPECTED BEHAVIOR:
+- 0%   → Card height = exactly 0px. Only a thin 1px separator/divider 
+          line visible between cards. Top border line of card touches 
+          bottom border — completely flat.
+- 10%  → Card slightly opens, just enough to see first line of text
+- 50%  → Card half-normal height with scroll if content overflows
+- 100% → Normal full height (current default behavior)
+- 300% → Very tall card, 3x normal height
+
+═══════════════════════════════════════════════════
+ROOT CAUSES TO FIX
+═══════════════════════════════════════════════════
+
+Root Cause 1: desired_rows is hardcoded to 20
+  LOCATION: Two places in render_quote_card()
+  FIX: Change desired_rows based on card_scale:
+    - scale 0.0 → desired_rows(1) but hidden via clip
+    - scale > 0 → desired_rows((20.0 * card_scale).ceil() as usize).max(1)
+
+Root Cause 2: auto_shrink([false, false]) prevents collapse
+  LOCATION: ScrollArea for main text and sub text
+  FIX: Change to auto_shrink([false, true]) so vertical can shrink
+
+Root Cause 3: No outer height clamp on the entire card
+  LOCATION: ui.allocate_ui_with_layout() call
+  FIX: Wrap entire card content in a clipping container that 
+       enforces max_height = 450.0 * card_scale
+
+Root Cause 4: ui.add_space() still fires at 0 scale
+  LOCATION: Multiple ui.add_space() calls inside card
+  FIX: Multiply all add_space values by card_scale
+
+Root Cause 5: Separator line between main/sub text adds height
+  LOCATION: The sep_pos / NEON_CYAN separator rendering
+  FIX: Wrap in if card_scale > 0.05 { ... }
+
+═══════════════════════════════════════════════════
+EXACT CODE CHANGES REQUIRED
+═══════════════════════════════════════════════════
+
+CHANGE 1: At the top of render_quote_card(), update these lines:
+
+  BEFORE:
+    let card_max_height = 450.0 * card_scale;
+    let card_min_height = 120.0 * card_scale;
+
+  AFTER:
+    let card_max_height = 450.0 * card_scale;
+    let card_min_height = 0.0; // Always allow full collapse
+    let card_content_height = card_max_height; // Used for clipping
+
+CHANGE 2: Replace the outer ui.allocate_ui_with_layout() block.
+  The card content must be wrapped in a Frame or clip_rect that 
+  hard-limits the height.
+  
+  BEFORE:
+    let card_resp = ui.allocate_ui_with_layout(
+        Vec2::new(card_width, 0.0),
+        egui::Layout::top_down(alignment),
+        |ui| {
+            ui.set_width(card_width);
+            ui.set_min_height(card_min_height);
+            ui.set_max_height(card_max_height);
+            ui.add_space(10.0 * card_scale);
+            ... rest of content ...
+            ui.add_space(10.0 * card_scale);
+        },
+    );
+
+  AFTER:
+    // When scale is 0, skip ALL content rendering entirely
+    let card_resp = if card_scale <= 0.001 {
+        // Render a zero-height invisible placeholder
+        // This is the KEY FIX - skip all egui widgets completely
+        let (rect, response) = ui.allocate_exact_size(
+            Vec2::new(card_width, 0.0),
+            egui::Sense::hover(),
+        );
+        egui::InnerResponse::new((), response)
+    } else {
+        ui.allocate_ui_with_layout(
+            Vec2::new(card_width, card_max_height),
+            egui::Layout::top_down(alignment),
+            |ui| {
+                // Set hard clip on this ui context
+                let clip_rect = ui.clip_rect();
+                let mut new_clip = clip_rect;
+                new_clip.max.y = new_clip.min.y + card_max_height;
+                ui.set_clip_rect(new_clip);
+                
+                ui.set_width(card_width);
+                ui.set_max_height(card_max_height);
+                ui.add_space(10.0 * card_scale);
+                ... rest of content with scaled spacing ...
+                ui.add_space(10.0 * card_scale);
+            },
+        )
+    };
+
+CHANGE 3: Inside the content block, fix ScrollArea for main text:
+
+  BEFORE:
+    let out = egui::ScrollArea::vertical()
+        .id_salt(id.with("scroll_main"))
+        .max_height(card_max_height * 0.6)
+        .auto_shrink([false, false])
+        ...
+
+  AFTER:
+    let main_scroll_height = (card_max_height * 0.6).max(0.0);
+    let out = egui::ScrollArea::vertical()
+        .id_salt(id.with("scroll_main"))
+        .max_height(main_scroll_height)
+        .auto_shrink([false, true])  // true = allow vertical shrink
+        ...
+
+CHANGE 4: Inside the content block, fix TextEdit desired_rows:
+
+  BEFORE:
+    egui::TextEdit::multiline(&mut edit_text)
+        .id(edit_id)
+        .desired_rows(20)
+        ...
+
+  AFTER:
+    let dynamic_rows = ((20.0 * card_scale).ceil() as usize).max(1);
+    egui::TextEdit::multiline(&mut edit_text)
+        .id(edit_id)
+        .desired_rows(dynamic_rows)
+        ...
+
+CHANGE 5: Fix sub text ScrollArea similarly:
+
+  BEFORE:
+    let out_sub = egui::ScrollArea::vertical()
+        .id_salt(id.with("scroll_sub"))
+        .max_height((sub_size * 2.5 * card_scale).min(80.0 * card_scale))
+        .auto_shrink([false, false])
+        ...
+
+  AFTER:
+    let sub_scroll_height = (sub_size * 2.5 * card_scale).min(80.0 * card_scale).max(0.0);
+    let out_sub = egui::ScrollArea::vertical()
+        .id_salt(id.with("scroll_sub"))
+        .max_height(sub_scroll_height)
+        .auto_shrink([false, true])
+        ...
+
+CHANGE 6: Fix sub text TextEdit desired_rows:
+
+  BEFORE:
+    egui::TextEdit::multiline(&mut edit_sub_text)
+        .id(edit_id)
+        .desired_rows(10)
+        ...
+
+  AFTER:
+    let sub_rows = ((10.0 * card_scale).ceil() as usize).max(1);
+    egui::TextEdit::multiline(&mut edit_sub_text)
+        .id(edit_id)
+        .desired_rows(sub_rows)
+        ...
+
+CHANGE 7: Fix separator between main/sub text:
+
+  BEFORE:
+    if !quote_sub.is_empty() {
+        ui.add_space(text_style.between_gap * 0.5 * card_scale);
+        // separator line drawing...
+        ui.add_space(text_style.between_gap * 0.5 * card_scale);
+
+  AFTER:
+    if !quote_sub.is_empty() && card_scale > 0.05 {
+        ui.add_space(text_style.between_gap * 0.5 * card_scale);
+        // separator line drawing...
+        ui.add_space(text_style.between_gap * 0.5 * card_scale);
+
+═══════════════════════════════════════════════════
+VISUAL BEHAVIOR SPECIFICATION
+═══════════════════════════════════════════════════
+
+0%  (scale=0.0):
+  - card_resp = allocate_exact_size(Vec2::new(card_width, 0.0))
+  - NO widgets rendered inside
+  - Card background shape still draws (1px border line visible)
+  - Result: ultra-thin flat line, top border touches bottom border
+
+10% (scale=0.1):
+  - max_height = 45px
+  - desired_rows = 2 (ceil of 20*0.1=2)
+  - One or two lines of text barely visible
+  - Scroll enabled if content overflows
+
+50% (scale=0.5):
+  - max_height = 225px
+  - desired_rows = 10
+  - Half-normal card
+
+100% (scale=1.0):
+  - max_height = 450px  ← current normal behavior
+  - desired_rows = 20
+  - Full card as before
+
+300% (scale=3.0):
+  - max_height = 1350px
+  - desired_rows = 60
+  - Very tall, great for long notes
+
+═══════════════════════════════════════════════════
+SPACING BETWEEN CARDS
+═══════════════════════════════════════════════════
+
+In render_main_content(), after each card render:
+  ui.add_space(30.0);
+
+This should also scale:
+  BEFORE: ui.add_space(30.0);
+  AFTER:  ui.add_space((30.0 * card_scale).max(2.0));
+  
+  NOTE: max(2.0) ensures there's always a tiny gap so individual
+  collapsed cards remain distinguishable.
+
+═══════════════════════════════════════════════════  
+BACKGROUND SHAPE (GLASS CARD) BEHAVIOR
+═══════════════════════════════════════════════════
+
+The bg_shapes (glow, border, corners) use card_rect which comes 
+from card_resp.response.rect. At 0 scale, card_rect.height() = 0.
+
+So the glow layers at scale 0 will also be 0-height automatically.
+The border line will be 1px thin — exactly what we want.
+
+No changes needed to bg_shapes rendering logic.
+
+═══════════════════════════════════════════════════
+IMPORTANT CONSTRAINTS
+═══════════════════════════════════════════════════
+
+1. DO NOT change any other functionality
+2. DO NOT remove hover button rendering logic
+3. DO NOT change the popup itself (render_card_size_popup)
+4. DO NOT change card_scale values in the popup (0.0 to 3.0)
+5. ONLY change render_quote_card() and the add_space(30.0) line
+6. Preserve all existing TextEdit, ScrollArea IDs (id_salt values)
+7. Preserve all existing auto-save logic
+8. card_scale is stored in AppState, read-only inside render_quote_card
+9. The fix must work for BOTH normal cards AND the new-text preview card
+   (idx_opt = None case), since both use the same render_quote_card()
+
+═══════════════════════════════════════════════════
+COMPILE CHECK
+═══════════════════════════════════════════════════
+
+After changes, run: cargo build
+Expected: No new errors or warnings from modified code sections.
+The existing test functions should still pass: cargo test
+```
+
+---
+
+## 🎯 সংক্ষেপে মূল কথা
+
+সবচেয়ে গুরুত্বপূর্ণ fix হলো এই লজিক:
+
+```
+if card_scale <= 0.001 {
+    // কোনো widget-ই render করো না
+    // শুধু 0px height allocate করো
+} else {
+    // সব content render করো, কিন্তু clip করো
+}
+```
+
+এই একটা change-ই 0% কে সত্যিকারের 0px করে দেবে। বাকি changes গুলো হলো 10%, 50% etc. কে smooth করার জন্য।

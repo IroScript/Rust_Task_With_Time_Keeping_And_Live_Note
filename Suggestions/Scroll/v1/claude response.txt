@@ -1,0 +1,170 @@
+এখন আমি সম্পূর্ণ কোড বিশ্লেষণ করেছি। Gemini ঠিক কোথায় কী ভেঙেছে এবং সঠিক সমাধান কী — সব বিস্তারিত নিচে দেওয়া হলো।
+
+---
+
+## Gemini CLI যা করেছে — ব্যর্থতার পোস্টমর্টেম
+
+**১ম ভুল — `ui.push_id()` wrapper দিয়ে return type ভেঙেছে:**
+Gemini `render_quote_card`-এর পুরো body-কে `ui.push_id(id, |ui| { ... })` দিয়ে wrap করেছে। এতে function-টি `egui::Response` return করার বদলে `()` return করতে শুরু করে। ফলে main loop-এ `card_response.clicked()` কাজ করা বন্ধ হয়ে যায় — editing feature সম্পূর্ণ মৃত।
+
+**২য় ভুল — `show_rows` nested scroll তৈরি করেছে:**
+Gemini বাইরের `ScrollArea::vertical()` এর ভেতরে আরেকটি `ScrollArea::show_rows()` বসিয়েছে। egui-তে nested ScrollArea without fixed pixel height = inner area collapses, শুধু প্রথম card দেখায়।
+
+**৩য় ভুল — `bg_resp` interaction layer বারবার ভুল জায়গায় সরিয়েছে:**
+`scroll_bg_drag` কে bottom-এ নিলে cards-এর উপরে z-order-এ বসে — সব click absorb করে ফেলে। Top-এ রাখলে scroll সমস্যা। এটা একাধিকবার আগপিছ করেছে।
+
+**৪র্থ ভুল — duplicate code path মুছে দিয়েছে:**
+`is_being_edited` এর দুটো branch (ScrollArea ভেতরে + বাইরে) এর একটা মুছেছে — hover-edit, character selection tracking, omni-drag handle সব উড়ে গেছে।
+
+---
+
+## আসল সমস্যা (তোমার original file-এ যা আছে)
+
+তোমার uploaded `main.rs` তে line 2771:
+
+```rust
+egui::ScrollArea::vertical()
+    .max_height(100.0)
+    .auto_shrink([false, false])
+    .show(ui, |ui| {
+```
+
+এখানে **কোনো `.id_salt()` নেই**। তাই সব card-এর inner ScrollArea একই auto-generated ID পায়। যখন card A scroll হয়, সব card একই scroll offset-এ যায় — তাই সব card-এর text একসাথে নড়ে কিন্তু background নড়ে না।
+
+**Root cause summary:**
+- Bug 1 + Bug 2 + Bug 3 → Inner `ScrollArea` সরিয়ে দিলেই সব ঠিক
+- Bug 4 → outer loop-এ এমনিতেই egui off-screen content clip করে, বড় সমস্যা নেই
+
+---
+
+## Gemini-কে দেওয়ার জন্য Precise Prompt
+
+নিচের prompt হুবহু copy করে Gemini CLI-তে দাও। এটা surgical — কোনো feature ভাঙবে না:
+
+---
+
+```
+I need exactly 3 surgical changes to src/main.rs. Do NOT change anything else.
+Do NOT add ui.push_id() wrappers. Do NOT add nested ScrollArea inside the outer ScrollArea.
+Do NOT remove bg_resp interaction. Do NOT remove any editing, hover-edit, char selection, or omni-drag logic.
+
+Read the file carefully before making any edit. Verify with cargo check after each change.
+
+───────────────────────────────────────────────
+CHANGE 1: Remove inner ScrollArea from render_quote_card
+───────────────────────────────────────────────
+
+In function render_quote_card (around line 2762), the card_resp = ui.allocate_ui_with_layout block currently has TWO branches based on `is_being_edited`:
+
+Branch A (when !is_being_edited): calls ui.set_height(120.0) then opens a ScrollArea, and puts ALL text rendering code inside the ScrollArea closure.
+
+Branch B (when is_being_edited): calls ui.add_space(10.0) and puts the SAME text rendering code directly (no ScrollArea).
+
+The fix: DELETE the if/else and the ScrollArea entirely. Keep only ONE unified block:
+
+Replace:
+    ui.set_width(card_width);
+    
+    if !is_being_edited {
+        ui.set_height(120.0);
+        egui::ScrollArea::vertical()
+            .max_height(100.0)
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                ui.set_width(card_width - 32.0);
+                ui.add_space(10.0);
+                [... ALL text code from Branch A ...]
+                ui.add_space(10.0); // bottom padding
+            }); // Close ScrollArea
+    } else {
+        ui.add_space(10.0);
+        [... ALL text code from Branch B ...]
+
+With:
+    ui.set_width(card_width);
+    ui.set_min_height(120.0);
+    
+    ui.add_space(10.0);
+    [... keep Branch B's text code exactly as-is, it is the correct and complete version ...]
+    ui.add_space(10.0); // bottom padding
+
+IMPORTANT: Branch B (the else block, starting around line 3077) contains the COMPLETE text rendering code with hover-edit, char selection tracking, sub-text editing, omni-drag, format toolbar logic — KEEP ALL OF IT. Branch A inside the ScrollArea was a slightly different copy. Use Branch B's code as the canonical version.
+
+───────────────────────────────────────────────
+CHANGE 2: Fix outer ScrollArea card rendering loop deduplication
+───────────────────────────────────────────────
+
+In render_main_content, the outer ScrollArea (around line 3925) contains an `if has_editing { ... } else { ... }` block. Both branches have identical card rendering loops. Merge them into ONE block:
+
+Replace the entire `if has_editing { ... } else { ... }` section with a single `ui.vertical(|ui| { ... })` that:
+1. Adds top_margin = ctx.screen_rect().height() * 0.02
+2. Does ui.horizontal with margin_size left margin  
+3. Inside ui.vertical:
+   - Renders preview card if !state.main_text_input.is_empty() && state.editing_quote_index.is_none()
+   - Iterates `for idx in 0..state.quotes.len()` showing visible cards
+   - card_response.clicked() handling (save previous, load new)  
+   - Enter key handling for editing
+   - ui.add_space(30.0) between cards
+   - visible_count == 0 empty label
+   - ui.add_space(60.0) at bottom
+
+Do NOT use show_rows. Keep the simple for loop. egui's outer ScrollArea handles clipping automatically.
+
+───────────────────────────────────────────────
+CHANGE 3: Ensure bg_resp stays at the top of the outer ScrollArea closure
+───────────────────────────────────────────────
+
+In render_main_content, inside the egui::ScrollArea::vertical().show(ui, |ui| { closure (around line 3927), ensure the bg_resp interaction block appears FIRST, before single_quote_mode check and before card rendering:
+
+    egui::ScrollArea::vertical()
+        .auto_shrink([false, false])
+        .show(ui, |ui| {
+            // MUST BE FIRST — background interaction for drag/click-outside
+            let bg_resp = ui.interact(ui.max_rect(), ui.id().with("scroll_bg_drag"),
+                if state.drag_anywhere_enabled { Sense::drag() } else { Sense::click() });
+            if state.drag_anywhere_enabled && bg_resp.dragged() {
+                let _ = _window.drag_window();
+            }
+            if bg_resp.clicked() && state.editing_quote_index.is_some() {
+                state.save();
+                state.main_text_input.clear();
+                state.sub_text_input.clear();
+                state.editing_quote_index = None;
+            }
+            
+            // THEN: single_quote_mode check
+            if state.single_quote_mode { ... }
+            
+            // THEN: card rendering loop
+        });
+
+bg_resp must NOT appear at the bottom of the closure. It must be first.
+
+───────────────────────────────────────────────
+VERIFICATION
+───────────────────────────────────────────────
+
+After all changes, run `cargo check` and confirm:
+1. Zero errors
+2. render_quote_card still returns egui::Response (NOT wrapped in push_id)
+3. There is NO ScrollArea inside render_quote_card
+4. There is NO nested ScrollArea inside the outer ScrollArea in render_main_content
+5. The bg_resp block exists exactly once, at the top of the outer ScrollArea closure
+```
+
+---
+
+## কী কী ঠিক থাকবে এই fix-এর পরে
+
+| Feature | Status |
+|---|---|
+| Omni-drag (drag_anywhere_enabled) | ✅ untouched |
+| Hover-to-edit mode | ✅ Branch B-র code রাখা হয়েছে |
+| Single character color/size formatting | ✅ char selection tracking intact |
+| Sub-text editing | ✅ preserved |
+| Card background glass effect | ✅ bg_shape_idx + card_rect logic untouched |
+| Save on click outside | ✅ bg_resp at top of ScrollArea |
+| Per-card scrollbar | ❌ removed (user's explicit request) |
+| Cards scrolling independently | ❌ removed (user's explicit request) |
+| All cards visible | ✅ simple for loop |
+| Performance | ✅ egui auto-clips off-screen |

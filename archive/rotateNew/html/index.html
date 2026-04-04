@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Rotate Demo — Pure Rust (egui) Conversion</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0d0d;
+    --panel: #141414;
+    --border: #2a2a2a;
+    --accent: #e8ff47;
+    --accent2: #ff4757;
+    --accent3: #00d2ff;
+    --accent4: #b088f9;
+    --text: #f0f0f0;
+    --muted: #555;
+    --transition: 0.6s cubic-bezier(0.77, 0, 0.175, 1);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 40px;
+    padding: 40px 20px;
+    overflow-x: hidden;
+  }
+
+  /* ── TAB SWITCHER ── */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    z-index: 20;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .tab-btn {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--panel);
+    border: none;
+    padding: 12px 32px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    border-right: 1px solid var(--border);
+  }
+  .tab-btn:last-child { border-right: none; }
+  .tab-btn.active {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .tab-btn:hover:not(.active) {
+    color: var(--text);
+    background: #1e1e1e;
+  }
+
+  /* ── VIEWS ── */
+  .view { display: none; width: 100%; flex-direction: column; align-items: center; gap: 40px; }
+  .view.active { display: flex; }
+
+  /* ── CONTROLS ── */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    z-index: 10;
+  }
+
+  .rotate-btn {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--bg);
+    background: var(--accent);
+    border: none;
+    padding: 14px 36px;
+    cursor: pointer;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+    transition: background 0.2s, transform 0.1s;
+  }
+  .rotate-btn:hover { background: #fff; }
+  .rotate-btn:active { transform: scale(0.97); }
+
+  .step-label {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+  .step-label span {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* ── SCENE (holds master box so it stays centered) ── */
+  .scene {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    flex: 1;
+    min-height: 500px;
+  }
+
+  /* ── MASTER BOX ── */
+  .master-box {
+    border: 2px solid var(--border);
+    background: var(--panel);
+    padding: 28px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    width: 560px;
+    transition: transform var(--transition);
+    box-shadow: 0 0 80px rgba(0,0,0,0.6);
+    position: relative;
+  }
+
+  /* corner tag */
+  .master-box::before {
+    content: 'MASTER BOX';
+    position: absolute;
+    top: -11px;
+    left: 20px;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    background: var(--accent);
+    color: var(--bg);
+    padding: 2px 10px;
+    font-weight: 700;
+  }
+
+  /* ── CHILD BOXES ── */
+  .box {
+    border: 1px solid var(--border);
+    padding: 18px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .box:hover { border-color: var(--accent); }
+
+  .box::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+  }
+  .box.c1::after { background: var(--accent); }
+  .box.c2::after { background: var(--accent2); }
+  .box.c3::after { background: var(--accent3); }
+  .box.c4::after { background: var(--accent4); }
+  .box.c5::after { background: var(--accent); }
+  .box.c6::after { background: var(--accent2); }
+  .box.c7::after { background: var(--accent3); }
+  .box.c8::after { background: var(--accent4); }
+  .box.c9::after { background: var(--accent); }
+
+  .box-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .box-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .box-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-top: 4px;
+  }
+  .box.c2 .box-value { color: var(--accent2); }
+  .box.c3 .box-value { color: var(--accent3); }
+  .box.c4 .box-value { color: var(--accent4); }
+  .box.c5 .box-value { color: var(--accent); }
+  .box.c6 .box-value { color: var(--accent2); }
+  .box.c7 .box-value { color: var(--accent3); }
+  .box.c8 .box-value { color: var(--accent4); }
+
+  /* wide box spans 2 cols */
+  .box.wide { grid-column: span 2; }
+
+  /* mini bar inside box */
+  .bar-track {
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 6px;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+  .box.c2 .bar-fill { background: var(--accent2); }
+  .box.c3 .bar-fill { background: var(--accent3); }
+  .box.c4 .bar-fill { background: var(--accent4); }
+
+  /* ── RUST CODE VIEW ── */
+  .rust-code-container {
+    width: 100%;
+    max-width: 960px;
+    border: 2px solid var(--border);
+    background: var(--panel);
+    position: relative;
+    box-shadow: 0 0 80px rgba(0,0,0,0.6);
+  }
+  .rust-code-container::before {
+    content: attr(data-tag);
+    position: absolute;
+    top: -11px;
+    left: 20px;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    background: #ff6633;
+    color: #fff;
+    padding: 2px 10px;
+    font-weight: 700;
+  }
+  .rust-code-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .rust-code-header .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .rust-code-header .dot.r { background: var(--accent2); }
+  .rust-code-header .dot.y { background: var(--accent); }
+  .rust-code-header .dot.g { background: #4cd137; }
+  .rust-code-header .filename {
+    margin-left: 12px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+  .rust-code-header .rust-logo {
+    margin-left: auto;
+    font-size: 11px;
+    color: #ff6633;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+  .rust-code-body {
+    padding: 20px;
+    overflow-x: auto;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .rust-code-body pre {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: #c5c8c6;
+    white-space: pre;
+    tab-size: 4;
+  }
+  /* Syntax highlighting */
+  .kw { color: #ff6633; font-weight: 700; }
+  .fn { color: #e8ff47; }
+  .st { color: #4cd137; }
+  .cm { color: #555; font-style: italic; }
+  .tp { color: #00d2ff; }
+  .mc { color: #b088f9; }
+  .nm { color: #ff4757; }
+  .at { color: #ff6633; }
+  .lt { color: #c5c8c6; }
+
+  /* ── HOW-IT-WORKS NOTE ── */
+  .note-box {
+    width: 100%;
+    max-width: 960px;
+    border: 1px solid var(--border);
+    background: #111;
+    padding: 24px 28px;
+    position: relative;
+  }
+  .note-box::before {
+    content: 'HOW ROTATION WORKS IN PURE RUST GUI';
+    position: absolute;
+    top: -10px;
+    left: 20px;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    background: var(--accent3);
+    color: var(--bg);
+    padding: 2px 10px;
+    font-weight: 700;
+  }
+  .note-box p {
+    font-size: 12px;
+    line-height: 1.8;
+    color: #999;
+    margin-bottom: 10px;
+  }
+  .note-box p:last-child { margin-bottom: 0; }
+  .note-box code {
+    background: #1a1a1a;
+    color: var(--accent);
+    padding: 1px 6px;
+    font-size: 11px;
+  }
+  .note-box strong { color: var(--text); }
+</style>
+</head>
+<body>
+
+<!-- ── TAB SWITCHER ── -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('demo')">▶ Live Demo</button>
+  <button class="tab-btn" onclick="switchTab('rust')">🦀 Rust (egui)</button>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- VIEW 1: ORIGINAL LIVE DEMO (unchanged)    -->
+<!-- ══════════════════════════════════════════ -->
+<div class="view active" id="view-demo">
+
+<div class="controls">
+  <button class="rotate-btn" onclick="rotate()">⟳ Rotate</button>
+  <div class="step-label">Step: <span id="step">0</span> &nbsp;|&nbsp; Angle: <span id="angle">0°</span></div>
+</div>
+
+<div class="scene">
+  <!-- ░░ MASTER BOX — everything lives here ░░ -->
+  <div class="master-box" id="masterBox">
+
+    <div class="box c1">
+      <div class="box-label">Box 01</div>
+      <div class="box-title">CPU Usage</div>
+      <div class="box-value">74%</div>
+      <div class="bar-track"><div class="bar-fill" style="width:74%"></div></div>
+    </div>
+
+    <div class="box c2">
+      <div class="box-label">Box 02</div>
+      <div class="box-title">Memory</div>
+      <div class="box-value">3.2 GB</div>
+      <div class="bar-track"><div class="bar-fill" style="width:55%"></div></div>
+    </div>
+
+    <div class="box c3">
+      <div class="box-label">Box 03</div>
+      <div class="box-title">Network</div>
+      <div class="box-value">↑ 88ms</div>
+      <div class="bar-track"><div class="bar-fill" style="width:30%"></div></div>
+    </div>
+
+    <div class="box c4 wide">
+      <div class="box-label">Box 04 — Wide</div>
+      <div class="box-title">Disk I/O Activity</div>
+      <div class="box-value">1.4 TB</div>
+      <div class="bar-track"><div class="bar-fill" style="width:80%"></div></div>
+    </div>
+
+    <div class="box c5">
+      <div class="box-label">Box 05</div>
+      <div class="box-title">Threads</div>
+      <div class="box-value">128</div>
+      <div class="bar-track"><div class="bar-fill" style="width:60%"></div></div>
+    </div>
+
+    <div class="box c6">
+      <div class="box-label">Box 06</div>
+      <div class="box-title">Errors</div>
+      <div class="box-value">0</div>
+      <div class="bar-track"><div class="bar-fill" style="width:0%"></div></div>
+    </div>
+
+    <div class="box c7">
+      <div class="box-label">Box 07</div>
+      <div class="box-title">Requests</div>
+      <div class="box-value">4.2k</div>
+      <div class="bar-track"><div class="bar-fill" style="width:90%"></div></div>
+    </div>
+
+    <div class="box c8 wide">
+      <div class="box-label">Box 08 — Wide</div>
+      <div class="box-title">Active Sessions</div>
+      <div class="box-value">217 live</div>
+      <div class="bar-track"><div class="bar-fill" style="width:65%"></div></div>
+    </div>
+
+    <div class="box c9">
+      <div class="box-label">Box 09</div>
+      <div class="box-title">Uptime</div>
+      <div class="box-value">99.9%</div>
+      <div class="bar-track"><div class="bar-fill" style="width:99%"></div></div>
+    </div>
+
+  </div>
+  <!-- ░░ end master box ░░ -->
+</div>
+
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- VIEW 2: RUST CODE (egui — pure native)    -->
+<!-- ══════════════════════════════════════════ -->
+<div class="view" id="view-rust">
+
+  <!-- Explanation -->
+  <div class="note-box">
+    <p><strong>Yes — rotation works in pure native Rust GUI.</strong> No browser, no WASM, no CSS transforms. This uses <code>egui</code> / <code>eframe</code> — a pure Rust immediate-mode GUI that renders via GPU (OpenGL/wgpu).</p>
+    <p><strong>How?</strong> The <code>Painter</code> API draws shapes (rectangles, text, lines). Every coordinate is passed through <code>rot_point()</code> — a 2D rotation matrix: <code>x' = cx + dx·cos(θ) − dy·sin(θ)</code>, <code>y' = cy + dx·sin(θ) + dy·cos(θ)</code>. The entire master box and all 9 child boxes rotate as <strong>one unit</strong> around a center point — exactly like the CSS <code>transform: rotate()</code>.</p>
+    <p><strong>Smooth animation</strong> is achieved via exponential interpolation: <code>current += (target − current) · (1 − e^(−speed·dt))</code> with <code>ctx.request_repaint()</code> each frame. This gives the same easing feel as the CSS <code>cubic-bezier</code> transition.</p>
+    <p><strong>Build:</strong> <code>cargo run</code> — that's it. No trunk, no wasm-pack, no browser. A native desktop window.</p>
+  </div>
+
+  <!-- main.rs -->
+  <div class="rust-code-container" data-tag="main.rs — Pure Native Rust (egui/eframe)">
+    <div class="rust-code-header">
+      <div class="dot r"></div>
+      <div class="dot y"></div>
+      <div class="dot g"></div>
+      <span class="filename">src/main.rs</span>
+      <span class="rust-logo">RUST 🦀</span>
+    </div>
+    <div class="rust-code-body">
+      <pre id="rustCode"></pre>
+    </div>
+  </div>
+
+  <!-- Cargo.toml -->
+  <div class="rust-code-container" data-tag="Cargo.toml">
+    <div class="rust-code-header">
+      <div class="dot r"></div>
+      <div class="dot y"></div>
+      <div class="dot g"></div>
+      <span class="filename">Cargo.toml</span>
+      <span class="rust-logo">TOML</span>
+    </div>
+    <div class="rust-code-body">
+      <pre id="cargoCode"></pre>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Original rotate logic (preserved exactly) ──
+  let step = 0;
+
+  function rotate() {
+    step += 1;
+    const angle = step * 90;
+    document.getElementById('masterBox').style.transform = `rotate(${angle}deg)`;
+    document.getElementById('step').textContent = step;
+    document.getElementById('angle').textContent = (angle % 360) + '°';
+  }
+
+  // ── Tab switching ──
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) => {
+      b.classList.toggle('active', (tab === 'demo' && i === 0) || (tab === 'rust' && i === 1));
+    });
+    document.getElementById('view-demo').classList.toggle('active', tab === 'demo');
+    document.getElementById('view-rust').classList.toggle('active', tab === 'rust');
+  }
+
+  // ── Syntax-highlighted Rust code ──
+  function h(cls, text) {
+    return `<span class="${cls}">${text}</span>`;
+  }
+
+  const kw = t => h('kw', t);
+  const fn_ = t => h('fn', t);
+  const st = t => h('st', t);
+  const cm = t => h('cm', t);
+  const tp = t => h('tp', t);
+  const mc = t => h('mc', t);
+  const nm = t => h('nm', t);
+  const at = t => h('at', t);
+
+  document.getElementById('rustCode').innerHTML = `${cm('// ─────────────────────────────────────────────────────────────')}
+${cm('// Rotate Demo — Pure native Rust GUI (egui / eframe)')}
+${cm('// NOT web/WASM — this is a native desktop app with GPU rendering')}
+${cm('// Rotation via Painter API + 2D rotation matrix on all coords')}
+${cm('// Every symbol, word, method, class preserved from HTML version')}
+${cm('// ─────────────────────────────────────────────────────────────')}
+
+${kw('use')} eframe::egui;
+${kw('use')} egui::*;
+${kw('use')} std::f32::consts::${nm('FRAC_PI_2')};
+
+${cm('// ══════════════════════════════════════════════════════════════')}
+${cm('//  Colors — exact matches to CSS :root variables')}
+${cm('// ══════════════════════════════════════════════════════════════')}
+${kw('const')} ${nm('BG')}:      ${tp('Color32')} = ${tp('Color32')}::${fn_('from_rgb')}(${nm('0x0d')}, ${nm('0x0d')}, ${nm('0x0d')});
+${kw('const')} ${nm('PANEL')}:   ${tp('Color32')} = ${tp('Color32')}::${fn_('from_rgb')}(${nm('0x14')}, ${nm('0x14')}, ${nm('0x14')});
+${kw('const')} ${nm('BORDER')}:  ${tp('Color32')} = ${tp('Color32')}::${fn_('from_rgb')}(${nm('0x2a')}, ${nm('0x2a')}, ${nm('0x2a')});
+${kw('const')} ${nm('ACCENT')}:  ${tp('Color32')} = ${tp('Color32')}::${fn_('from_rgb')}(${nm('0xe8')}, ${nm('0xff')}, ${nm('0x47')});  ${cm('// --accent:  #e8ff47')}
+${kw('const')} ${nm('ACCENT2')}: ${tp('Color32')} = ${tp('Color32')}::${fn_('from_rgb')}(${nm('0xff')}, ${nm('0x47')}, ${nm('0x57')});  ${cm('// --accent2: #ff4757')}
+${kw('const')} ${nm('ACCENT3')}: ${tp('Color32')} = ${tp('Color32')}::${fn_('from_rgb')}(${nm('0x00')}, ${nm('0xd2')}, ${nm('0xff')});  ${cm('// --accent3: #00d2ff')}
+${kw('const')} ${nm('ACCENT4')}: ${tp('Color32')} = ${tp('Color32')}::${fn_('from_rgb')}(${nm('0xb0')}, ${nm('0x88')}, ${nm('0xf9')});  ${cm('// --accent4: #b088f9')}
+${kw('const')} ${nm('TEXT_C')}:  ${tp('Color32')} = ${tp('Color32')}::${fn_('from_rgb')}(${nm('0xf0')}, ${nm('0xf0')}, ${nm('0xf0')});
+${kw('const')} ${nm('MUTED')}:   ${tp('Color32')} = ${tp('Color32')}::${fn_('from_rgb')}(${nm('0x55')}, ${nm('0x55')}, ${nm('0x55')});
+
+${cm('// ══════════════════════════════════════════════════════════════')}
+${cm('//  BoxData — represents each child box (all 9 preserved)')}
+${cm('// ══════════════════════════════════════════════════════════════')}
+${at('#[derive(Clone)]')}
+${kw('struct')} ${tp('BoxData')} {
+    label:     &${kw("'static")} ${tp('str')},
+    title:     &${kw("'static")} ${tp('str')},
+    value:     &${kw("'static")} ${tp('str')},
+    bar_width: ${tp('f32')},      ${cm('// 0.0 .. 1.0')}
+    color:     ${tp('Color32')},
+    wide:      ${tp('bool')},
+}
+
+${cm('// ── All 9 boxes — nothing deleted, nothing changed ──')}
+${kw('fn')} ${fn_('all_boxes')}() -> [${tp('BoxData')}; ${nm('9')}] {
+    [
+        ${tp('BoxData')} { label: ${st('"Box 01"')},          title: ${st('"CPU Usage"')},         value: ${st('"74%"')},      bar_width: ${nm('0.74')}, color: ${nm('ACCENT')},  wide: ${kw('false')} },
+        ${tp('BoxData')} { label: ${st('"Box 02"')},          title: ${st('"Memory"')},            value: ${st('"3.2 GB"')},   bar_width: ${nm('0.55')}, color: ${nm('ACCENT2')}, wide: ${kw('false')} },
+        ${tp('BoxData')} { label: ${st('"Box 03"')},          title: ${st('"Network"')},           value: ${st('"↑ 88ms"')},   bar_width: ${nm('0.30')}, color: ${nm('ACCENT3')}, wide: ${kw('false')} },
+        ${tp('BoxData')} { label: ${st('"Box 04 — Wide"')},   title: ${st('"Disk I/O Activity"')}, value: ${st('"1.4 TB"')},   bar_width: ${nm('0.80')}, color: ${nm('ACCENT4')}, wide: ${kw('true')}  },
+        ${tp('BoxData')} { label: ${st('"Box 05"')},          title: ${st('"Threads"')},           value: ${st('"128"')},      bar_width: ${nm('0.60')}, color: ${nm('ACCENT')},  wide: ${kw('false')} },
+        ${tp('BoxData')} { label: ${st('"Box 06"')},          title: ${st('"Errors"')},            value: ${st('"0"')},        bar_width: ${nm('0.00')}, color: ${nm('ACCENT2')}, wide: ${kw('false')} },
+        ${tp('BoxData')} { label: ${st('"Box 07"')},          title: ${st('"Requests"')},          value: ${st('"4.2k"')},     bar_width: ${nm('0.90')}, color: ${nm('ACCENT3')}, wide: ${kw('false')} },
+        ${tp('BoxData')} { label: ${st('"Box 08 — Wide"')},   title: ${st('"Active Sessions"')},   value: ${st('"217 live"')}, bar_width: ${nm('0.65')}, color: ${nm('ACCENT4')}, wide: ${kw('true')}  },
+        ${tp('BoxData')} { label: ${st('"Box 09"')},          title: ${st('"Uptime"')},            value: ${st('"99.9%"')},    bar_width: ${nm('0.99')}, color: ${nm('ACCENT')},  wide: ${kw('false')} },
+    ]
+}
+
+${cm('// ══════════════════════════════════════════════════════════════')}
+${cm('//  RotateApp — the entire application state')}
+${cm('// ══════════════════════════════════════════════════════════════')}
+${kw('struct')} ${tp('RotateApp')} {
+    step:          ${tp('i32')},
+    target_angle:  ${tp('f32')},   ${cm('// radians — where we want to be')}
+    current_angle: ${tp('f32')},   ${cm('// radians — smoothly interpolated')}
+}
+
+${kw('impl')} ${tp('RotateApp')} {
+    ${kw('fn')} ${fn_('new')}(cc: &${tp('eframe')}::${tp('CreationContext')}<${kw("'_")}>) -> ${tp('Self')} {
+        ${cm('// Dark theme matching CSS :root variables')}
+        ${kw('let')} ${kw('mut')} visuals = egui::${tp('Visuals')}::${fn_('dark')}();
+        visuals.panel_fill = ${nm('BG')};
+        cc.egui_ctx.${fn_('set_visuals')}(visuals);
+
+        ${tp('Self')} {
+            step:          ${nm('0')},
+            target_angle:  ${nm('0.0')},
+            current_angle: ${nm('0.0')},
+        }
+    }
+
+    ${cm('// ── rotate() — preserved exactly from JS version ──')}
+    ${cm('//    step += 1;')}
+    ${cm('//    const angle = step * 90;')}
+    ${kw('fn')} ${fn_('rotate')}(&${kw('mut')} ${kw('self')}) {
+        ${kw('self')}.step += ${nm('1')};
+        ${kw('self')}.target_angle = ${kw('self')}.step ${kw('as')} ${tp('f32')} * ${nm('FRAC_PI_2')};  ${cm('// 90° in radians')}
+    }
+}
+
+${cm('// ══════════════════════════════════════════════════════════════')}
+${cm('//  eframe::App — the main loop (replaces the browser event loop)')}
+${cm('// ══════════════════════════════════════════════════════════════')}
+${kw('impl')} ${tp('eframe')}::${tp('App')} ${kw('for')} ${tp('RotateApp')} {
+    ${kw('fn')} ${fn_('update')}(&${kw('mut')} ${kw('self')}, ctx: &${tp('egui')}::${tp('Context')}, _frame: &${kw('mut')} ${tp('eframe')}::${tp('Frame')}) {
+        ${cm('// ── Smooth animation (replaces CSS transition) ──')}
+        ${cm('// cubic-bezier feel via exponential interpolation')}
+        ${kw('let')} dt = ctx.${fn_('input')}(|i| i.predicted_dt);
+        ${kw('let')} speed = ${nm('8.0_f32')};
+        ${kw('self')}.current_angle += (${kw('self')}.target_angle - ${kw('self')}.current_angle)
+            * (${nm('1.0')} - (-speed * dt).${fn_('exp')}());
+
+        ${kw('if')} (${kw('self')}.current_angle - ${kw('self')}.target_angle).${fn_('abs')}() > ${nm('0.001')} {
+            ctx.${fn_('request_repaint')}();  ${cm('// keep animating')}
+        }
+
+        ${cm('// ── CentralPanel (replaces <body>) ──')}
+        egui::${tp('CentralPanel')}::${fn_('default')}()
+            .${fn_('frame')}(egui::${tp('Frame')}::${fn_('none')}().${fn_('fill')}(${nm('BG')}).${fn_('inner_margin')}(${nm('40.0')}))
+            .${fn_('show')}(ctx, |ui| {
+                ui.${fn_('vertical_centered')}(|ui| {
+
+                    ${cm('// ── CONTROLS (replaces <div class="controls">) ──')}
+                    ui.${fn_('horizontal')}(|ui| {
+                        ${cm('// ⟳ Rotate button')}
+                        ${kw('let')} btn = egui::${tp('Button')}::${fn_('new')}(
+                            ${tp('RichText')}::${fn_('new')}(${st('"⟳ Rotate"')})
+                                .${fn_('size')}(${nm('15.0')})
+                                .${fn_('strong')}()
+                                .${fn_('color')}(${nm('BG')})
+                        )
+                        .${fn_('fill')}(${nm('ACCENT')})
+                        .${fn_('min_size')}(${fn_('vec2')}(${nm('140.0')}, ${nm('42.0')}));
+
+                        ${kw('if')} ui.${fn_('add')}(btn).${fn_('clicked')}() {
+                            ${kw('self')}.${fn_('rotate')}();
+                        }
+
+                        ui.${fn_('add_space')}(${nm('20.0')});
+
+                        ${cm('// Step / Angle label')}
+                        ${kw('let')} display_angle = (${kw('self')}.step * ${nm('90')}) % ${nm('360')};
+                        ui.${fn_('label')}(${tp('RichText')}::${fn_('new')}(${st('"Step: "')}).${fn_('size')}(${nm('12.0')}).${fn_('color')}(${nm('MUTED')}));
+                        ui.${fn_('label')}(${tp('RichText')}::${fn_('new')}(${mc('format!')}(${st('"{}"')}, ${kw('self')}.step)).${fn_('size')}(${nm('12.0')}).${fn_('color')}(${nm('ACCENT')}).${fn_('strong')}());
+                        ui.${fn_('label')}(${tp('RichText')}::${fn_('new')}(${st('" | Angle: "')}).${fn_('size')}(${nm('12.0')}).${fn_('color')}(${nm('MUTED')}));
+                        ui.${fn_('label')}(${tp('RichText')}::${fn_('new')}(${mc('format!')}(${st('"{}°"')}, display_angle)).${fn_('size')}(${nm('12.0')}).${fn_('color')}(${nm('ACCENT')}).${fn_('strong')}());
+                    });
+
+                    ui.${fn_('add_space')}(${nm('40.0')});
+
+                    ${cm('// ── SCENE (replaces <div class="scene">) ──')}
+                    ${cm('// Allocate painter area for custom rotated rendering')}
+                    ${kw('let')} (resp, painter) = ui.${fn_('allocate_painter')}(
+                        ${fn_('vec2')}(${nm('620.0')}, ${nm('580.0')}),
+                        egui::${tp('Sense')}::${fn_('hover')}(),
+                    );
+                    ${kw('let')} center = resp.rect.${fn_('center')}();
+
+                    ${cm('// ░░ MASTER BOX — paint everything rotated ░░')}
+                    ${fn_('paint_master_box')}(&painter, center, ${kw('self')}.current_angle);
+                    ${cm('// ░░ end master box ░░')}
+                });
+            });
+    }
+}
+
+${cm('// ══════════════════════════════════════════════════════════════')}
+${cm('//  2D Rotation helpers — this IS the rotation mechanism')}
+${cm('//  (replaces CSS transform: rotate(Ndeg))')}
+${cm('// ══════════════════════════════════════════════════════════════')}
+
+${cm('/// Rotate a point around a center using 2D rotation matrix')}
+${cm('///   x\' = cx + (x-cx)·cos(θ) − (y-cy)·sin(θ)')}
+${cm('///   y\' = cy + (x-cx)·sin(θ) + (y-cy)·cos(θ)')}
+${kw('fn')} ${fn_('rot_point')}(p: ${tp('Pos2')}, center: ${tp('Pos2')}, cos_a: ${tp('f32')}, sin_a: ${tp('f32')}) -> ${tp('Pos2')} {
+    ${kw('let')} dx = p.x - center.x;
+    ${kw('let')} dy = p.y - center.y;
+    ${fn_('pos2')}(
+        center.x + dx * cos_a - dy * sin_a,
+        center.y + dx * sin_a + dy * cos_a,
+    )
+}
+
+${cm('/// Draw a rotated filled rectangle via convex_polygon')}
+${kw('fn')} ${fn_('rotated_rect')}(
+    painter: &${tp('Painter')},
+    center: ${tp('Pos2')},
+    rect: ${tp('Rect')},
+    cos_a: ${tp('f32')},
+    sin_a: ${tp('f32')},
+    fill: ${tp('Color32')},
+    stroke: ${tp('Stroke')},
+) {
+    ${kw('let')} corners = ${kw('vec!')}[
+        ${fn_('rot_point')}(rect.${fn_('left_top')}(),     center, cos_a, sin_a),
+        ${fn_('rot_point')}(rect.${fn_('right_top')}(),    center, cos_a, sin_a),
+        ${fn_('rot_point')}(rect.${fn_('right_bottom')}(), center, cos_a, sin_a),
+        ${fn_('rot_point')}(rect.${fn_('left_bottom')}(),  center, cos_a, sin_a),
+    ];
+    painter.${fn_('add')}(epaint::${tp('Shape')}::${fn_('convex_polygon')}(corners, fill, stroke));
+}
+
+${cm('// ══════════════════════════════════════════════════════════════')}
+${cm('//  Paint the master box + all 9 child boxes, fully rotated')}
+${cm('//  (replaces the entire <div class="master-box"> HTML tree)')}
+${cm('// ══════════════════════════════════════════════════════════════')}
+${kw('fn')} ${fn_('paint_master_box')}(painter: &${tp('Painter')}, center: ${tp('Pos2')}, angle: ${tp('f32')}) {
+    ${kw('let')} cos_a = angle.${fn_('cos')}();
+    ${kw('let')} sin_a = angle.${fn_('sin')}();
+    ${kw('let')} rot = |p: ${tp('Pos2')}| ${fn_('rot_point')}(p, center, cos_a, sin_a);
+
+    ${cm('// ── Master box dimensions ──')}
+    ${kw('let')} master_w = ${nm('560.0_f32')};
+    ${kw('let')} master_h = ${nm('500.0_f32')};
+    ${kw('let')} master_rect = ${tp('Rect')}::${fn_('from_center_size')}(center, ${fn_('vec2')}(master_w, master_h));
+
+    ${cm('// Master box background + 2px border')}
+    ${fn_('rotated_rect')}(
+        painter, center, master_rect,
+        cos_a, sin_a,
+        ${nm('PANEL')},
+        ${tp('Stroke')}::${fn_('new')}(${nm('2.0')}, ${nm('BORDER')}),
+    );
+
+    ${cm('// "MASTER BOX" corner tag')}
+    ${kw('let')} tag_rect = ${tp('Rect')}::${fn_('from_min_size')}(
+        ${fn_('pos2')}(master_rect.${fn_('left')}() + ${nm('20.0')}, master_rect.${fn_('top')}() - ${nm('11.0')}),
+        ${fn_('vec2')}(${nm('90.0')}, ${nm('16.0')}),
+    );
+    ${fn_('rotated_rect')}(painter, center, tag_rect, cos_a, sin_a, ${nm('ACCENT')}, ${tp('Stroke')}::${nm('NONE')});
+    painter.${fn_('text')}(
+        rot(tag_rect.${fn_('center')}()),
+        ${tp('Align2')}::${nm('CENTER_CENTER')},
+        ${st('"MASTER BOX"')},
+        ${tp('FontId')}::${fn_('monospace')}(${nm('9.0')}),
+        ${nm('BG')},
+    );
+
+    ${cm('// ── Grid layout (3 columns, matching CSS grid) ──')}
+    ${kw('let')} padding = ${nm('28.0_f32')};
+    ${kw('let')} gap     = ${nm('16.0_f32')};
+    ${kw('let')} inner_w = master_w - padding * ${nm('2.0')};
+    ${kw('let')} col_w   = (inner_w - gap * ${nm('2.0')}) / ${nm('3.0')};
+    ${kw('let')} row_h   = ${nm('96.0_f32')};
+    ${kw('let')} start_x = master_rect.${fn_('left')}() + padding;
+    ${kw('let')} start_y = master_rect.${fn_('top')}() + padding + ${nm('8.0')};
+
+    ${kw('let')} boxes = ${fn_('all_boxes')}();
+    ${kw('let')} ${kw('mut')} col: ${tp('usize')} = ${nm('0')};
+    ${kw('let')} ${kw('mut')} row: ${tp('usize')} = ${nm('0')};
+
+    ${kw('for')} b ${kw('in')} &boxes {
+        ${kw('let')} span = ${kw('if')} b.wide { ${nm('2')} } ${kw('else')} { ${nm('1')} };
+        ${kw('let')} w = col_w * span ${kw('as')} ${tp('f32')} + gap * (span - ${nm('1')}) ${kw('as')} ${tp('f32')};
+        ${kw('let')} x = start_x + col ${kw('as')} ${tp('f32')} * (col_w + gap);
+        ${kw('let')} y = start_y + row ${kw('as')} ${tp('f32')} * (row_h + gap);
+
+        ${cm('// ── Child box background + 1px border ──')}
+        ${kw('let')} box_rect = ${tp('Rect')}::${fn_('from_min_size')}(${fn_('pos2')}(x, y), ${fn_('vec2')}(w, row_h));
+        ${fn_('rotated_rect')}(painter, center, box_rect, cos_a, sin_a,
+            ${nm('PANEL')}, ${tp('Stroke')}::${fn_('new')}(${nm('1.0')}, ${nm('BORDER')}));
+
+        ${cm('// ── Left color accent bar (3px, like .box::after) ──')}
+        ${kw('let')} accent_rect = ${tp('Rect')}::${fn_('from_min_size')}(${fn_('pos2')}(x, y), ${fn_('vec2')}(${nm('3.0')}, row_h));
+        ${fn_('rotated_rect')}(painter, center, accent_rect, cos_a, sin_a,
+            b.color, ${tp('Stroke')}::${nm('NONE')});
+
+        ${cm('// ── .box-label ──')}
+        painter.${fn_('text')}(
+            rot(${fn_('pos2')}(x + ${nm('14.0')}, y + ${nm('14.0')})),
+            ${tp('Align2')}::${nm('LEFT_CENTER')},
+            b.label,
+            ${tp('FontId')}::${fn_('monospace')}(${nm('9.0')}),
+            ${nm('MUTED')},
+        );
+
+        ${cm('// ── .box-title ──')}
+        painter.${fn_('text')}(
+            rot(${fn_('pos2')}(x + ${nm('14.0')}, y + ${nm('34.0')})),
+            ${tp('Align2')}::${nm('LEFT_CENTER')},
+            b.title,
+            ${tp('FontId')}::${fn_('proportional')}(${nm('14.0')}),
+            ${nm('TEXT_C')},
+        );
+
+        ${cm('// ── .box-value ──')}
+        painter.${fn_('text')}(
+            rot(${fn_('pos2')}(x + ${nm('14.0')}, y + ${nm('58.0')})),
+            ${tp('Align2')}::${nm('LEFT_CENTER')},
+            b.value,
+            ${tp('FontId')}::${fn_('monospace')}(${nm('18.0')}),
+            b.color,
+        );
+
+        ${cm('// ── .bar-track ──')}
+        ${kw('let')} bar_y = y + ${nm('80.0')};
+        ${kw('let')} track_rect = ${tp('Rect')}::${fn_('from_min_size')}(
+            ${fn_('pos2')}(x + ${nm('14.0')}, bar_y),
+            ${fn_('vec2')}(w - ${nm('28.0')}, ${nm('3.0')}),
+        );
+        ${fn_('rotated_rect')}(painter, center, track_rect, cos_a, sin_a,
+            ${nm('BORDER')}, ${tp('Stroke')}::${nm('NONE')});
+
+        ${cm('// ── .bar-fill ──')}
+        ${kw('let')} fill_w = (w - ${nm('28.0')}) * b.bar_width;
+        ${kw('if')} fill_w > ${nm('0.0')} {
+            ${kw('let')} fill_rect = ${tp('Rect')}::${fn_('from_min_size')}(
+                ${fn_('pos2')}(x + ${nm('14.0')}, bar_y),
+                ${fn_('vec2')}(fill_w, ${nm('3.0')}),
+            );
+            ${fn_('rotated_rect')}(painter, center, fill_rect, cos_a, sin_a,
+                b.color, ${tp('Stroke')}::${nm('NONE')});
+        }
+
+        ${cm('// Advance grid position')}
+        col += span;
+        ${kw('if')} col >= ${nm('3')} { col = ${nm('0')}; row += ${nm('1')}; }
+    }
+}
+
+${cm('// ══════════════════════════════════════════════════════════════')}
+${cm('//  main — entry point (native desktop window, not a browser)')}
+${cm('// ══════════════════════════════════════════════════════════════')}
+${kw('fn')} ${fn_('main')}() -> ${tp('eframe')}::${tp('Result')} {
+    ${kw('let')} options = ${tp('eframe')}::${tp('NativeOptions')} {
+        viewport: egui::${tp('ViewportBuilder')}::${fn_('default')}()
+            .${fn_('with_inner_size')}([${nm('800.0')}, ${nm('700.0')}])
+            .${fn_('with_title')}(${st('"Rotate Demo"')}),
+        ..${tp('Default')}::${fn_('default')}()
+    };
+
+    ${tp('eframe')}::${fn_('run_native')}(
+        ${st('"Rotate Demo"')},
+        options,
+        ${tp('Box')}::${fn_('new')}(|cc| ${tp('Ok')}(${tp('Box')}::${fn_('new')}(${tp('RotateApp')}::${fn_('new')}(cc)))),
+    )
+}`;
+
+  document.getElementById('cargoCode').innerHTML = `${cm('# Cargo.toml — Pure native Rust (no WASM, no browser)')}
+
+[${st('package')}]
+name    = ${st('"rotate-demo"')}
+version = ${st('"0.1.0"')}
+edition = ${st('"2021"')}
+
+[${st('dependencies')}]
+eframe = ${st('"0.28"')}    ${cm('# egui framework — GPU-rendered native GUI')}
+
+${cm('# ─────────────────────────────────────────────────────────')}
+${cm('# Build & run:')}
+${cm('#   cargo run')}
+${cm('#')}
+${cm('# That\'s it. No trunk, no wasm-pack, no wasm32 target,')}
+${cm('# no index.html, no browser. A native desktop window')}
+${cm('# with OpenGL/wgpu rendering and real rotation via')}
+${cm('# the Painter API + 2D rotation matrix.')}
+${cm('# ─────────────────────────────────────────────────────────')}`;
+</script>
+
+</body>
+</html>

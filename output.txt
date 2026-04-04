@@ -1,0 +1,96 @@
+614:    pub main_line_gap: Option<f32>,
+616:    pub sub_line_gap: Option<f32>,
+618:    pub between_gap: Option<f32>,
+641:            main_line_gap: None,
+642:            sub_line_gap: None,
+643:            between_gap: None,
+693:    pub main_line_gap: f32,
+694:    pub sub_line_gap: f32,
+695:    pub between_gap: f32,
+710:            main_line_gap: 1.2,    // Tighter line spacing like Notepad
+711:            sub_line_gap: 1.2,     // Tighter line spacing
+712:            between_gap: 8.0,      // Reduced gap
+1150:                        main_line_gap: None,
+1151:                        sub_line_gap: None,
+1152:                        between_gap: None,
+1165:                        main_line_gap: None,
+1166:                        sub_line_gap: None,
+1167:                        between_gap: None,
+1180:                        main_line_gap: None,
+1181:                        sub_line_gap: None,
+1182:                        between_gap: None,
+1195:                        main_line_gap: None,
+1196:                        sub_line_gap: None,
+1197:                        between_gap: None,
+1210:                        main_line_gap: None,
+1211:                        sub_line_gap: None,
+1212:                        between_gap: None,
+1225:                        main_line_gap: None,
+1226:                        sub_line_gap: None,
+1227:                        between_gap: None,
+1240:                        main_line_gap: None,
+1241:                        sub_line_gap: None,
+1242:                        between_gap: None,
+1255:                        main_line_gap: None,
+1256:                        sub_line_gap: None,
+1257:                        between_gap: None,
+1270:                        main_line_gap: None,
+1271:                        sub_line_gap: None,
+1272:                        between_gap: None,
+1285:                        main_line_gap: None,
+1286:                        sub_line_gap: None,
+1287:                        between_gap: None,
+1470:            main_line_gap: None,
+1471:            sub_line_gap: None,
+1472:            between_gap: None,
+1581:                        "main_line_gap": text_style.main_line_gap,
+1582:                        "sub_line_gap": text_style.sub_line_gap,
+1583:                        "between_gap": text_style.between_gap,
+1701:            if let Some(gap) = text_data.get("main_line_gap").and_then(|v| v.as_f64()) {
+1702:                self.text_style.main_line_gap = gap as f32;
+1704:            if let Some(gap) = text_data.get("sub_line_gap").and_then(|v| v.as_f64()) {
+1705:                self.text_style.sub_line_gap = gap as f32;
+1707:            if let Some(gap) = text_data.get("between_gap").and_then(|v| v.as_f64()) {
+1708:                self.text_style.between_gap = gap as f32;
+3222:                // Apply between_gap with card_scale
+3223:                let gap = text_style.between_gap * card_scale;
+3224:                if gap > 0.5 {
+3225:                    ui.add_space(gap);
+3239:                // Apply between_gap after separator too
+3240:                if gap > 0.5 {
+3241:                    ui.add_space(gap);
+3777:            ui.add_space(text_style.between_gap);
+4359:            // 1. Omni-Drag detection for sideboard (handles window moving when clicking gaps)
+4705:            // ===== Line Gaps Section =====
+4706:            render_section(ui, "LINE GAPS", u32_to_color32(state.text_style.panel_text_color), |ui| {
+4710:                        "Main Text Gap",
+4719:                        let mut main_gap = if let Some(edit_idx) = state.editing_quote_index {
+4723:                                .and_then(|q| q.main_line_gap)
+4724:                                .unwrap_or(state.text_style.main_line_gap)
+4726:                            state.text_style.main_line_gap
+4730:                            &format!("{:.1}", main_gap),
+4742:                                egui::Slider::new(&mut main_gap, 1.0..=3.0)
+4750:                                    state.quotes[edit_idx].main_line_gap = Some(main_gap);
+4753:                                state.text_style.main_line_gap = main_gap;
+4763:                        "Supporting Text Gap",
+4771:                        let mut sub_gap = if let Some(edit_idx) = state.editing_quote_index {
+4775:                                .and_then(|q| q.sub_line_gap)
+4776:                                .unwrap_or(state.text_style.sub_line_gap)
+4778:                            state.text_style.sub_line_gap
+4782:                            &format!("{:.1}", sub_gap),
+4792:                                egui::Slider::new(&mut sub_gap, 1.0..=3.0)
+4800:                                    state.quotes[edit_idx].sub_line_gap = Some(sub_gap);
+4803:                                state.text_style.sub_line_gap = sub_gap;
+4813:                        "Gap Between Texts",
+4821:                        let mut between_gap = if let Some(edit_idx) = state.editing_quote_index {
+4825:                                .and_then(|q| q.between_gap)
+4826:                                .unwrap_or(state.text_style.between_gap)
+4828:                            state.text_style.between_gap
+4832:                            &format!("{:.0} px", between_gap),
+4842:                                egui::Slider::new(&mut between_gap, 0.0..=50.0)
+4850:                                    state.quotes[edit_idx].between_gap = Some(between_gap);
+4853:                                state.text_style.between_gap = between_gap;
+4978:                let list_box_internal_width = (panel_content_width - 36.0).max(10.0);  // Reduced gap from 48.0 to 36.0
+7816:            main_line_gap: None,
+7817:            sub_line_gap: None,
+7818:            between_gap: None,

@@ -1,0 +1,27 @@
+[package]
+name = "gateway"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+shared = { path = "../shared" }
+auth = { path = "../auth" }
+storage = { path = "../storage" }
+sync-engine = { path = "../sync-engine" }
+local-cache = { path = "../local-cache" }
+tokio.workspace = true
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+rustls = { version = "0.23", features = ["std"] }
+tokio-rustls = "0.26"
+# aws-config = "1"
+# aws-sdk-s3 = "1"
+headers = "0.4"

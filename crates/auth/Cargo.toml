@@ -1,0 +1,15 @@
+[package]
+name = "auth"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+shared = { path = "../shared" }
+tokio.workspace = true
+serde = { workspace = true, features = ["derive"] }
+jsonwebtoken.workspace = true
+# vaultrs.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+uuid.workspace = true

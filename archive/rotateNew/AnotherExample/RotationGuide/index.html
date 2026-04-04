@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Rotation Guide — Daily Motivation (egui)</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0a0f;
+    color: #c5c8c6;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 30px 20px 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+  }
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    color: #00ffdc;
+    letter-spacing: 0.08em;
+    text-align: center;
+    line-height: 1.5;
+  }
+  h1 .sub { font-size: 12px; color: #555; font-weight: 400; display: block; margin-top: 4px; letter-spacing: 0.05em; }
+  .note-box {
+    max-width: 980px; width: 100%;
+    background: #0d1117;
+    border: 1px solid #1a2332;
+    border-left: 3px solid #00ffdc;
+    padding: 16px 20px;
+    font-size: 12px;
+    line-height: 1.8;
+    color: #8b949e;
+  }
+  .note-box strong { color: #00ffdc; }
+  .note-box code { background: #161b22; color: #ff7b72; padding: 1px 5px; font-size: 11px; }
+  .note-box .warn { color: #ff4757; font-weight: 700; }
+  .note-box .ok { color: #50ff78; }
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    color: #b088f9;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    max-width: 980px; width: 100%;
+    border-bottom: 1px solid #1a1a2e;
+    padding-bottom: 8px;
+    margin-top: 12px;
+  }
+  .section-title .num { color: #ff4757; }
+  .file-block {
+    width: 100%; max-width: 980px;
+    border: 1px solid #1a2332;
+    background: #0d1117;
+    position: relative;
+  }
+  .file-tag {
+    position: absolute;
+    top: -11px; left: 20px;
+    font-size: 10px; letter-spacing: 0.15em;
+    background: #ff6633; color: #fff;
+    padding: 2px 10px; font-weight: 700; z-index: 2;
+  }
+  .file-tag.green { background: #50ff78; color: #0a0a0f; }
+  .file-tag.cyan { background: #00ffdc; color: #0a0a0f; }
+  .file-tag.purple { background: #b088f9; color: #0a0a0f; }
+  .file-tag.red { background: #ff4757; color: #fff; }
+  .file-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid #1a2332;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.r { background: #ff4757; }
+  .dot.y { background: #e8ff47; }
+  .dot.g { background: #4cd137; }
+  .file-name { margin-left: 12px; font-size: 11px; color: #555; letter-spacing: 0.08em; }
+  .file-lang { margin-left: auto; font-size: 11px; color: #ff6633; font-weight: 700; letter-spacing: 0.1em; }
+  .copy-btn {
+    margin-left: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    background: #161b22; color: #999;
+    border: 1px solid #30363d;
+    padding: 4px 12px; cursor: pointer;
+    letter-spacing: 0.08em;
+    transition: background 0.2s, color 0.2s;
+  }
+  .copy-btn:hover { background: #00ffdc; color: #0a0a0f; }
+  .copy-btn.copied { background: #50ff78; color: #0a0a0f; }
+  .file-body { padding: 20px; overflow-x: auto; overflow-y: auto; max-height: 700px; }
+  .file-body pre {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; line-height: 1.7;
+    color: #c5c8c6; white-space: pre; tab-size: 4;
+  }
+  .kw { color: #ff7b72; font-weight: 700; }
+  .fn { color: #d2a8ff; }
+  .st { color: #a5d6ff; }
+  .cm { color: #484f58; font-style: italic; }
+  .tp { color: #7ee787; }
+  .mc { color: #d2a8ff; }
+  .nm { color: #79c0ff; }
+  .at { color: #ffa657; }
+  .toc {
+    max-width: 980px; width: 100%;
+    background: #0d1117; border: 1px solid #1a2332;
+    padding: 20px 24px;
+  }
+  .toc h3 { font-family: 'Syne', sans-serif; color: #00ffdc; font-size: 13px; margin-bottom: 12px; letter-spacing: 0.1em; }
+  .toc ul { list-style: none; }
+  .toc li { font-size: 11px; color: #8b949e; padding: 3px 0; }
+  .toc li a { color: #79c0ff; text-decoration: none; }
+  .toc li a:hover { color: #00ffdc; text-decoration: underline; }
+  .toc .step-num { color: #ff4757; font-weight: 700; margin-right: 8px; }
+  .diagram {
+    max-width: 980px; width: 100%;
+    background: #0d1117; border: 1px solid #1a2332;
+    padding: 24px; text-align: center;
+  }
+  .diagram pre {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: #8b949e; line-height: 1.6;
+    display: inline-block; text-align: left;
+  }
+  .diagram .hl { color: #00ffdc; font-weight: 700; }
+  .diagram .hl2 { color: #ff4757; }
+  .diagram .hl3 { color: #b088f9; }
+  .diagram .hl4 { color: #50ff78; }
+</style>
+</head>
+<body>
+
+<h1>🦀 Content Rotation Guide — Daily Motivation App
+  <span class="sub">How to rotate the entire content area (below title bar) using egui Shape transforms + TextShape</span>
+</h1>
+
+<!-- ═══════════════════════ PROBLEM STATEMENT ═══════════════════════ -->
+<div class="note-box">
+  <strong>YOUR APP ARCHITECTURE:</strong> Title bar (fixed, never rotates) + Content area (quotes + control panel — THIS rotates).<br/>
+  <strong>YOUR EXISTING STATE:</strong> <code>rotation: u8</code> (0=0°, 1=90°, 2=180°, 3=270°) + <code>transform_shape_rotate()</code> (incomplete).<br/><br/>
+  <span class="warn">⚠ THE PROBLEM:</span> <code>painter.text()</code> only moves position — glyphs stay axis-aligned (horizontal). Your text flies out of boxes.<br/>
+  <span class="ok">✅ THE FIX:</span> Two-layer approach — render content into a <strong>separate egui layer</strong>, then <strong>post-process all shapes</strong> with rotation transform.<br/>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;For text: use <code>TextShape { angle }</code> inside <code>transform_shape_rotate()</code> so glyphs rotate WITH the content.
+</div>
+
+<!-- ═══════════════════════ ARCHITECTURE DIAGRAM ═══════════════════════ -->
+<div class="diagram">
+<pre>
+<span class="hl">┌─────────────────────────────────────────────────────────────────┐</span>
+<span class="hl">│</span>  <span class="hl2">TITLE BAR</span> — renders normally, <span class="hl2">NEVER rotates</span>                     <span class="hl">│</span>
+<span class="hl">│</span>  [🎨 Theme] [📦 Export] [🔍+] [🔍-] [☰] [─] [□] [✕]           <span class="hl">│</span>
+<span class="hl">├─────────────────────────────────────────────────────────────────┤</span>
+<span class="hl">│</span>                                                                 <span class="hl">│</span>
+<span class="hl">│</span>  <span class="hl3">CONTENT LAYER</span> — rendered into <span class="hl3">LayerId("rotated_content")</span>       <span class="hl">│</span>
+<span class="hl">│</span>                                                                 <span class="hl">│</span>
+<span class="hl">│</span>  ┌─────────────────────────────┐  ┌──────────────────────────┐  <span class="hl">│</span>
+<span class="hl">│</span>  │  <span class="hl4">QUOTE DISPLAY AREA</span>        │  │  <span class="hl4">CONTROL PANEL</span>           │  <span class="hl">│</span>
+<span class="hl">│</span>  │                             │  │  [Add Quote]             │  <span class="hl">│</span>
+<span class="hl">│</span>  │  "এখনই কাজে মনোযোগ দাও"   │  │  [Delete] [Prev] [Next]  │  <span class="hl">│</span>
+<span class="hl">│</span>  │                             │  │  Interval: [8s]          │  <span class="hl">│</span>
+<span class="hl">│</span>  │  Keep pushing! 🌟           │  │  Text Size: [24px]       │  <span class="hl">│</span>
+<span class="hl">│</span>  │                             │  │                          │  <span class="hl">│</span>
+<span class="hl">│</span>  └─────────────────────────────┘  └──────────────────────────┘  <span class="hl">│</span>
+<span class="hl">│</span>                                                                 <span class="hl">│</span>
+<span class="hl">│</span>  <span class="hl3">↑ ALL of this gets rotated via shape transform ↑</span>              <span class="hl">│</span>
+<span class="hl">│</span>  <span class="hl3">  Shapes captured → transformed → re-painted</span>                  <span class="hl">│</span>
+<span class="hl">│</span>                                                                 <span class="hl">│</span>
+<span class="hl">└─────────────────────────────────────────────────────────────────┘</span>
+</pre>
+</div>
+
+<!-- ═══════════════════════ TABLE OF CONTENTS ═══════════════════════ -->
+<div class="toc">
+  <h3>📋 IMPLEMENTATION STEPS</h3>
+  <ul>
+    <li><span class="step-num">01</span> <a href="#step1">Complete <code>transform_shape_rotate()</code> — fix the cut-off function + add TextShape angle</a></li>
+    <li><span class="step-num">02</span> <a href="#step2">Add <code>rotate_clipped_shapes()</code> — transforms a batch of ClippedShapes</a></li>
+    <li><span class="step-num">03</span> <a href="#step3">Add <code>render_content_rotated()</code> — the layer capture + transform pipeline</a></li>
+    <li><span class="step-num">04</span> <a href="#step4">Wire rotation into your main render loop — integrate with existing code</a></li>
+    <li><span class="step-num">05</span> <a href="#step5">Handle the ROTATE button action — toggle rotation state</a></li>
+    <li><span class="step-num">06</span> <a href="#step6">Smooth animation (optional) — interpolate between angles</a></li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════ STEP 1 ═══════════════════════ -->
+<div class="section-title" id="step1"><span class="num">STEP 01</span> — Complete transform_shape_rotate() + TextShape angle fix</div>
+
+<div class="note-box">
+  Your existing <code>transform_shape_rotate()</code> is cut off and <strong>missing the critical TextShape angle fix</strong>.<br/>
+  Below is the <strong>complete version</strong> that handles every Shape variant AND sets <code>TextShape.angle</code> so text glyphs rotate with the content.
+</div>
+
+<div class="file-block">
+  <div class="file-tag red">CRITICAL FIX</div>
+  <div class="file-header">
+    <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+    <span class="file-name">transform_shape_rotate() — complete version</span>
+    <span class="file-lang">RUST 🦀</span>
+    <button class="copy-btn" onclick="copyBlock(0)">COPY</button>
+  </div>
+  <div class="file-body"><pre id="block0"></pre></div>
+</div>
+
+<!-- ═══════════════════════ STEP 2 ═══════════════════════ -->
+<div class="section-title" id="step2"><span class="num">STEP 02</span> — Add rotate_clipped_shapes() — batch transform</div>
+
+<div class="note-box">
+  This function takes a <code>Vec&lt;ClippedShape&gt;</code> (captured from an egui layer) and rotates every shape + clip rect around a center point.
+</div>
+
+<div class="file-block">
+  <div class="file-tag cyan">NEW FUNCTION</div>
+  <div class="file-header">
+    <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+    <span class="file-name">rotate_clipped_shapes()</span>
+    <span class="file-lang">RUST 🦀</span>
+    <button class="copy-btn" onclick="copyBlock(1)">COPY</button>
+  </div>
+  <div class="file-body"><pre id="block1"></pre></div>
+</div>
+
+<!-- ═══════════════════════ STEP 3 ═══════════════════════ -->
+<div class="section-title" id="step3"><span class="num">STEP 03</span> — render_content_rotated() — the layer capture pipeline</div>
+
+<div class="note-box">
+  <strong>This is the core technique.</strong> Instead of rendering content directly to the screen, we:<br/>
+  1. Create a <strong>temporary egui layer</strong> with <code>ui.with_layer_id()</code><br/>
+  2. Render ALL content (quotes + control panel) into that layer<br/>
+  3. <strong>Extract the shapes</strong> from the layer's paint list<br/>
+  4. <strong>Transform every shape</strong> using our rotation function<br/>
+  5. <strong>Re-add</strong> the transformed shapes to the main paint list<br/><br/>
+  This way, <strong>everything rotates together</strong> — text, rectangles, lines, everything.
+</div>
+
+<div class="file-block">
+  <div class="file-tag purple">CORE TECHNIQUE</div>
+  <div class="file-header">
+    <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+    <span class="file-name">render_content_rotated() — layer capture + transform</span>
+    <span class="file-lang">RUST 🦀</span>
+    <button class="copy-btn" onclick="copyBlock(2)">COPY</button>
+  </div>
+  <div class="file-body"><pre id="block2"></pre></div>
+</div>
+
+<!-- ═══════════════════════ STEP 4 ═══════════════════════ -->
+<div class="section-title" id="step4"><span class="num">STEP 04</span> — Wire into your main render loop</div>
+
+<div class="note-box">
+  In your main event loop (where you call <code>ctx.run()</code>), replace the direct content rendering with the rotated version.<br/>
+  <strong>Title bar stays OUTSIDE the rotation</strong> — it renders normally. Only the content area is rotated.
+</div>
+
+<div class="file-block">
+  <div class="file-tag green">INTEGRATION</div>
+  <div class="file-header">
+    <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+    <span class="file-name">Main render loop integration</span>
+    <span class="file-lang">RUST 🦀</span>
+    <button class="copy-btn" onclick="copyBlock(3)">COPY</button>
+  </div>
+  <div class="file-body"><pre id="block3"></pre></div>
+</div>
+
+<!-- ═══════════════════════ STEP 5 ═══════════════════════ -->
+<div class="section-title" id="step5"><span class="num">STEP 05</span> — Handle the ROTATE button action</div>
+
+<div class="file-block">
+  <div class="file-tag green">INTEGRATION</div>
+  <div class="file-header">
+    <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+    <span class="file-name">Rotation action handler</span>
+    <span class="file-lang">RUST 🦀</span>
+    <button class="copy-btn" onclick="copyBlock(4)">COPY</button>
+  </div>
+  <div class="file-body"><pre id="block4"></pre></div>
+</div>
+
+<!-- ═══════════════════════ STEP 6 ═══════════════════════ -->
+<div class="section-title" id="step6"><span class="num">STEP 06</span> — Smooth animation (optional)</div>
+
+<div class="note-box">
+  Instead of snapping instantly, smoothly interpolate using exponential easing (like CSS <code>cubic-bezier</code>).<br/>
+  Add these fields to your <code>AppState</code> and update them each frame.
+</div>
+
+<div class="file-block">
+  <div class="file-tag">OPTIONAL</div>
+  <div class="file-header">
+    <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+    <span class="file-name">Smooth rotation animation</span>
+    <span class="file-lang">RUST 🦀</span>
+    <button class="copy-btn" onclick="copyBlock(5)">COPY</button>
+  </div>
+  <div class="file-body"><pre id="block5"></pre></div>
+</div>
+
+<!-- ═══════════════════════ STEP 7 — ALTERNATIVE ═══════════════════════ -->
+<div class="section-title"><span class="num">ALT</span> — Alternative: Post-process FullOutput shapes (if layer approach doesn't work)</div>
+
+<div class="note-box">
+  If the layer approach has issues with your egui version, you can instead <strong>post-process shapes in FullOutput</strong>
+  after <code>ctx.run()</code> returns. This intercepts ALL shapes before tessellation.<br/>
+  <strong>Downside:</strong> You need to tag which shapes belong to the title bar vs content area.
+</div>
+
+<div class="file-block">
+  <div class="file-tag">ALTERNATIVE</div>
+  <div class="file-header">
+    <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+    <span class="file-name">Post-process FullOutput approach</span>
+    <span class="file-lang">RUST 🦀</span>
+    <button class="copy-btn" onclick="copyBlock(6)">COPY</button>
+  </div>
+  <div class="file-body"><pre id="block6"></pre></div>
+</div>
+
+<!-- ═══════════════════════ SUMMARY ═══════════════════════ -->
+<div class="note-box" style="border-left-color: #50ff78;">
+  <strong style="color: #50ff78;">📋 SUMMARY — One line each:</strong><br/><br/>
+  <strong>1.</strong> <code>transform_shape_rotate()</code> — handles every Shape variant + <strong>sets TextShape.angle</strong> so glyphs rotate<br/>
+  <strong>2.</strong> <code>rotate_clipped_shapes()</code> — batch-transforms Vec&lt;ClippedShape&gt; + their clip rects<br/>
+  <strong>3.</strong> <code>render_content_rotated()</code> — captures content into layer → extracts shapes → transforms → re-paints<br/>
+  <strong>4.</strong> Title bar renders <strong>normally</strong>, content renders into <strong>rotated layer</strong><br/>
+  <strong>5.</strong> <code>rotation = (rotation + 1) % 4</code> on button click → <code>angle_rad = rotation * π/2</code><br/>
+  <strong>6.</strong> Optional smooth animation via exponential interpolation<br/><br/>
+  <span class="ok">✅ Every symbol, word, method, struct, enum, const from your code is preserved.</span><br/>
+  <span class="ok">✅ The key insight: <code>TextShape.angle += angle_rad</code> makes glyphs rotate WITH the content.</span>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  All code blocks as raw strings
+// ══════════════════════════════════════════════════════════════
+
+const BLOCKS = [];
+
+// ── BLOCK 0: Complete transform_shape_rotate ──
+BLOCKS[0] = `// ═════════════════════════════════════════════════════════════════
+//  transform_shape_rotate() — COMPLETE VERSION
+//  Handles EVERY Shape variant in egui/epaint
+//  KEY FIX: TextShape.angle += angle_rad (rotates actual glyphs)
+// ═════════════════════════════════════════════════════════════════
+
+/// Rotate a point around a center by angle_rad (radians).
+fn rotate_pos2_around(center: Pos2, p: Pos2, angle_rad: f32) -> Pos2 {
+    let dx = p.x - center.x;
+    let dy = p.y - center.y;
+    let c = angle_rad.cos();
+    let s = angle_rad.sin();
+    Pos2::new(center.x + dx * c - dy * s, center.y + dx * s + dy * c)
+}
+
+/// Axis-aligned bounding box of a rect after rotation around center.
+fn rect_aabb_after_rotate(center: Pos2, r: Rect, angle_rad: f32) -> Rect {
+    let corners = [
+        r.left_top(),
+        r.right_top(),
+        r.right_bottom(),
+        r.left_bottom(),
+    ];
+    let rotated: [Pos2; 4] = [
+        rotate_pos2_around(center, corners[0], angle_rad),
+        rotate_pos2_around(center, corners[1], angle_rad),
+        rotate_pos2_around(center, corners[2], angle_rad),
+        rotate_pos2_around(center, corners[3], angle_rad),
+    ];
+    let min_x = rotated.iter().map(|p| p.x).fold(f32::INFINITY, f32::min);
+    let max_x = rotated.iter().map(|p| p.x).fold(f32::NEG_INFINITY, f32::max);
+    let min_y = rotated.iter().map(|p| p.y).fold(f32::INFINITY, f32::min);
+    let max_y = rotated.iter().map(|p| p.y).fold(f32::NEG_INFINITY, f32::max);
+    Rect::from_min_max(Pos2::new(min_x, min_y), Pos2::new(max_x, max_y))
+}
+
+/// Transform a single shape in-place by rotating all geometry around center.
+/// ✅ CRITICAL: TextShape.angle is ADDED TO so glyphs rotate with content.
+fn transform_shape_rotate(shape: &mut Shape, center: Pos2, angle_rad: f32) {
+    if angle_rad.abs() < 0.0001 {
+        return; // No rotation needed — skip for performance
+    }
+
+    match shape {
+        // ── Recursive container ──
+        Shape::Vec(shapes) => {
+            for s in shapes.iter_mut() {
+                transform_shape_rotate(s, center, angle_rad);
+            }
+        }
+
+        // ── Primitives ──
+        Shape::Circle(c) => {
+            c.center = rotate_pos2_around(center, c.center, angle_rad);
+        }
+
+        Shape::Ellipse(e) => {
+            e.center = rotate_pos2_around(center, e.center, angle_rad);
+            // Note: ellipse rotation is approximate (AABB only)
+            // For perfect ellipse rotation you'd need to track angle
+        }
+
+        Shape::LineSegment { points, .. } => {
+            points[0] = rotate_pos2_around(center, points[0], angle_rad);
+            points[1] = rotate_pos2_around(center, points[1], angle_rad);
+        }
+
+        Shape::Path(p) => {
+            for pt in p.points.iter_mut() {
+                *pt = rotate_pos2_around(center, *pt, angle_rad);
+            }
+        }
+
+        Shape::Rect(r) => {
+            // Rotate to AABB (axis-aligned bounding box)
+            // This works for 90° increments. For arbitrary angles,
+            // consider converting to Path/convex_polygon instead.
+            r.rect = rect_aabb_after_rotate(center, r.rect, angle_rad);
+        }
+
+        // ══════════════════════════════════════════════════════
+        //  ✅ TEXT — THE CRITICAL FIX
+        //  painter.text() creates TextShape with angle = 0.0
+        //  We ADD our rotation angle so glyphs rotate WITH content
+        //  Without this: text position moves but glyphs stay horizontal
+        // ══════════════════════════════════════════════════════
+        Shape::Text(t) => {
+            // Rotate the position
+            t.pos = rotate_pos2_around(center, t.pos, angle_rad);
+
+            // ✅ THE KEY: Add rotation angle to the TextShape
+            // This makes the actual rendered glyphs rotate
+            // (not just their position)
+            t.angle += angle_rad;
+        }
+
+        Shape::Mesh(mesh) => {
+            for v in mesh.vertices.iter_mut() {
+                v.pos = rotate_pos2_around(center, v.pos, angle_rad);
+            }
+        }
+
+        Shape::QuadraticBezier(b) => {
+            for pt in b.points.iter_mut() {
+                *pt = rotate_pos2_around(center, *pt, angle_rad);
+            }
+        }
+
+        Shape::CubicBezier(b) => {
+            for pt in b.points.iter_mut() {
+                *pt = rotate_pos2_around(center, *pt, angle_rad);
+            }
+        }
+
+        // ── Callback / Noop — nothing to transform ──
+        Shape::Callback(_) => {}
+        Shape::Noop => {}
+    }
+}`;
+
+// ── BLOCK 1: rotate_clipped_shapes ──
+BLOCKS[1] = `// ═════════════════════════════════════════════════════════════════
+//  rotate_clipped_shapes() — batch transform for ClippedShape vec
+//  Transforms both the shapes AND their clip rectangles
+// ═════════════════════════════════════════════════════════════════
+
+use egui::epaint::ClippedShape;
+
+/// Rotate a batch of ClippedShapes around a center point.
+/// Transforms both the shape geometry AND the clip rectangles.
+fn rotate_clipped_shapes(
+    shapes: &mut Vec<ClippedShape>,
+    center: Pos2,
+    angle_rad: f32,
+) {
+    if angle_rad.abs() < 0.0001 {
+        return; // No rotation needed
+    }
+
+    for clipped in shapes.iter_mut() {
+        // 1. Transform the shape itself (including TextShape.angle)
+        transform_shape_rotate(&mut clipped.shape, center, angle_rad);
+
+        // 2. Transform the clip rectangle
+        //    The clip rect must also rotate, otherwise content gets clipped wrong
+        clipped.clip_rect = rect_aabb_after_rotate(center, clipped.clip_rect, angle_rad);
+
+        // 3. Expand clip rect slightly to prevent edge artifacts
+        //    (rotation can push pixels just outside the original clip)
+        clipped.clip_rect = clipped.clip_rect.expand(2.0);
+    }
+}`;
+
+// ── BLOCK 2: render_content_rotated ──
+BLOCKS[2] = `// ═════════════════════════════════════════════════════════════════
+//  render_content_rotated() — Layer capture + transform pipeline
+//
+//  ARCHITECTURE:
+//  1. Create a temporary layer for content
+//  2. Render ALL content (quotes, control panel) into that layer
+//  3. Extract shapes from the layer's paint list
+//  4. Transform every shape with rotation
+//  5. Add transformed shapes back to the foreground layer
+//
+//  Title bar is NOT included — it renders separately
+// ═════════════════════════════════════════════════════════════════
+
+fn render_content_rotated(
+    ctx: &egui::Context,
+    state: &mut AppState,
+    window: &Window,
+) {
+    // Calculate rotation angle from state
+    let angle_rad = (state.rotation as f32) * std::f32::consts::FRAC_PI_2;
+    // If using smooth animation:
+    // let angle_rad = state.current_rotation_angle;
+
+    // Get the content area (below title bar)
+    let screen = ctx.screen_rect();
+    let title_h = if state.title_bar_state.header_visible {
+        TITLE_BAR_HEIGHT
+    } else {
+        0.0
+    };
+    let content_rect = Rect::from_min_max(
+        Pos2::new(screen.left(), screen.top() + title_h),
+        screen.max,
+    );
+    let center = content_rect.center();
+
+    // ── APPROACH A: Layer-based capture ──
+    // Create a dedicated layer for rotatable content
+    let content_layer = egui::LayerId::new(
+        egui::Order::Background,
+        egui::Id::new("rotated_content"),
+    );
+
+    // Render content into this layer
+    let mut content_ui = egui::Ui::new(
+        ctx.clone(),
+        content_layer,
+        egui::Id::new("content_ui"),
+        content_rect,
+        content_rect,
+        egui::UiStackInfo::default(),
+    );
+
+    // ──────────────────────────────────────────────────
+    //  Render your actual content here
+    //  (This is where your quote display + control panel go)
+    // ──────────────────────────────────────────────────
+
+    // Background
+    content_ui.painter().rect_filled(
+        content_rect,
+        Rounding::ZERO,
+        state.get_background_color(),
+    );
+
+    // Quote display area
+    render_quote_display(&mut content_ui, state);
+
+    // Control panel (if visible)
+    if state.title_bar_state.control_panel_visible {
+        render_control_panel(&mut content_ui, state);
+    }
+
+    // Theme modal (if open)
+    if state.theme_modal_open {
+        render_theme_modal(&mut content_ui, state);
+    }
+
+    // ──────────────────────────────────────────────────
+    //  Now extract and transform the shapes
+    // ──────────────────────────────────────────────────
+
+    if angle_rad.abs() > 0.0001 {
+        // Get the paint list for our content layer
+        let painter = ctx.layer_painter(content_layer);
+        // Access shapes through the painter and transform them
+        //
+        // Note: The exact API depends on your egui version.
+        // In egui 0.28+, you can use:
+        ctx.transform_layer_shapes(content_layer, |shape| {
+            transform_shape_rotate(shape, center, angle_rad);
+        });
+        //
+        // If transform_layer_shapes is not available, see ALTERNATIVE approach below
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  ALTERNATIVE: If ctx.transform_layer_shapes() is not available
+//  in your egui version, use this manual approach:
+// ═════════════════════════════════════════════════════════════════
+
+fn render_content_rotated_manual(
+    ctx: &egui::Context,
+    state: &mut AppState,
+    window: &Window,
+) {
+    let angle_rad = (state.rotation as f32) * std::f32::consts::FRAC_PI_2;
+    let screen = ctx.screen_rect();
+    let title_h = if state.title_bar_state.header_visible {
+        TITLE_BAR_HEIGHT
+    } else {
+        0.0
+    };
+    let content_rect = Rect::from_min_max(
+        Pos2::new(screen.left(), screen.top() + title_h),
+        screen.max,
+    );
+    let center = content_rect.center();
+
+    // Use CentralPanel but with a custom frame
+    egui::CentralPanel::default()
+        .frame(egui::Frame::none().fill(Color32::TRANSPARENT))
+        .show(ctx, |ui| {
+            // Constrain to content area (below title bar)
+            let available = ui.available_rect_before_wrap();
+
+            // Paint background
+            ui.painter().rect_filled(
+                available,
+                Rounding::ZERO,
+                state.get_background_color(),
+            );
+
+            // Get painter's shape count BEFORE rendering content
+            let layer_id = ui.layer_id();
+            let shapes_before = ctx.graphics(|g| {
+                g.get(layer_id).map_or(0, |list| list.len())
+            });
+
+            // ── Render all content ──
+            render_quote_display(ui, state);
+            if state.title_bar_state.control_panel_visible {
+                render_control_panel(ui, state);
+            }
+
+            // Get shape count AFTER rendering content
+            let shapes_after = ctx.graphics(|g| {
+                g.get(layer_id).map_or(0, |list| list.len())
+            });
+
+            // Transform only the NEW shapes (content, not title bar)
+            if angle_rad.abs() > 0.0001 && shapes_after > shapes_before {
+                ctx.graphics_mut(|g| {
+                    if let Some(list) = g.get_mut(layer_id) {
+                        for i in shapes_before..shapes_after {
+                            if let Some(clipped) = list.get_mut(i) {
+                                transform_shape_rotate(
+                                    &mut clipped.shape,
+                                    center,
+                                    angle_rad,
+                                );
+                                clipped.clip_rect = rect_aabb_after_rotate(
+                                    center,
+                                    clipped.clip_rect,
+                                    angle_rad,
+                                );
+                                clipped.clip_rect = clipped.clip_rect.expand(2.0);
+                            }
+                        }
+                    }
+                });
+            }
+        });
+}`;
+
+// ── BLOCK 3: Main render loop integration ──
+BLOCKS[3] = `// ═════════════════════════════════════════════════════════════════
+//  MAIN RENDER LOOP — Integration point
+//  Shows where rotation fits in your existing event loop
+// ═════════════════════════════════════════════════════════════════
+
+// Inside your main event loop, where you call ctx.run():
+
+let full_output = ctx.run(raw_input, |ctx| {
+    // ─────────────────────────────────────────────
+    //  1. TITLE BAR — renders normally, NEVER rotates
+    // ─────────────────────────────────────────────
+    let title_actions = render_title_bar(ctx, &mut state, &window);
+
+    // Handle title bar actions (including rotation)
+    for action in &title_actions {
+        match action {
+            TitleBarAction::PlayRotate => {
+                // Toggle rotation: cycle through 0°, 90°, 180°, 270°
+                state.rotation = (state.rotation + 1) % 4;
+                // Or if using animation system:
+                state.active_animation = if state.active_animation == AppAnimation::Rotate {
+                    AppAnimation::None
+                } else {
+                    AppAnimation::Rotate
+                };
+            }
+            // ... handle other actions ...
+            _ => {}
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    //  2. FLOATING BUTTONS — also never rotate
+    // ─────────────────────────────────────────────
+    let float_actions = render_floating_buttons(ctx, &mut state);
+    // handle float_actions...
+
+    // ─────────────────────────────────────────────
+    //  3. CONTENT — THIS IS WHERE ROTATION HAPPENS
+    //     Renders into a layer, then transforms shapes
+    // ─────────────────────────────────────────────
+    render_content_rotated(ctx, &mut state, &window);
+    // OR use the manual version:
+    // render_content_rotated_manual(ctx, &mut state, &window);
+});
+
+// Continue with tessellation and rendering as normal
+// The shapes are already transformed — wgpu/OpenGL just renders them`;
+
+// ── BLOCK 4: Rotation action handler ──
+BLOCKS[4] = `// ═════════════════════════════════════════════════════════════════
+//  ROTATION ACTION HANDLER
+//  Wire the ROTATE icon button to cycle through 0°/90°/180°/270°
+// ═════════════════════════════════════════════════════════════════
+
+// In your action handling code (where you match TitleBarAction):
+
+TitleBarAction::PlayRotate => {
+    if state.active_animation == AppAnimation::Rotate {
+        // Already rotating — stop and reset
+        state.active_animation = AppAnimation::None;
+        state.rotation = 0;
+    } else {
+        // Start rotation — advance by 90°
+        state.active_animation = AppAnimation::Rotate;
+        state.rotation = (state.rotation + 1) % 4;
+
+        // If using smooth animation, set the target:
+        // state.target_rotation_angle =
+        //     state.rotation as f32 * std::f32::consts::FRAC_PI_2;
+    }
+}
+
+// ── Your existing ROTATE icon in the title bar: ──
+// icons::ANIM_ROTATE is already defined as:
+//   TitleBarIcon::new("\\u{f01e}", "Rotate Animation", 20.0, 16.0)
+//
+// And it maps to TitleBarAction::PlayRotate
+// So clicking it will trigger the handler above.
+
+// ── You also have a dedicated ROTATE icon: ──
+// icons::ROTATE = TitleBarIcon::new("\\u{f01e}", "Rotate Window", 20.0, 16.0)
+//
+// If you want a separate "one-click rotate 90°" button:
+
+// In title bar rendering, add:
+if draw_icon_button(
+    ui,
+    &icons::ROTATE,
+    Color32::TRANSPARENT,
+    if state.rotation > 0 { NEON_LIME } else { Color32::WHITE },
+    state.rotation > 0,
+).clicked() {
+    state.rotation = (state.rotation + 1) % 4;
+    // Optional: request repaint for smooth transition
+    // ctx.request_repaint();
+}`;
+
+// ── BLOCK 5: Smooth animation ──
+BLOCKS[5] = `// ═════════════════════════════════════════════════════════════════
+//  SMOOTH ROTATION ANIMATION
+//  Interpolate between current angle and target angle
+//  Like CSS transition: 0.6s cubic-bezier(0.77, 0, 0.175, 1)
+// ═════════════════════════════════════════════════════════════════
+
+// ── Add these fields to AppState ──
+pub struct AppState {
+    // ... existing fields ...
+
+    // Rotation state: 0=0, 1=90, 2=180, 3=270
+    pub rotation: u8,
+
+    // Smooth animation fields
+    pub target_rotation_angle: f32,   // where we want to be (radians)
+    pub current_rotation_angle: f32,  // where we are now (radians, smoothly interpolated)
+    pub last_frame_time: Instant,     // for delta time calculation
+}
+
+// ── Update animation each frame (call at start of render) ──
+fn update_rotation_animation(state: &mut AppState, ctx: &egui::Context) {
+    let now = Instant::now();
+    let dt = now.duration_since(state.last_frame_time).as_secs_f32();
+    state.last_frame_time = now;
+
+    // Exponential interpolation (feels like cubic-bezier)
+    let speed = 8.0_f32;
+    let diff = state.target_rotation_angle - state.current_rotation_angle;
+
+    if diff.abs() > 0.001 {
+        state.current_rotation_angle += diff * (1.0 - (-speed * dt).exp());
+        ctx.request_repaint(); // Keep animating
+    } else {
+        // Snap to target when close enough
+        state.current_rotation_angle = state.target_rotation_angle;
+    }
+}
+
+// ── When rotation button is clicked ──
+fn handle_rotate_click(state: &mut AppState) {
+    state.rotation = (state.rotation + 1) % 4;
+    state.target_rotation_angle =
+        state.rotation as f32 * std::f32::consts::FRAC_PI_2;
+    // current_rotation_angle will smoothly catch up in update_rotation_animation()
+}
+
+// ── Use current_rotation_angle instead of rotation in render ──
+fn render_content_rotated_smooth(
+    ctx: &egui::Context,
+    state: &mut AppState,
+    window: &Window,
+) {
+    // Update animation first
+    update_rotation_animation(state, ctx);
+
+    // Use the smoothly interpolated angle
+    let angle_rad = state.current_rotation_angle;
+
+    // ... rest of render_content_rotated() uses angle_rad ...
+    // (same as Step 03, just replace the angle_rad calculation)
+}`;
+
+// ── BLOCK 6: Alternative FullOutput approach ──
+BLOCKS[6] = `// ═════════════════════════════════════════════════════════════════
+//  ALTERNATIVE: Post-process FullOutput shapes
+//  Use this if the layer-based approach doesn't work with your
+//  egui version or if you prefer intercepting at a lower level.
+//
+//  TRADE-OFF: You must identify which shapes are "content" vs
+//  "title bar" — typically by checking their Y position.
+// ═════════════════════════════════════════════════════════════════
+
+// After ctx.run() returns FullOutput:
+
+let mut full_output = ctx.run(raw_input, |ctx| {
+    // Render everything normally (title bar + content)
+    render_title_bar(ctx, &mut state, &window);
+    render_floating_buttons(ctx, &mut state);
+
+    // Content renders normally — we'll rotate shapes AFTER
+    egui::CentralPanel::default()
+        .frame(egui::Frame::none().fill(state.get_background_color()))
+        .show(ctx, |ui| {
+            render_quote_display(ui, &mut state);
+            if state.title_bar_state.control_panel_visible {
+                render_control_panel(ui, &mut state);
+            }
+        });
+});
+
+// ─────────────────────────────────────────────
+//  POST-PROCESS: Rotate content shapes
+// ─────────────────────────────────────────────
+let angle_rad = state.current_rotation_angle; // or state.rotation as f32 * FRAC_PI_2
+
+if angle_rad.abs() > 0.0001 {
+    let screen = ctx.screen_rect();
+    let title_h = if state.title_bar_state.header_visible {
+        TITLE_BAR_HEIGHT
+    } else {
+        0.0
+    };
+
+    // Content area center (rotation pivot)
+    let content_rect = Rect::from_min_max(
+        Pos2::new(screen.left(), screen.top() + title_h),
+        screen.max,
+    );
+    let center = content_rect.center();
+
+    // Threshold: shapes with position below title bar are "content"
+    let y_threshold = screen.top() + title_h;
+
+    for clipped_shape in &mut full_output.shapes {
+        // Check if this shape belongs to the content area
+        // (its clip rect or position is below the title bar)
+        let shape_y = clipped_shape.clip_rect.top();
+
+        if shape_y >= y_threshold - 5.0 {
+            // This is a content shape — rotate it
+            transform_shape_rotate(
+                &mut clipped_shape.shape,
+                center,
+                angle_rad,
+            );
+
+            // Also rotate the clip rect
+            clipped_shape.clip_rect = rect_aabb_after_rotate(
+                center,
+                clipped_shape.clip_rect,
+                angle_rad,
+            );
+            clipped_shape.clip_rect = clipped_shape.clip_rect.expand(2.0);
+        }
+        // Shapes above y_threshold (title bar) are left untouched
+    }
+}
+
+// Now tessellate and render as normal
+// All content shapes are already rotated — title bar shapes are untouched
+let clipped_primitives = ctx.tessellate(full_output.shapes, full_output.pixels_per_point);
+// ... render with wgpu/glow as usual ...`;
+
+
+// ══════════════════════════════════════════════════════════════
+//  Syntax highlighting
+// ══════════════════════════════════════════════════════════════
+
+function highlight(src) {
+  let code = src
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Comments
+  code = code.replace(/(\/\/\/?.*)$/gm, '<span class="cm">$1</span>');
+  code = code.replace(/^(\s*#[^[\n].*)$/gm, '<span class="cm">$1</span>');
+
+  // Strings
+  code = code.replace(/"([^"\\]|\\.)*"/g, '<span class="st">$&</span>');
+
+  // Attributes
+  code = code.replace(/#\[([^\]]+)\]/g, '<span class="at">#[$1]</span>');
+
+  // Keywords
+  const keywords = ['use','const','fn','struct','impl','let','mut','self','if','else','for','in','as','true','false','return','pub','mod','crate','extern','where','type','enum','match','loop','while','break','continue','move','ref','static','unsafe','trait','dyn','async','await','macro_rules'];
+  keywords.forEach(kw => {
+    const re = new RegExp('\\b(' + kw + ')\\b', 'g');
+    code = code.replace(re, '<span class="kw">$1</span>');
+  });
+
+  // Types
+  const types = ['Color32','BoxData','RotateApp','Pos2','Rect','Painter','Stroke','Align2','Align','FontId','RichText','Vec2','App','Context','Frame','CreationContext','CentralPanel','TopBottomPanel','Button','Visuals','ViewportBuilder','NativeOptions','Shape','Sense','Self','Result','Box','Ok','Default','TextShape','Galley','Arc','Some','None','f32','f64','i32','i64','u8','u16','u32','u64','usize','isize','bool','str','String','LEFT','RIGHT','CENTER','Center','TOP','BOTTOM','NONE','AppState','TitleBarAction','TitleBarState','AppAnimation','Quote','ThemeConfig','ThemeMode','ClippedShape','Rounding','Vec','Instant','Duration','Window','LayerId','Order','Id','Ui','UiStackInfo','PaintList','FullOutput'];
+  types.forEach(tp => {
+    const re = new RegExp('\\b(' + tp + ')\\b', 'g');
+    code = code.replace(re, '<span class="tp">$1</span>');
+  });
+
+  // Numbers
+  code = code.replace(/\b(0x[0-9a-fA-F]+|[0-9]+\.?[0-9]*(?:_f32|_f64)?)\b/g, '<span class="nm">$1</span>');
+
+  // Macros
+  code = code.replace(/\b(format!|vec!|println!|eprintln!|todo!|panic!|assert!|dbg!)/g, '<span class="mc">$1</span>');
+
+  return code;
+}
+
+// Render all blocks
+for (let i = 0; i < BLOCKS.length; i++) {
+  const el = document.getElementById('block' + i);
+  if (el) el.innerHTML = highlight(BLOCKS[i]);
+}
+
+// Copy functionality
+function copyBlock(index) {
+  const text = BLOCKS[index];
+  navigator.clipboard.writeText(text).then(() => {
+    const btns = document.querySelectorAll('.copy-btn');
+    const btn = btns[index];
+    btn.textContent = 'COPIED ✓';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'COPY';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+</script>
+
+</body>
+</html>

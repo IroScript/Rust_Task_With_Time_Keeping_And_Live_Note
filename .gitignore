@@ -1,0 +1,24 @@
+**/target/
+**/*.rs.bk
+# WASM/Trunk artifacts
+**/dist/
+**/.trunk/
+**/wasm-bindgen-main/
+debug.log
+
+# Environment files with secrets (cloud credentials only)
+# Local .env file with SQLite config will be committed for easy setup
+# backend/.env  # Commented out - keeping local config in repo
+# .env          # Commented out - keeping local config in repo
+
+# Cloud environment files (DO NOT COMMIT)
+backend/.env.production
+backend/.env.cloud
+.env.production
+.env.cloud
+
+# User settings
+settings.json
+
+# Build artifacts
+Cargo.lock

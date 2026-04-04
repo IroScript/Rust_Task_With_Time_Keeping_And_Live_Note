@@ -1,0 +1,9 @@
+[net]
+git-fetch-with-cli = true
+
+[http]
+check-revoke = false
+
+# Use sparse registry (faster and more reliable)
+[registries.crates-io]
+protocol = "sparse"

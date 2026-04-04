@@ -1,0 +1,66 @@
+﻿cargo :     Checking 
+quantum_logo v0.1.0 (C:
+\Users\USER\OneDrive\De
+sktop\Irak\rustV10\back
+ground)
+At line:1 char:1
++ cargo check 2> 
+error.txt
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (    Checking    
+ qu...V10\backgroun    
+d):String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+error[E0308]: 
+mismatched types
+     --> 
+src\main.rs:390:33
+      |
+  390 |                
+ let hwnd = 
+HWND(tracking.hwnd as 
+*mut _);
+      |                
+            ---- ^^^^^^
+^^^^^^^^^^^^^^^^^ 
+expected `isize`, 
+found `*mut _`
+      |                
+            |
+      |                
+            arguments 
+to this struct are 
+incorrect
+      |
+      = note:     
+expected type `isize`
+              found 
+raw pointer `*mut _`
+note: tuple struct 
+defined here
+     --> C:\Users\USER\
+.cargo\registry\src\ind
+ex.crates.io-1949cf8c6b
+5b557f\windows-0.52.0\s
+rc\Windows\Win32\Founda
+tion\mod.rs:11094:12
+      |
+11094 | pub struct 
+HWND(pub isize);
+      |            ^^^^
+
+For more information 
+about this error, try 
+`rustc --explain 
+E0308`.
+error: could not 
+compile `quantum_logo` 
+(bin "quantum_logo") 
+due to 1 previous error

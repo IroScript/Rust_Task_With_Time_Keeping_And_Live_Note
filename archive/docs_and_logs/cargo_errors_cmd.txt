@@ -1,0 +1,57 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   C:\Users\USER\OneDrive\Desktop\Irak_Eid_Time\Task_List_Note\backend\Cargo.toml
+workspace: C:\Users\USER\OneDrive\Desktop\Irak_Eid_Time\Task_List_Note\Cargo.toml
+    Checking frontend v0.1.0 (C:\Users\USER\OneDrive\Desktop\Irak_Eid_Time\Task_List_Note)
+warning: use of deprecated method `egui::text_edit::TextEditOutput::text_draw_pos`: Renamed `self.galley_pos`
+    --> src\main.rs:2507:59
+     |
+2507 |             let text_rect = out.galley.rect.translate(out.text_draw_pos().to_vec2());
+     |                                                           ^^^^^^^^^^^^^
+     |
+     = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated method `egui::text_edit::TextEditOutput::text_draw_pos`: Renamed `self.galley_pos`
+    --> src\main.rs:2537:43
+     |
+2537 |                     let local = pos - out.text_draw_pos(); // cursor position matches the text, not just the widget rect
+     |                                           ^^^^^^^^^^^^^
+
+error[E0599]: no method named `to_vec2` found for struct `Vec2` in the current scope
+    --> src\main.rs:2540:67
+     |
+2540 |                         let cursor = galley.cursor_from_pos(local.to_vec2()); // cast local as vec2 to match cursor_from_pos
+     |                                                                   ^^^^^^^ method not found in `Vec2`
+
+warning: use of deprecated method `egui::Memory::dragged_id`: Use `Context::dragged_id` instead
+    --> src\main.rs:2545:67
+     |
+2545 |             } else if out.response.has_focus() && ui.memory(|m| m.dragged_id().is_none()) {
+     |                                                                   ^^^^^^^^^^
+
+warning: use of deprecated method `egui::text_edit::TextEditOutput::text_draw_pos`: Renamed `self.galley_pos`
+    --> src\main.rs:2584:75
+     |
+2584 |                 let sub_text_rect = out_sub.galley.rect.translate(out_sub.text_draw_pos().to_vec2());
+     |                                                                           ^^^^^^^^^^^^^
+
+warning: use of deprecated method `egui::text_edit::TextEditOutput::text_draw_pos`: Renamed `self.galley_pos`
+    --> src\main.rs:2612:51
+     |
+2612 |                         let local = pos - out_sub.text_draw_pos();
+     |                                                   ^^^^^^^^^^^^^
+
+error[E0599]: no method named `to_vec2` found for struct `Vec2` in the current scope
+    --> src\main.rs:2615:71
+     |
+2615 | ...                   let cursor = galley.cursor_from_pos(local.to_vec2());
+     |                                                                 ^^^^^^^ method not found in `Vec2`
+
+warning: use of deprecated method `egui::Memory::dragged_id`: Use `Context::dragged_id` instead
+    --> src\main.rs:2620:75
+     |
+2620 |                 } else if out_sub.response.has_focus() && ui.memory(|m| m.dragged_id().is_none()) {
+     |                                                                           ^^^^^^^^^^
+
+For more information about this error, try `rustc --explain E0599`.
+warning: `frontend` (bin "frontend") generated 6 warnings
+error: could not compile `frontend` (bin "frontend") due to 2 previous errors; 6 warnings emitted

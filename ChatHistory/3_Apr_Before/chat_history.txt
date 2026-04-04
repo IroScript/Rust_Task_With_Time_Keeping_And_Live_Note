@@ -1,0 +1,69 @@
+# ANTIGRAVITY AI CHAT HISTORY - 2026-04-03
+
+## PROJECT SUMMARY
+Objective: Refining Robotic/Futuristic Card UI in egui-Rust.
+Core Tasks: Localized text formatting (size/color), Real-time live preview, Sensor areas for button clicks, and aesthetic improvements.
+
+---
+
+### [USER REQUEST 1]
+Refining Line Gaps in card UI. Image shows specific gap requirements.AI suggested fix for `render_main_content` in `src/main.rs`.
+
+### [USER REQUEST 2]
+- Add minus (-) and plus (+) buttons for line gaps.
+- Place main/supporting text labels above progress bar lines.
+- Format labels as: `1   main text    1.00`.
+- Position progress bar line and `- Progress bar +` controls below labels.
+
+### [USER REQUEST 3]
+- Fix "button skipping" issue (clicking once jumps to unexpected position/clears input).
+- Maximize progress bar width within Line Gaps section.
+- Keep text within border.
+- Aesthetic goal: "50,000 AD Futuristic Design".
+
+### [USER REQUEST 4]
+- Fix Scoping: Color/Size changes must only affect the *currently selected* card, not globally.
+- Fix Input Field Design: Main/supporting text inputs should fill the box width without awkward right-side gaps.
+- Fixed box size for inputs despite text length.
+
+### [USER REQUEST 5]
+- Recurring issue: Changing text size causes input field to clear (button-skipping/clearing logic too aggressive).
+- Requirement: Multiple clicks (A+, A-) must be possible without losing input focus/text.
+
+### [USER REQUEST 6]
+- Default Saving: Ensure every keypress auto-saves everything.
+- Input Behavior: Clicking outside should clear input, but clicking buttons (+Add/Apply) should also work. 
+- Fast workflow is priority.
+
+### [USER REQUEST 7]
+- Logic Proposal: Add a "Sensor Area" (1-2mm) around control buttons (A+, A-) where clicking does NOT trigger the "clear input" logic intended for empty background space.
+
+### [USER REQUEST 8]
+- Final fix for text size buttons clearing input fields.
+
+### [USER REQUEST 9]
+- Verify if size buttons (A+, A-) are working. User reports they are unresponsive after last implementation.
+
+### [USER REQUEST 10]
+- Major Scoping Fix: When editing a card, size and color changes must be EXCLUSIVE to that card.
+- Global defaults should only change if no card is selected.
+
+---
+
+### [LATEST ACTIONS BY AI]
+1. **Staged Formatting:** Implemented `staged_...` fields in `AppState` to track Draft formatting separately from Global and Card-specific formatting.
+2. **Scoping:** Button logic updated:
+   - If `editing_quote_index` exists -> modify that quote's fields.
+   - Else -> modify `staged_...` fields (for the new card draft).
+3. **Sensor Logic:** Created a 15px interaction margin around buttons to protect focus.
+4. **Live Preview:** Updated `render_quote_card` to use `staged_...` values so formatting changes on new text are visible *immediately* in the display card.
+5. **Default Color:** Forced solid White as the default color for all new and demo cards across the app.
+
+---
+
+### [AI RESPONSE - FINAL STATUS]
+All requested features including localized formatting, instant live-preview, and white-default consistency are now active in the production code.
+Chat History successfully exported to: C:\Users\USER\OneDrive\Desktop\Irak_Thu_Fri\Task_Note\ChatHistory\chat_history.txt
+
+---
+END OF LOG

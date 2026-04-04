@@ -1,0 +1,34 @@
+[package]
+name = "quantum_logo"
+version = "0.1.0"
+edition = "2021"
+default-run = "quantum_logo"
+
+[[bin]]
+name = "quantum_logo"
+path = "src/main.rs"
+
+[[bin]]
+name = "check_gpu"
+path = "check_gpu.rs"
+
+[[bin]]
+name = "emergency"
+path = "src/emergency_fallback.rs"
+
+[[bin]]
+name = "test_detection"
+path = "test_detection.rs"
+
+[[bin]]
+name = "intel_compat"
+path = "src/intel_hd4000_compat.rs"
+
+[dependencies]
+# Bevy 3D Engine for pure Rust GUI and 3D rendering
+bevy = { version = "0.13", features = ["bevy_render"] }
+rand = "0.8"
+wgpu = "0.19"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.52", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_System_Com", "Win32_UI_Shell"] }

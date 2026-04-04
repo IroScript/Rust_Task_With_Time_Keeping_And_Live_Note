@@ -1,0 +1,6 @@
+4403:            render_section(ui, "WINDOW BEHAVIOR", u32_to_color32(state.text_style.panel_text_color), |ui| {
+4435:            render_section(ui, &format!("ADD CUSTOM TEXT  [{}]", state.quotes.len() + 1), u32_to_color32(state.text_style.panel_text_color), |ui| {
+4713:            render_section(ui, "LINE GAPS", u32_to_color32(state.text_style.panel_text_color), |ui| {
+4854:            render_section(ui, "INTERVAL (SECONDS)", u32_to_color32(state.text_style.panel_text_color), |ui| {
+4961:            render_section(ui, &format!("TEXT LIST ({})", state.quotes.len()), u32_to_color32(state.text_style.panel_text_color), |ui| {
+5547:fn render_section(ui: &mut egui::Ui, title: &str, text_color: Color32, add_contents: impl FnOnce(&mut egui::Ui)) {
