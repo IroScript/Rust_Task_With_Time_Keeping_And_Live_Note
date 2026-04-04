@@ -3179,7 +3179,7 @@ fn render_quote_card(
             }
                 
             let out = area.show(ui, |ui| {
-                egui::TextEdit::multiline(&mut edit_text)
+                let text_edit_output = egui::TextEdit::multiline(&mut edit_text)
                         .id(edit_id)
                         .desired_rows(dynamic_rows)  // Always 1 row minimum
                         .desired_width(card_width)  // Full width - no horizontal margin
@@ -3190,7 +3190,14 @@ fn render_quote_card(
                         .layouter(&mut |ui, text, wrap_width| {
                             layout_quote_text(ui, text, &main_formats, u32_to_color32(main_color), main_size, text_style.main_line_gap, wrap_width)
                         })
-                        .show(ui)
+                        .show(ui);
+                
+                // Auto-focus card TextEdit when editing this card
+                if !is_new_quote && state.editing_quote_index == idx_opt {
+                    text_edit_output.response.request_focus();
+                }
+                
+                text_edit_output
                 });
             
             // Track scroll interaction - if user is scrolling this card, mark it as active
