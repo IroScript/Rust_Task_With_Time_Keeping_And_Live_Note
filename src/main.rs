@@ -748,6 +748,7 @@ pub mod icons {
 
     pub const APP_ICON: TitleBarIcon =
         TitleBarIcon::new("\u{f135}", "Daily Motivation", 20.0, 24.0);
+    pub const ADD_CARD: TitleBarIcon = TitleBarIcon::new("\u{f067}", "Add New Card", 20.0, 16.0);
     pub const THEME: TitleBarIcon = TitleBarIcon::new("\u{eb5c}", "Change Theme", 20.0, 12.0);
     pub const TOGGLE_BG: TitleBarIcon =
         TitleBarIcon::new("\u{f110}", "Toggle 3D Background", 20.0, 16.0);
@@ -864,6 +865,7 @@ pub enum TitleBarAction {
     ToggleSingleQuote,
     ProfileClicked,
     CardSizeClicked,
+    AddCardClicked,
 }
 
 
@@ -1061,6 +1063,11 @@ pub struct AppState {
     // Double-click tracking for clearing input fields
     pub last_bg_click_time: Option<Instant>,
     pub last_bg_click_pos: Option<Pos2>,
+    
+    // Plus button functionality
+    pub show_plus_key_hint: bool,
+    pub plus_key_hint_time: Option<Instant>,
+    pub request_main_text_focus: bool,
 }
 
 /// Character selection state for formatting
@@ -1145,6 +1152,9 @@ impl Default for AppState {
                 staged_sub_text_color: None,
                 last_bg_click_time: None,
                 last_bg_click_pos: None,
+                show_plus_key_hint: false,
+                plus_key_hint_time: None,
+                request_main_text_focus: false,
             }
         } else {
             // Default initialization if no config found
@@ -1375,6 +1385,9 @@ impl Default for AppState {
                 staged_sub_text_color: None,
                 last_bg_click_time: None,
                 last_bg_click_pos: None,
+                show_plus_key_hint: false,
+                plus_key_hint_time: None,
+                request_main_text_focus: false,
             }
         }
     }
@@ -2192,6 +2205,17 @@ pub fn render_title_bar(
                 if ui.interact(icon_resp.rect, ui.id().with("icon_drag"), Sense::drag()).dragged() {
                     let _ = _window.drag_window();
                 }
+                
+                ui.add_space(4.0);
+                
+                // Add Card Button (Plus icon)
+                let add_card_resp = draw_icon_button(ui, &icons::ADD_CARD, Color32::TRANSPARENT, NEON_LIME, false)
+                    .on_hover_text("Add New Card (Plus key)\nCreates a blank card at the top\nClick or press Plus (+) key to add");
+                if add_card_resp.clicked() {
+                    actions.push(TitleBarAction::AddCardClicked);
+                }
+                
+                ui.add_space(4.0);
                 
                 let title_resp = ui.label(
                     RichText::new("DAILY  MOTIVATION")
@@ -4663,7 +4687,15 @@ pub fn render_control_panel_contents(
                                         .desired_width(f32::INFINITY)
                                         .frame(false)
                                         .text_color(Color32::WHITE);
+                                    
                                     let r = ui.add(editor);
+                                    
+                                    // Auto-focus when requested (after Plus button click)
+                                    if state.request_main_text_focus {
+                                        r.request_focus();
+                                        state.request_main_text_focus = false;
+                                    }
+                                    
                                     if r.clicked() { main_text_clicked = true; }
                                     r
                                 }).inner;
@@ -6005,6 +6037,46 @@ pub fn render_theme_modal(ctx: &Context, state: &mut AppState) {
         });
 }
 
+/// Render plus key hint popup (shows when user presses Plus while editing)
+pub fn render_plus_key_hint(ctx: &Context, state: &mut AppState) {
+    // Auto-hide after 2 seconds
+    if let Some(hint_time) = state.plus_key_hint_time {
+        if hint_time.elapsed() > Duration::from_secs(2) {
+            state.show_plus_key_hint = false;
+            state.plus_key_hint_time = None;
+            return;
+        }
+    }
+    
+    if !state.show_plus_key_hint {
+        return;
+    }
+
+    egui::Window::new("plus_key_hint")
+        .title_bar(false)
+        .resizable(false)
+        .collapsible(false)
+        .fixed_pos(egui::pos2(ctx.screen_rect().center().x - 150.0, ctx.screen_rect().center().y - 50.0))
+        .default_width(300.0)
+        .frame(egui::Frame::none()
+            .fill(Color32::from_rgba_unmultiplied(10, 15, 30, 250))
+            .stroke(Stroke::new(2.0, NEON_LIME))
+            .rounding(Rounding::same(8.0))
+            .inner_margin(egui::Margin::same(16.0)))
+        .show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.label(RichText::new("💡 Plus Key Hint").size(14.0).color(NEON_LIME).strong());
+                ui.add_space(8.0);
+                ui.label(RichText::new("To type '+' symbol:").size(11.0).color(Color32::WHITE));
+                ui.add_space(4.0);
+                ui.label(RichText::new("Press and hold Shift").size(12.0).color(NEON_CYAN).strong());
+                ui.label(RichText::new("then press Plus (+)").size(12.0).color(NEON_CYAN).strong());
+                ui.add_space(8.0);
+                ui.label(RichText::new("(This popup will auto-close)").size(9.0).color(Color32::GRAY));
+            });
+        });
+}
+
 /// Render card size adjustment popup
 pub fn render_card_size_popup(ctx: &Context, state: &mut AppState) {
     if !state.card_size_popup_open {
@@ -6940,30 +7012,59 @@ impl ApplicationHandler for AppRunner {
                 | WindowEvent::KeyboardInput { .. } => {
                     app_state.last_interaction = Instant::now();
 
-                    // Stop all animations on Space key
+                    // Handle keyboard shortcuts
                     if let WindowEvent::KeyboardInput { event, .. } = event {
                         if event.state == winit::event::ElementState::Pressed {
-                            if let winit::keyboard::PhysicalKey::Code(
-                                winit::keyboard::KeyCode::Space,
-                            ) = event.physical_key
-                            {
-                                app_state.active_animation = AppAnimation::None;
-                                // Reset common effects
-                                if let Some(window) = &self.window {
-                                    if let Ok(handle) = window.window_handle() {
-                                        if let winit::raw_window_handle::RawWindowHandle::Win32(
-                                            win32,
-                                        ) = handle.as_raw()
-                                        {
-                                            let hwnd = HWND(win32.hwnd.get() as _);
-                                            unsafe {
-                                                let _ = SetLayeredWindowAttributes(
-                                                    hwnd, None, 255, LWA_ALPHA,
-                                                );
+                            match event.physical_key {
+                                // Stop all animations on Space key
+                                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Space) => {
+                                    app_state.active_animation = AppAnimation::None;
+                                    // Reset common effects
+                                    if let Some(window) = &self.window {
+                                        if let Ok(handle) = window.window_handle() {
+                                            if let winit::raw_window_handle::RawWindowHandle::Win32(
+                                                win32,
+                                            ) = handle.as_raw()
+                                            {
+                                                let hwnd = HWND(win32.hwnd.get() as _);
+                                                unsafe {
+                                                    let _ = SetLayeredWindowAttributes(
+                                                        hwnd, None, 255, LWA_ALPHA,
+                                                    );
+                                                }
                                             }
                                         }
                                     }
                                 }
+                                // Add new card on Plus key (without Shift)
+                                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Equal) => {
+                                    // Equal key is Plus on US keyboard
+                                    // We'll handle Shift check in egui context
+                                    // For now, just add the card
+                                    let new_quote = Quote {
+                                        main_text: String::new(),
+                                        sub_text: String::new(),
+                                        is_hidden: false,
+                                        main_text_size: None,
+                                        sub_text_size: None,
+                                        main_text_color: None,
+                                        sub_text_color: None,
+                                        main_line_gap: None,
+                                        sub_line_gap: None,
+                                        between_gap: None,
+                                        interval_secs: None,
+                                        main_text_formats: Vec::new(),
+                                        sub_text_formats: Vec::new(),
+                                    };
+                                    app_state.quotes.insert(0, new_quote);
+                                    app_state.current_quote_index = 0;
+                                    app_state.editing_quote_index = Some(0);
+                                    app_state.main_text_input = String::new();
+                                    app_state.sub_text_input = String::new();
+                                    app_state.request_main_text_focus = true;
+                                    app_state.save();
+                                }
+                                _ => {}
                             }
                         }
                     }
@@ -7553,6 +7654,31 @@ impl AppRunner {
                     TitleBarAction::CardSizeClicked => {
                         app_state.card_size_popup_open = !app_state.card_size_popup_open;
                     }
+                    TitleBarAction::AddCardClicked => {
+                        // Create a new blank card at the top
+                        let new_quote = Quote {
+                            main_text: String::new(),
+                            sub_text: String::new(),
+                            is_hidden: false,
+                            main_text_size: None,
+                            sub_text_size: None,
+                            main_text_color: None,
+                            sub_text_color: None,
+                            main_line_gap: None,
+                            sub_line_gap: None,
+                            between_gap: None,
+                            interval_secs: None,
+                            main_text_formats: Vec::new(),
+                            sub_text_formats: Vec::new(),
+                        };
+                        app_state.quotes.insert(0, new_quote);
+                        app_state.current_quote_index = 0;
+                        app_state.editing_quote_index = Some(0);
+                        app_state.main_text_input = String::new();
+                        app_state.sub_text_input = String::new();
+                        app_state.request_main_text_focus = true;
+                        app_state.save();
+                    }
                 }
             }
 
@@ -7807,6 +7933,7 @@ impl AppRunner {
 
             render_theme_modal(ctx, app_state);
             render_card_size_popup(ctx, app_state);
+            render_plus_key_hint(ctx, app_state);
             render_profile_modal(ctx, app_state);
             render_virtual_scroller_window(ctx, app_state);
 
