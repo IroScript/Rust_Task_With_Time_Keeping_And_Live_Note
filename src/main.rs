@@ -4554,25 +4554,20 @@ pub fn render_control_panel_contents(
                     let main_header_resp = ui.horizontal(|ui| {
                         label_with_glow(ui, "MAIN DATA STREAM", NEON_CYAN, 11.0, Color32::from_black_alpha(150), egui::Align2::LEFT_CENTER);
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            let btn_color = ui.add(egui::Button::new(egui::RichText::new("🎨").color(NEON_CYAN).size(12.0)).frame(false));
-                            if btn_color.clicked() { state.show_main_color_picker = !state.show_main_color_picker; }
-                            if btn_color.hovered() { clicked_on_controls = true; }
+                            ui.spacing_mut().item_spacing.x = 4.0;
                             
-                            let btn_plus = ui.add(egui::Button::new(egui::RichText::new("A+").color(NEON_CYAN).size(12.0)).frame(false));
-                            if btn_plus.clicked() {
-                                if let Some(edit_idx) = state.editing_quote_index {
-                                    let cur = state.quotes[edit_idx].main_text_size.unwrap_or(state.text_style.main_text_size);
-                                    state.quotes[edit_idx].main_text_size = Some((cur + 2.0).min(150.0));
-                                } else {
-                                    let cur = state.staged_main_text_size.unwrap_or(state.text_style.main_text_size);
-                                    state.staged_main_text_size = Some((cur + 2.0).min(150.0));
-                                }
-                                state.save();
+                            // A- button (rightmost)
+                            let minus_resp = ui.add(
+                                egui::Button::new(egui::RichText::new("A-").color(NEON_CYAN).size(12.0))
+                                    .fill(Color32::TRANSPARENT)
+                                    .stroke(egui::Stroke::NONE)
+                            );
+                            if minus_resp.hovered() {
+                                let rect = minus_resp.rect;
+                                ui.painter().rect_filled(rect, 2.0, Color32::from_rgba_premultiplied(0, 255, 255, 30));
+                                clicked_on_controls = true;
                             }
-                            if btn_plus.hovered() { clicked_on_controls = true; }
-                            
-                            let btn_minus = ui.add(egui::Button::new(egui::RichText::new("A-").color(NEON_CYAN).size(12.0)).frame(false));
-                            if btn_minus.clicked() {
+                            if minus_resp.clicked() {
                                 if let Some(edit_idx) = state.editing_quote_index {
                                     let cur = state.quotes[edit_idx].main_text_size.unwrap_or(state.text_style.main_text_size);
                                     state.quotes[edit_idx].main_text_size = Some((cur - 2.0).max(12.0));
@@ -4582,7 +4577,43 @@ pub fn render_control_panel_contents(
                                 }
                                 state.save();
                             }
-                            if btn_minus.hovered() { clicked_on_controls = true; }
+                            
+                            // Color picker button (middle)
+                            let color_resp = ui.add(
+                                egui::Button::new(egui::RichText::new("●").color(NEON_CYAN).size(14.0))
+                                    .fill(Color32::TRANSPARENT)
+                                    .stroke(egui::Stroke::NONE)
+                            );
+                            if color_resp.hovered() {
+                                let rect = color_resp.rect;
+                                ui.painter().rect_filled(rect, 2.0, Color32::from_rgba_premultiplied(0, 255, 255, 30));
+                                clicked_on_controls = true;
+                            }
+                            if color_resp.clicked() { 
+                                state.show_main_color_picker = !state.show_main_color_picker; 
+                            }
+                            
+                            // A+ button (leftmost)
+                            let plus_resp = ui.add(
+                                egui::Button::new(egui::RichText::new("A+").color(NEON_CYAN).size(12.0))
+                                    .fill(Color32::TRANSPARENT)
+                                    .stroke(egui::Stroke::NONE)
+                            );
+                            if plus_resp.hovered() {
+                                let rect = plus_resp.rect;
+                                ui.painter().rect_filled(rect, 2.0, Color32::from_rgba_premultiplied(0, 255, 255, 30));
+                                clicked_on_controls = true;
+                            }
+                            if plus_resp.clicked() {
+                                if let Some(edit_idx) = state.editing_quote_index {
+                                    let cur = state.quotes[edit_idx].main_text_size.unwrap_or(state.text_style.main_text_size);
+                                    state.quotes[edit_idx].main_text_size = Some((cur + 2.0).min(150.0));
+                                } else {
+                                    let cur = state.staged_main_text_size.unwrap_or(state.text_style.main_text_size);
+                                    state.staged_main_text_size = Some((cur + 2.0).min(150.0));
+                                }
+                                state.save();
+                            }
                         });
                     }).response;
                     control_rects.push(main_header_resp.rect);
@@ -4655,25 +4686,20 @@ pub fn render_control_panel_contents(
                     let sub_header_resp = ui.horizontal(|ui| {
                         label_with_glow(ui, "AUXILIARY DATA STREAM", NEON_LIME, 11.0, Color32::from_black_alpha(150), egui::Align2::LEFT_CENTER);
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            let btn_color = ui.add(egui::Button::new(egui::RichText::new("🎨").color(NEON_LIME).size(12.0)).frame(false));
-                            if btn_color.clicked() { state.show_sub_color_picker = !state.show_sub_color_picker; }
-                            if btn_color.hovered() { clicked_on_controls = true; }
+                            ui.spacing_mut().item_spacing.x = 4.0;
                             
-                            let btn_plus = ui.add(egui::Button::new(egui::RichText::new("A+").color(NEON_LIME).size(12.0)).frame(false));
-                            if btn_plus.clicked() {
-                                if let Some(edit_idx) = state.editing_quote_index {
-                                    let cur = state.quotes[edit_idx].sub_text_size.unwrap_or(state.text_style.sub_text_size);
-                                    state.quotes[edit_idx].sub_text_size = Some((cur + 2.0).min(100.0));
-                                } else {
-                                    let cur = state.staged_sub_text_size.unwrap_or(state.text_style.sub_text_size);
-                                    state.staged_sub_text_size = Some((cur + 2.0).min(100.0));
-                                }
-                                state.save();
+                            // A- button (rightmost)
+                            let minus_resp = ui.add(
+                                egui::Button::new(egui::RichText::new("A-").color(NEON_LIME).size(12.0))
+                                    .fill(Color32::TRANSPARENT)
+                                    .stroke(egui::Stroke::NONE)
+                            );
+                            if minus_resp.hovered() {
+                                let rect = minus_resp.rect;
+                                ui.painter().rect_filled(rect, 2.0, Color32::from_rgba_premultiplied(100, 255, 100, 30));
+                                clicked_on_controls = true;
                             }
-                            if btn_plus.hovered() { clicked_on_controls = true; }
-                            
-                            let btn_minus = ui.add(egui::Button::new(egui::RichText::new("A-").color(NEON_LIME).size(12.0)).frame(false));
-                            if btn_minus.clicked() {
+                            if minus_resp.clicked() {
                                 if let Some(edit_idx) = state.editing_quote_index {
                                     let cur = state.quotes[edit_idx].sub_text_size.unwrap_or(state.text_style.sub_text_size);
                                     state.quotes[edit_idx].sub_text_size = Some((cur - 2.0).max(8.0));
@@ -4683,7 +4709,43 @@ pub fn render_control_panel_contents(
                                 }
                                 state.save();
                             }
-                            if btn_minus.hovered() { clicked_on_controls = true; }
+                            
+                            // Color picker button (middle)
+                            let color_resp = ui.add(
+                                egui::Button::new(egui::RichText::new("●").color(NEON_LIME).size(14.0))
+                                    .fill(Color32::TRANSPARENT)
+                                    .stroke(egui::Stroke::NONE)
+                            );
+                            if color_resp.hovered() {
+                                let rect = color_resp.rect;
+                                ui.painter().rect_filled(rect, 2.0, Color32::from_rgba_premultiplied(100, 255, 100, 30));
+                                clicked_on_controls = true;
+                            }
+                            if color_resp.clicked() { 
+                                state.show_sub_color_picker = !state.show_sub_color_picker; 
+                            }
+                            
+                            // A+ button (leftmost)
+                            let plus_resp = ui.add(
+                                egui::Button::new(egui::RichText::new("A+").color(NEON_LIME).size(12.0))
+                                    .fill(Color32::TRANSPARENT)
+                                    .stroke(egui::Stroke::NONE)
+                            );
+                            if plus_resp.hovered() {
+                                let rect = plus_resp.rect;
+                                ui.painter().rect_filled(rect, 2.0, Color32::from_rgba_premultiplied(100, 255, 100, 30));
+                                clicked_on_controls = true;
+                            }
+                            if plus_resp.clicked() {
+                                if let Some(edit_idx) = state.editing_quote_index {
+                                    let cur = state.quotes[edit_idx].sub_text_size.unwrap_or(state.text_style.sub_text_size);
+                                    state.quotes[edit_idx].sub_text_size = Some((cur + 2.0).min(100.0));
+                                } else {
+                                    let cur = state.staged_sub_text_size.unwrap_or(state.text_style.sub_text_size);
+                                    state.staged_sub_text_size = Some((cur + 2.0).min(100.0));
+                                }
+                                state.save();
+                            }
                         });
                     }).response;
                     control_rects.push(sub_header_resp.rect);
