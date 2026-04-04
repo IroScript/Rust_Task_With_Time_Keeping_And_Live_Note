@@ -1068,6 +1068,13 @@ pub struct AppState {
     pub show_plus_key_hint: bool,
     pub plus_key_hint_time: Option<Instant>,
     pub request_main_text_focus: bool,
+    
+    // Keyboard modifiers state
+    pub shift_pressed: bool,
+    
+    // Global hotkey state
+    pub global_hotkey_registered: bool,
+    pub pending_add_card: bool,
 }
 
 /// Character selection state for formatting
@@ -1155,6 +1162,9 @@ impl Default for AppState {
                 show_plus_key_hint: false,
                 plus_key_hint_time: None,
                 request_main_text_focus: false,
+                shift_pressed: false,
+                global_hotkey_registered: false,
+                pending_add_card: false,
             }
         } else {
             // Default initialization if no config found
@@ -1388,6 +1398,9 @@ impl Default for AppState {
                 show_plus_key_hint: false,
                 plus_key_hint_time: None,
                 request_main_text_focus: false,
+                shift_pressed: false,
+                global_hotkey_registered: false,
+                pending_add_card: false,
             }
         }
     }
@@ -3193,8 +3206,25 @@ fn render_quote_card(
                         .show(ui);
                 
                 // Auto-focus card TextEdit when editing this card
-                if !is_new_quote && state.editing_quote_index == idx_opt {
-                    text_edit_output.response.request_focus();
+                // Only auto-focus main text if we're not currently focused on sub text (input or card)
+                if state.editing_quote_index == idx_opt {
+                    // Check if sub_text input field has focus OR card sub_text has focus
+                    let sub_text_input_has_focus = ui.ctx().memory(|m| {
+                        m.focused() == Some(egui::Id::new("sub_text_edit_unique"))
+                    });
+                    
+                    let card_sub_text_has_focus = if let Some(idx) = idx_opt {
+                        ui.ctx().memory(|m| {
+                            m.focused() == Some(id.with("edit_sub"))
+                        })
+                    } else {
+                        false
+                    };
+                    
+                    // Only request focus on card main text if neither sub text has focus
+                    if !sub_text_input_has_focus && !card_sub_text_has_focus {
+                        text_edit_output.response.request_focus();
+                    }
                 }
                 
                 text_edit_output
@@ -3240,6 +3270,26 @@ fn render_quote_card(
                     state.main_text_input = capped;
                     state.editing_quote_index = Some(i);
                     // Removed state.save() to prevent keystroke lag
+                }
+            }
+            
+            // LIVE PREVIEW: Sync cursor position from card to input field
+            // When user is typing in card, show same cursor position in input field
+            if out.response.has_focus() && !is_new_quote {
+                if let Some(cursor_state) = egui::TextEdit::load_state(ui.ctx(), edit_id) {
+                    if let Some(cursor_range) = cursor_state.cursor.char_range() {
+                        let cursor_pos = cursor_range.primary.index;
+                        
+                        // Sync cursor position to input field
+                        let input_field_id = egui::Id::new("main_text_edit_unique");
+                        if let Some(mut input_state) = egui::TextEdit::load_state(ui.ctx(), input_field_id) {
+                            // Set cursor position in input field to match card
+                            input_state.cursor.set_char_range(Some(egui::text::CCursorRange::one(
+                                egui::text::CCursor::new(cursor_pos)
+                            )));
+                            input_state.store(ui.ctx(), input_field_id);
+                        }
+                    }
                 }
             }
             
@@ -3368,7 +3418,7 @@ fn render_quote_card(
                 }
                     
                 let out_sub = area.show(ui, |ui| {
-                    egui::TextEdit::multiline(&mut edit_sub_text)
+                    let text_edit_output = egui::TextEdit::multiline(&mut edit_sub_text)
                             .id(edit_id)
                             .desired_rows(sub_rows)  // Always 1 row minimum
                             .desired_width(card_width)  // Full width - no horizontal margin
@@ -3379,7 +3429,15 @@ fn render_quote_card(
                             .layouter(&mut |ui, text, wrap_width| {
                                 layout_quote_text(ui, text, &sub_formats, u32_to_color32(sub_color), sub_size, text_style.sub_line_gap, wrap_width)
                             })
-                            .show(ui)
+                            .show(ui);
+                    
+                    // Auto-focus sub text when clicked or when editing this card's sub text
+                    // This ensures sub text gets focus and main text doesn't steal it
+                    if text_edit_output.response.clicked() {
+                        text_edit_output.response.request_focus();
+                    }
+                    
+                    text_edit_output
                     });
                 
                 // Track scroll interaction for sub text
@@ -3420,6 +3478,26 @@ fn render_quote_card(
                         state.sub_text_input = capped;
                         state.editing_quote_index = Some(idx);
                         // Removed state.save() to prevent keystroke lag
+                    }
+                }
+                
+                // LIVE PREVIEW: Sync cursor position from card sub text to input field
+                // When user is typing in card sub text, show same cursor position in input field
+                if out_sub.response.has_focus() && !is_new_quote {
+                    if let Some(cursor_state) = egui::TextEdit::load_state(ui.ctx(), edit_id) {
+                        if let Some(cursor_range) = cursor_state.cursor.char_range() {
+                            let cursor_pos = cursor_range.primary.index;
+                            
+                            // Sync cursor position to sub text input field
+                            let input_field_id = egui::Id::new("sub_text_edit_unique");
+                            if let Some(mut input_state) = egui::TextEdit::load_state(ui.ctx(), input_field_id) {
+                                // Set cursor position in input field to match card
+                                input_state.cursor.set_char_range(Some(egui::text::CCursorRange::one(
+                                    egui::text::CCursor::new(cursor_pos)
+                                )));
+                                input_state.store(ui.ctx(), input_field_id);
+                            }
+                        }
                     }
                 }
                 
@@ -4687,9 +4765,10 @@ pub fn render_control_panel_contents(
                             let resp = egui::ScrollArea::vertical()
                                 .max_height(140.0)
                                 .auto_shrink([false, false])
-                                .id_salt("main_text_holographic")
+                                .id_salt("main_text_input_unique")
                                 .show(ui, |ui| {
                                     let editor = egui::TextEdit::multiline(&mut state.main_text_input)
+                                        .id(egui::Id::new("main_text_edit_unique"))
                                         .hint_text("// INPUT MAIN TEXT DATA...")
                                         .desired_width(f32::INFINITY)
                                         .frame(false)
@@ -4697,10 +4776,34 @@ pub fn render_control_panel_contents(
                                     
                                     let r = ui.add(editor);
                                     
-                                    // Auto-focus when requested (after Plus button click)
+                                    // Auto-focus when requested (after F11 key press)
+                                    // Only focus once per request
                                     if state.request_main_text_focus {
                                         r.request_focus();
+                                        // Reset immediately after focusing
                                         state.request_main_text_focus = false;
+                                    }
+                                    
+                                    // LIVE PREVIEW: Sync cursor from input field to card
+                                    // When typing in input field, sync cursor position to card
+                                    if r.has_focus() {
+                                        if let Some(edit_idx) = state.editing_quote_index {
+                                            let input_field_id = egui::Id::new("main_text_edit_unique");
+                                            if let Some(input_state) = egui::TextEdit::load_state(ui.ctx(), input_field_id) {
+                                                if let Some(cursor_range) = input_state.cursor.char_range() {
+                                                    let cursor_pos = cursor_range.primary.index;
+                                                    
+                                                    // Sync to card TextEdit
+                                                    let card_id = egui::Id::new(format!("quote_card_{}", edit_idx)).with("edit_main");
+                                                    if let Some(mut card_state) = egui::TextEdit::load_state(ui.ctx(), card_id) {
+                                                        card_state.cursor.set_char_range(Some(egui::text::CCursorRange::one(
+                                                            egui::text::CCursor::new(cursor_pos)
+                                                        )));
+                                                        card_state.store(ui.ctx(), card_id);
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                     
                                     if r.clicked() { main_text_clicked = true; }
@@ -4827,14 +4930,38 @@ pub fn render_control_panel_contents(
                             let resp = egui::ScrollArea::vertical()
                                 .max_height(80.0)
                                 .auto_shrink([false, false])
-                                .id_salt("sub_text_holographic")
+                                .id_salt("sub_text_input_unique")
                                 .show(ui, |ui| {
                                     let editor = egui::TextEdit::multiline(&mut state.sub_text_input)
+                                        .id(egui::Id::new("sub_text_edit_unique"))
                                         .hint_text("// INPUT AUXILIARY TEXT DATA...")
                                         .desired_width(f32::INFINITY)
                                         .frame(false)
                                         .text_color(Color32::WHITE);
                                     let r = ui.add(editor);
+                                    
+                                    // LIVE PREVIEW: Sync cursor from input field to card
+                                    // When typing in sub text input field, sync cursor position to card
+                                    if r.has_focus() {
+                                        if let Some(edit_idx) = state.editing_quote_index {
+                                            let input_field_id = egui::Id::new("sub_text_edit_unique");
+                                            if let Some(input_state) = egui::TextEdit::load_state(ui.ctx(), input_field_id) {
+                                                if let Some(cursor_range) = input_state.cursor.char_range() {
+                                                    let cursor_pos = cursor_range.primary.index;
+                                                    
+                                                    // Sync to card sub text TextEdit
+                                                    let card_id = egui::Id::new(format!("quote_card_{}", edit_idx)).with("edit_sub");
+                                                    if let Some(mut card_state) = egui::TextEdit::load_state(ui.ctx(), card_id) {
+                                                        card_state.cursor.set_char_range(Some(egui::text::CCursorRange::one(
+                                                            egui::text::CCursor::new(cursor_pos)
+                                                        )));
+                                                        card_state.store(ui.ctx(), card_id);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
                                     if r.clicked() { sub_text_clicked = true; }
                                     r
                                 }).inner;
@@ -7021,6 +7148,15 @@ impl ApplicationHandler for AppRunner {
 
                     // Handle keyboard shortcuts
                     if let WindowEvent::KeyboardInput { event, .. } = event {
+                        // Track Shift key state
+                        match event.physical_key {
+                            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ShiftLeft) |
+                            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ShiftRight) => {
+                                app_state.shift_pressed = event.state == winit::event::ElementState::Pressed;
+                            }
+                            _ => {}
+                        }
+                        
                         if event.state == winit::event::ElementState::Pressed {
                             match event.physical_key {
                                 // Stop all animations on Space key
@@ -7043,33 +7179,9 @@ impl ApplicationHandler for AppRunner {
                                         }
                                     }
                                 }
-                                // Add new card on Plus key (without Shift)
-                                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Equal) => {
-                                    // Equal key is Plus on US keyboard
-                                    // We'll handle Shift check in egui context
-                                    // For now, just add the card
-                                    let new_quote = Quote {
-                                        main_text: String::new(),
-                                        sub_text: String::new(),
-                                        is_hidden: false,
-                                        main_text_size: None,
-                                        sub_text_size: None,
-                                        main_text_color: None,
-                                        sub_text_color: None,
-                                        main_line_gap: None,
-                                        sub_line_gap: None,
-                                        between_gap: None,
-                                        interval_secs: None,
-                                        main_text_formats: Vec::new(),
-                                        sub_text_formats: Vec::new(),
-                                    };
-                                    app_state.quotes.insert(0, new_quote);
-                                    app_state.current_quote_index = 0;
-                                    app_state.editing_quote_index = Some(0);
-                                    app_state.main_text_input = String::new();
-                                    app_state.sub_text_input = String::new();
-                                    app_state.request_main_text_focus = true;
-                                    app_state.save();
+                                // F11 key handler - DISABLED (handled in egui context to prevent duplicates)
+                                winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F11) => {
+                                    // Do nothing - F11 is handled in egui context only
                                 }
                                 _ => {}
                             }
@@ -7186,6 +7298,57 @@ impl AppRunner {
             app_state.current_scale,
         );
         let full_output = egui_ctx.run(raw_input, |ctx| {
+            // ── F11 KEY GLOBAL HANDLER ──────────────────────────────────────────────
+            // Must run BEFORE any panels/widgets to intercept the event first.
+            // F11 creates a new blank card at the top
+            let should_add_card_from_f11 = ctx.input(|i| {
+                i.events.iter().any(|e| {
+                    if let egui::Event::Key { key, pressed, .. } = e {
+                        *pressed && matches!(key, egui::Key::F11)
+                    } else {
+                        false
+                    }
+                })
+            });
+
+            if should_add_card_from_f11 {
+                // Consume event so it doesn't trigger other F11 behaviors
+                ctx.input_mut(|i| {
+                    i.events.retain(|e| {
+                        if let egui::Event::Key { key, pressed, .. } = e {
+                            !(*pressed && matches!(key, egui::Key::F11))
+                        } else {
+                            true
+                        }
+                    });
+                });
+
+                // Create new blank card at top
+                let new_quote = Quote {
+                    main_text: String::new(),
+                    sub_text: String::new(),
+                    is_hidden: false,
+                    main_text_size: None,
+                    sub_text_size: None,
+                    main_text_color: None,
+                    sub_text_color: None,
+                    main_line_gap: None,
+                    sub_line_gap: None,
+                    between_gap: None,
+                    interval_secs: None,
+                    main_text_formats: Vec::new(),
+                    sub_text_formats: Vec::new(),
+                };
+                app_state.quotes.insert(0, new_quote);
+                app_state.current_quote_index = 0;
+                app_state.editing_quote_index = Some(0);
+                app_state.main_text_input.clear();
+                app_state.sub_text_input.clear();
+                app_state.request_main_text_focus = true;
+                app_state.save();
+            }
+            // ─────────────────────────────────────────────────────────────────────────
+            
             // Update panel background based on 3D background state
             // When 3D is active, we use a near-black but OPAQUE background for the panel
             // so it catches mouse events (Windows color-keying doesn't make it click-through).
