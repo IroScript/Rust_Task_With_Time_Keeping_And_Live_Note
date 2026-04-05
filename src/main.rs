@@ -3279,24 +3279,8 @@ fn render_quote_card(
             }
             
             // LIVE PREVIEW: Sync cursor position from card to input field
-            // When user is typing in card, show same cursor position in input field
-            if out.response.has_focus() && !is_new_quote {
-                if let Some(cursor_state) = egui::TextEdit::load_state(ui.ctx(), edit_id) {
-                    if let Some(cursor_range) = cursor_state.cursor.char_range() {
-                        let cursor_pos = cursor_range.primary.index;
-                        
-                        // Sync cursor position to input field
-                        let input_field_id = egui::Id::new("main_text_edit_unique");
-                        if let Some(mut input_state) = egui::TextEdit::load_state(ui.ctx(), input_field_id) {
-                            // Set cursor position in input field to match card
-                            input_state.cursor.set_char_range(Some(egui::text::CCursorRange::one(
-                                egui::text::CCursor::new(cursor_pos)
-                            )));
-                            input_state.store(ui.ctx(), input_field_id);
-                        }
-                    }
-                }
-            }
+            // Only sync when text changes, not every frame, to avoid interfering with keyboard navigation
+            // Removed per-frame cursor sync to fix arrow key navigation and newline issues
             
             // Track character selection for formatting
             if !is_new_quote {
@@ -3495,24 +3479,8 @@ fn render_quote_card(
                 }
                 
                 // LIVE PREVIEW: Sync cursor position from card sub text to input field
-                // When user is typing in card sub text, show same cursor position in input field
-                if out_sub.response.has_focus() && !is_new_quote {
-                    if let Some(cursor_state) = egui::TextEdit::load_state(ui.ctx(), edit_id) {
-                        if let Some(cursor_range) = cursor_state.cursor.char_range() {
-                            let cursor_pos = cursor_range.primary.index;
-                            
-                            // Sync cursor position to sub text input field
-                            let input_field_id = egui::Id::new("sub_text_edit_unique");
-                            if let Some(mut input_state) = egui::TextEdit::load_state(ui.ctx(), input_field_id) {
-                                // Set cursor position in input field to match card
-                                input_state.cursor.set_char_range(Some(egui::text::CCursorRange::one(
-                                    egui::text::CCursor::new(cursor_pos)
-                                )));
-                                input_state.store(ui.ctx(), input_field_id);
-                            }
-                        }
-                    }
-                }
+                // Only sync when text changes, not every frame, to avoid interfering with keyboard navigation
+                // Removed per-frame cursor sync to fix arrow key navigation and newline issues
                 
                 // Track character selection for formatting (sub text)
                 if !is_new_quote {
@@ -4837,26 +4805,8 @@ pub fn render_control_panel_contents(
                                     }
                                     
                                     // LIVE PREVIEW: Sync cursor from input field to card
-                                    // When typing in input field, sync cursor position to card
-                                    if r.has_focus() {
-                                        if let Some(edit_idx) = state.editing_quote_index {
-                                            let input_field_id = egui::Id::new("main_text_edit_unique");
-                                            if let Some(input_state) = egui::TextEdit::load_state(ui.ctx(), input_field_id) {
-                                                if let Some(cursor_range) = input_state.cursor.char_range() {
-                                                    let cursor_pos = cursor_range.primary.index;
-                                                    
-                                                    // Sync to card TextEdit
-                                                    let card_id = egui::Id::new(format!("quote_card_{}", edit_idx)).with("edit_main");
-                                                    if let Some(mut card_state) = egui::TextEdit::load_state(ui.ctx(), card_id) {
-                                                        card_state.cursor.set_char_range(Some(egui::text::CCursorRange::one(
-                                                            egui::text::CCursor::new(cursor_pos)
-                                                        )));
-                                                        card_state.store(ui.ctx(), card_id);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+                                    // Only sync when text changes, not every frame, to avoid interfering with keyboard navigation
+                                    // Removed per-frame cursor sync to fix arrow key navigation and newline issues
                                     
                                     if r.clicked() { main_text_clicked = true; }
                                     r
@@ -4997,25 +4947,9 @@ pub fn render_control_panel_contents(
                                     
                                     // LIVE PREVIEW: Sync cursor from input field to card
                                     // When typing in sub text input field, sync cursor position to card
-                                    if r.has_focus() {
-                                        if let Some(edit_idx) = state.editing_quote_index {
-                                            let input_field_id = egui::Id::new("sub_text_edit_unique");
-                                            if let Some(input_state) = egui::TextEdit::load_state(ui.ctx(), input_field_id) {
-                                                if let Some(cursor_range) = input_state.cursor.char_range() {
-                                                    let cursor_pos = cursor_range.primary.index;
-                                                    
-                                                    // Sync to card sub text TextEdit
-                                                    let card_id = egui::Id::new(format!("quote_card_{}", edit_idx)).with("edit_sub");
-                                                    if let Some(mut card_state) = egui::TextEdit::load_state(ui.ctx(), card_id) {
-                                                        card_state.cursor.set_char_range(Some(egui::text::CCursorRange::one(
-                                                            egui::text::CCursor::new(cursor_pos)
-                                                        )));
-                                                        card_state.store(ui.ctx(), card_id);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+                                    // LIVE PREVIEW: Sync cursor from input field to card
+                                    // Only sync when text changes, not every frame, to avoid interfering with keyboard navigation
+                                    // Removed per-frame cursor sync to fix arrow key navigation and newline issues
                                     
                                     if r.clicked() { sub_text_clicked = true; }
                                     r
