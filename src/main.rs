@@ -36,6 +36,10 @@ mod api_client;
 mod virtual_scroller;
 mod views;
 
+// Card header widgets module
+mod card_header_widgets;
+use card_header_widgets::{TaskCard, draw_plus_button, draw_clock_badge, draw_card_header_row, card_scale_at_depth, INDENT_PX};
+
 // Windows-specific imports for window management
 #[cfg(windows)]
 use windows::Win32::Foundation::HWND;
@@ -1075,6 +1079,10 @@ pub struct AppState {
     // Global hotkey state
     pub global_hotkey_registered: bool,
     pub pending_add_card: bool,
+    
+    // New card header widgets system
+    pub root_cards: Vec<TaskCard>,
+    pub next_card_id: u64,
 }
 
 /// Character selection state for formatting
@@ -1165,6 +1173,8 @@ impl Default for AppState {
                 shift_pressed: false,
                 global_hotkey_registered: false,
                 pending_add_card: false,
+                root_cards: vec![TaskCard::new(0, 0)],
+                next_card_id: 1,
             }
         } else {
             // Default initialization if no config found
@@ -1401,6 +1411,8 @@ impl Default for AppState {
                 shift_pressed: false,
                 global_hotkey_registered: false,
                 pending_add_card: false,
+                root_cards: vec![TaskCard::new(0, 0)],
+                next_card_id: 1,
             }
         }
     }
