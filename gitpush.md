@@ -124,6 +124,12 @@ git config --global push.default current
 
 ## CRITICAL RULES ⚠️
 
+### ALWAYS Check All Files
+- **ALWAYS** check all files before committing
+- **ALWAYS** review changes with `git status` and `git diff`
+- **ALWAYS** ensure no unintended files are being committed
+- **ALWAYS** verify the correct files are staged
+
 ### NEVER Delete Old Commits
 - **NEVER** delete any old commit messages
 - **NEVER** delete any old commits from history
@@ -131,6 +137,12 @@ git config --global push.default current
 - **NEVER** use `git push --force` to overwrite history (unless explicitly asked)
 - **NEVER** use `git rebase` to rewrite history
 - **NEVER** use `git filter-branch` or `git filter-repo`
+
+### NEVER Delete Old Information
+- **NEVER** delete any old commit messages
+- **NEVER** delete any old info from this file or any other documentation
+- **NEVER** remove or modify existing rules - only ADD new ones
+- **NEVER** overwrite previous instructions - append new instructions instead
 
 ### Why This Matters
 - Old commits contain project history
