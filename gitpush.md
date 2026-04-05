@@ -1,3 +1,5 @@
+### Never Gitpush from yourself until I tell it.
+
 # Git Push Verification Guide
 
 ## Purpose

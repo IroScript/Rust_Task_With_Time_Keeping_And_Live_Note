@@ -1,0 +1,75 @@
+এখন আমি image design টা বিশ্লেষণ করে সম্পূর্ণ module লিখছি।**723 লাইনের সম্পূর্ণ drop-in module।** এখন পুরো বিষয়টা ব্যাখ্যা করছি —
+
+---
+
+## 🎯 AI Prompt (English — যেকোনো AI image/UI generator-এ দিতে পারো)
+
+```
+Design a futuristic task-card UI widget header bar on a dark transparent 
+background. Far LEFT: a 22×22px square button — thin rounded green border 
+(#3CB450), bold crimson-red plus-cross centered, breathing green glow pulse 
+on hover. To its right: THREE compact pill-shaped time-badge chips (~64×19px), 
+thin green rounded border, monospace time text. Badge accents: first = deep 
+red "12.10 PM" (deadline), second = amber "12.10 PM" (sub-task), third = 
+steel-blue "00:00" (stopwatch, with tiny pulsing dot when active). All on one 
+horizontal row, 4px gaps, no fill — only stroked borders visible, holographic 
+circuit-board biopunk aesthetic, year 50 000 CE.
+```
+
+---
+
+## 📦 Module এর Structure
+
+**তিনটি আলাদা অংশ — শুধু plus আর clock এর জন্য:**
+
+`ClockMode` — তিনটি mode cycle করে:
+- **Right-click** → Deadline → Sub-task → Stopwatch → (আবার শুরু)
+- **Left-click** → Deadline/Sub-task এ time picker popup খোলে; Stopwatch এ start/pause করে
+
+`draw_plus_button()` — clicking এ sub-card তৈরি হয়, depth বাড়লে scale:
+
+| Depth | Scale |
+|-------|-------|
+| 0 (root) | 100% |
+| 1 | 95% |
+| 2 | ~90% |
+| 4 | ~81% |
+| 7+ | **70% (hard floor)** |
+
+---
+
+## 🔌 Integration — main.rs এ মাত্র ৪ লাইন যোগ করো
+
+```rust
+// 1. main.rs এর top এ:
+mod card_header_widgets;
+use card_header_widgets::{TaskCard, card_header_widgets::*};
+
+// 2. AppState struct এ:
+pub root_cards:   Vec<TaskCard>,
+pub next_card_id: u64,
+
+// 3. Render loop এ (central panel):
+let anim_time = ui.input(|i| i.time) as f32;
+let avail_w   = ui.available_width();
+egui::ScrollArea::vertical().show(ui, |ui| {
+    for card in state.root_cards.iter_mut() {
+        card.draw_recursive(ui, avail_w, &mut state.next_card_id, anim_time);
+        ui.add_space(8.0);
+    }
+});
+
+// 4. Title-bar এর existing AddCard button এ:
+state.root_cards.push(TaskCard::new(state.next_card_id, 0));
+state.next_card_id += 1;
+```
+
+---
+
+## ✨ Futuristic Features (50,000 বছর ভবিষ্যৎ থেকে আনা)
+
+- **Breathing glow pulse** — `sin(time * 1.8)` দিয়ে প্রতিটা card আলাদা phase-এ pulse করে (card_id দিয়ে offset)
+- **Accent-aware borders** — Clock mode অনুযায়ী border রঙ বদলায় (red/amber/blue)
+- **Running indicator dot** — Stopwatch চললে ডানে একটা cyan dot animate করে
+- **Scale-aware content height** — Sub-card content area নিজেই smaller হয়ে যায়
+- **Persistent stopwatch** — `sw_elapsed_ms` serialize হয়, তাই app restart-এও timer থাকে
