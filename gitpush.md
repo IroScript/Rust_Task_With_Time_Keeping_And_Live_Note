@@ -122,6 +122,36 @@ git config --global push.default current
 - **Repository:** https://github.com/IroScript/Rust_Task_With_Time_Keeping_And_Live_Note
 - **Default Branch:** main
 
+## CRITICAL RULES ⚠️
+
+### NEVER Delete Old Commits
+- **NEVER** delete any old commit messages
+- **NEVER** delete any old commits from history
+- **NEVER** use `git reset --hard` to remove commits
+- **NEVER** use `git push --force` to overwrite history (unless explicitly asked)
+- **NEVER** use `git rebase` to rewrite history
+- **NEVER** use `git filter-branch` or `git filter-repo`
+
+### Why This Matters
+- Old commits contain project history
+- They show what was done and when
+- They help track bugs and features
+- They are needed for rollback if something breaks
+- Deleting commits = losing work permanently
+
+### What TO DO Instead
+- Keep all commits in history
+- Add new commits on top of old ones
+- Use `git revert` if you need to undo something (creates new commit)
+- Use branches for experiments
+- Tag important milestones
+
+### If Commits Are Missing
+- Check `git reflog` to find lost commits
+- Check if they exist in remote: `git log origin/main --oneline --all`
+- Check other branches: `git branch -a`
+- Contact user immediately if history is lost
+
 ## Usage
 When you want to push and verify:
 1. Follow steps 1-3 above

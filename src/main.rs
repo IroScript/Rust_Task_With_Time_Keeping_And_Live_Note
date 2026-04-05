@@ -3221,8 +3221,13 @@ fn render_quote_card(
                         false
                     };
                     
-                    // Only request focus on card main text if neither sub text has focus
-                    if !sub_text_input_has_focus && !card_sub_text_has_focus {
+                    // Also check if main text INPUT FIELD has focus - don't steal it!
+                    let main_text_input_has_focus = ui.ctx().memory(|m| {
+                        m.focused() == Some(egui::Id::new("main_text_edit_unique"))
+                    });
+                    
+                    // Only request focus on card main text if neither sub text nor main input has focus
+                    if !sub_text_input_has_focus && !card_sub_text_has_focus && !main_text_input_has_focus {
                         text_edit_output.response.request_focus();
                     }
                 }
@@ -3336,8 +3341,16 @@ fn render_quote_card(
                 if is_hovering_main_text {
                     ui.ctx().set_cursor_icon(egui::CursorIcon::Text);
                     
-                    // Ensure focus
-                    if !out.response.has_focus() {
+                    // Check if input fields have focus - don't steal it!
+                    let main_input_has_focus = ui.ctx().memory(|m| {
+                        m.focused() == Some(egui::Id::new("main_text_edit_unique"))
+                    });
+                    let sub_input_has_focus = ui.ctx().memory(|m| {
+                        m.focused() == Some(egui::Id::new("sub_text_edit_unique"))
+                    });
+                    
+                    // Ensure focus only if input fields don't have focus
+                    if !out.response.has_focus() && !main_input_has_focus && !sub_input_has_focus {
                         ui.ctx().memory_mut(|m| m.request_focus(edit_id));
                     }
                     
@@ -3540,7 +3553,15 @@ fn render_quote_card(
                     if is_hovering_sub_text {
                         ui.ctx().set_cursor_icon(egui::CursorIcon::Text);
                         
-                        if !out_sub.response.has_focus() {
+                        // Check if input fields have focus - don't steal it!
+                        let main_input_has_focus = ui.ctx().memory(|m| {
+                            m.focused() == Some(egui::Id::new("main_text_edit_unique"))
+                        });
+                        let sub_input_has_focus = ui.ctx().memory(|m| {
+                            m.focused() == Some(egui::Id::new("sub_text_edit_unique"))
+                        });
+                        
+                        if !out_sub.response.has_focus() && !main_input_has_focus && !sub_input_has_focus {
                             ui.ctx().memory_mut(|m| m.request_focus(edit_id));
                         }
                         
@@ -3924,7 +3945,15 @@ fn render_single_quote_mode(
             if is_hovering_main {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::Text);
                 
-                if !out.response.has_focus() {
+                // Check if input fields have focus - don't steal it!
+                let main_input_has_focus = ui.ctx().memory(|m| {
+                    m.focused() == Some(egui::Id::new("main_text_edit_unique"))
+                });
+                let sub_input_has_focus = ui.ctx().memory(|m| {
+                    m.focused() == Some(egui::Id::new("sub_text_edit_unique"))
+                });
+                
+                if !out.response.has_focus() && !main_input_has_focus && !sub_input_has_focus {
                     ui.ctx().memory_mut(|m| m.request_focus(edit_id));
                 }
                 
@@ -4020,7 +4049,15 @@ fn render_single_quote_mode(
                 if is_hovering_sub {
                     ui.ctx().set_cursor_icon(egui::CursorIcon::Text);
                     
-                    if !out_sub.response.has_focus() {
+                    // Check if input fields have focus - don't steal it!
+                    let main_input_has_focus = ui.ctx().memory(|m| {
+                        m.focused() == Some(egui::Id::new("main_text_edit_unique"))
+                    });
+                    let sub_input_has_focus = ui.ctx().memory(|m| {
+                        m.focused() == Some(egui::Id::new("sub_text_edit_unique"))
+                    });
+                    
+                    if !out_sub.response.has_focus() && !main_input_has_focus && !sub_input_has_focus {
                         ui.ctx().memory_mut(|m| m.request_focus(edit_id_sub));
                     }
                     
@@ -4670,7 +4707,8 @@ pub fn render_control_panel_contents(
                                 egui::Button::new(egui::RichText::new("A-").color(NEON_CYAN).size(12.0))
                                     .fill(Color32::TRANSPARENT)
                                     .stroke(egui::Stroke::NONE)
-                            );
+                            )
+                            .on_hover_text("Decrease main text size by 2px");
                             if minus_resp.hovered() {
                                 let rect = minus_resp.rect;
                                 ui.painter().rect_filled(rect, 2.0, Color32::from_rgba_premultiplied(0, 255, 255, 30));
@@ -4692,7 +4730,8 @@ pub fn render_control_panel_contents(
                                 egui::Button::new(egui::RichText::new("●").color(NEON_CYAN).size(14.0))
                                     .fill(Color32::TRANSPARENT)
                                     .stroke(egui::Stroke::NONE)
-                            );
+                            )
+                            .on_hover_text("Change main text color");
                             if color_resp.hovered() {
                                 let rect = color_resp.rect;
                                 ui.painter().rect_filled(rect, 2.0, Color32::from_rgba_premultiplied(0, 255, 255, 30));
@@ -4707,7 +4746,8 @@ pub fn render_control_panel_contents(
                                 egui::Button::new(egui::RichText::new("A+").color(NEON_CYAN).size(12.0))
                                     .fill(Color32::TRANSPARENT)
                                     .stroke(egui::Stroke::NONE)
-                            );
+                            )
+                            .on_hover_text("Increase main text size by 2px");
                             if plus_resp.hovered() {
                                 let rect = plus_resp.rect;
                                 ui.painter().rect_filled(rect, 2.0, Color32::from_rgba_premultiplied(0, 255, 255, 30));
@@ -4835,7 +4875,8 @@ pub fn render_control_panel_contents(
                                 egui::Button::new(egui::RichText::new("A-").color(NEON_LIME).size(12.0))
                                     .fill(Color32::TRANSPARENT)
                                     .stroke(egui::Stroke::NONE)
-                            );
+                            )
+                            .on_hover_text("Decrease auxiliary text size by 2px");
                             if minus_resp.hovered() {
                                 let rect = minus_resp.rect;
                                 ui.painter().rect_filled(rect, 2.0, Color32::from_rgba_premultiplied(100, 255, 100, 30));
@@ -4857,7 +4898,8 @@ pub fn render_control_panel_contents(
                                 egui::Button::new(egui::RichText::new("●").color(NEON_LIME).size(14.0))
                                     .fill(Color32::TRANSPARENT)
                                     .stroke(egui::Stroke::NONE)
-                            );
+                            )
+                            .on_hover_text("Change auxiliary text color");
                             if color_resp.hovered() {
                                 let rect = color_resp.rect;
                                 ui.painter().rect_filled(rect, 2.0, Color32::from_rgba_premultiplied(100, 255, 100, 30));
@@ -4872,7 +4914,8 @@ pub fn render_control_panel_contents(
                                 egui::Button::new(egui::RichText::new("A+").color(NEON_LIME).size(12.0))
                                     .fill(Color32::TRANSPARENT)
                                     .stroke(egui::Stroke::NONE)
-                            );
+                            )
+                            .on_hover_text("Increase auxiliary text size by 2px");
                             if plus_resp.hovered() {
                                 let rect = plus_resp.rect;
                                 ui.painter().rect_filled(rect, 2.0, Color32::from_rgba_premultiplied(100, 255, 100, 30));
@@ -5032,7 +5075,7 @@ pub fn render_control_panel_contents(
                                     
                                     // 1. [+] Button (Rightmost)
                                     let btn_plus = egui::Button::new(egui::RichText::new("＋").color(NEON_LIME).size(13.0)).frame(false);
-                                    if ui.add(btn_plus).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+                                    if ui.add(btn_plus).on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text("Increase gap").clicked() {
                                         *gap_val += step;
                                         changed = true;
                                     }
@@ -5044,7 +5087,7 @@ pub fn render_control_panel_contents(
                                     
                                     // 3. [-] Button (Left of Value)
                                     let btn_minus = egui::Button::new(egui::RichText::new("－").color(NEON_ROSE).size(13.0)).frame(false);
-                                    if ui.add(btn_minus).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+                                    if ui.add(btn_minus).on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text("Decrease gap").clicked() {
                                         *gap_val -= step;
                                         changed = true;
                                     }
