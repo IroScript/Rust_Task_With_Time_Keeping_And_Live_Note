@@ -3678,23 +3678,35 @@ fn render_quote_card(
         // Check hover state FRESH at button render time - not earlier
         let is_hovered_now = ui.rect_contains_pointer(card_rect);
         
-        // Check if buttons should be visible - ONLY when actively hovering or editing
+        // Define button area with 3px extra radius for hover detection
+        let button_radius = 8.0;  // Larger for central display
+        let button_spacing = 6.0;
+        let hover_margin = 3.0;  // Extra hover area around buttons
+        let buttons_start_x = card_rect.right() - (button_radius * 2.0 * 7.0 + button_spacing * 6.0) - 20.0;
+        let button_y = card_rect.top();
+        
+        // Create expanded button hover area (3px margin around all buttons)
+        let button_hover_rect = egui::Rect::from_min_size(
+            egui::pos2(buttons_start_x - hover_margin, button_y - button_radius - hover_margin),
+            egui::vec2(
+                (button_radius * 2.0 * 7.0 + button_spacing * 6.0) + hover_margin * 2.0,
+                (button_radius * 2.0) + hover_margin * 2.0
+            )
+        );
+        let is_hovering_buttons = ui.rect_contains_pointer(button_hover_rect);
+        
+        // Check if buttons should be visible - when hovering card, buttons area, or editing
         let is_being_edited = state.editing_quote_index == Some(idx);
-        let should_show_buttons = is_hovered_now || is_being_edited;
+        let should_show_buttons = is_hovered_now || is_hovering_buttons || is_being_edited;
         
         if should_show_buttons {
-            let button_radius = 8.0;  // Larger for central display
-            let button_spacing = 6.0;
-            let buttons_start_x = card_rect.right() - (button_radius * 2.0 * 7.0 + button_spacing * 6.0) - 20.0;
-            let button_y = card_rect.top();
-            
             let painter = ui.painter();
             let mut button_x = buttons_start_x;
             
             // Move Up button
             let up_col = if idx > 0 { Color32::from_rgb(30, 120, 200) } else { Color32::from_gray(60) };
             let up_center = egui::pos2(button_x + button_radius, button_y);
-            let up_rect = egui::Rect::from_center_size(up_center, Vec2::splat(button_radius * 2.0));
+            let up_rect = egui::Rect::from_center_size(up_center, Vec2::splat(button_radius * 2.0 + hover_margin * 2.0));
             let up_response = ui.interact(up_rect, id.with(format!("up_{}", idx)), egui::Sense::click()).on_hover_text("Move Up");
             let up_fill = if up_response.hovered() { up_col.gamma_multiply(1.4) } else { up_col };
             painter.circle_filled(up_center, button_radius, up_fill);
@@ -3711,7 +3723,7 @@ fn render_quote_card(
             // Move Down button
             let dn_col = if idx + 1 < state.quotes.len() { Color32::from_rgb(30, 120, 200) } else { Color32::from_gray(60) };
             let dn_center = egui::pos2(button_x + button_radius, button_y);
-            let dn_rect = egui::Rect::from_center_size(dn_center, Vec2::splat(button_radius * 2.0));
+            let dn_rect = egui::Rect::from_center_size(dn_center, Vec2::splat(button_radius * 2.0 + hover_margin * 2.0));
             let dn_response = ui.interact(dn_rect, id.with(format!("dn_{}", idx)), egui::Sense::click()).on_hover_text("Move Down");
             let dn_fill = if dn_response.hovered() { dn_col.gamma_multiply(1.4) } else { dn_col };
             painter.circle_filled(dn_center, button_radius, dn_fill);
@@ -3728,7 +3740,7 @@ fn render_quote_card(
             // Set Position button
             let pos_col = Color32::from_rgb(40, 160, 40);
             let pos_center = egui::pos2(button_x + button_radius, button_y);
-            let pos_rect = egui::Rect::from_center_size(pos_center, Vec2::splat(button_radius * 2.0));
+            let pos_rect = egui::Rect::from_center_size(pos_center, Vec2::splat(button_radius * 2.0 + hover_margin * 2.0));
             let pos_response = ui.interact(pos_rect, id.with(format!("pos_{}", idx)), egui::Sense::click()).on_hover_text("Set Position");
             let pos_fill = if pos_response.hovered() { pos_col.gamma_multiply(1.4) } else { pos_col };
             painter.circle_filled(pos_center, button_radius, pos_fill);
@@ -3743,7 +3755,7 @@ fn render_quote_card(
             // Clock button (Schedule Time)
             let clock_col = Color32::from_rgb(150, 100, 200);
             let clock_center = egui::pos2(button_x + button_radius, button_y);
-            let clock_rect = egui::Rect::from_center_size(clock_center, Vec2::splat(button_radius * 2.0));
+            let clock_rect = egui::Rect::from_center_size(clock_center, Vec2::splat(button_radius * 2.0 + hover_margin * 2.0));
             let clock_response = ui.interact(clock_rect, id.with(format!("clock_{}", idx)), egui::Sense::click()).on_hover_text("Schedule Time");
             let clock_fill = if clock_response.hovered() { clock_col.gamma_multiply(1.4) } else { clock_col };
             painter.circle_filled(clock_center, button_radius, clock_fill);
@@ -3762,7 +3774,7 @@ fn render_quote_card(
             // Timer button (Interval Rotation)
             let timer_col = Color32::from_rgb(100, 150, 200);
             let timer_center = egui::pos2(button_x + button_radius, button_y);
-            let timer_rect = egui::Rect::from_center_size(timer_center, Vec2::splat(button_radius * 2.0));
+            let timer_rect = egui::Rect::from_center_size(timer_center, Vec2::splat(button_radius * 2.0 + hover_margin * 2.0));
             let timer_response = ui.interact(timer_rect, id.with(format!("timer_{}", idx)), egui::Sense::click()).on_hover_text("Rotation Interval");
             let timer_fill = if timer_response.hovered() { timer_col.gamma_multiply(1.4) } else { timer_col };
             painter.circle_filled(timer_center, button_radius, timer_fill);
@@ -3776,7 +3788,7 @@ fn render_quote_card(
             let h_col = if is_hidden { Color32::from_rgb(200, 140, 40) } else { Color32::from_rgb(80, 80, 80) };
             let h_sym = if is_hidden { "O" } else { "H" };
             let hide_center = egui::pos2(button_x + button_radius, button_y);
-            let hide_rect = egui::Rect::from_center_size(hide_center, Vec2::splat(button_radius * 2.0));
+            let hide_rect = egui::Rect::from_center_size(hide_center, Vec2::splat(button_radius * 2.0 + hover_margin * 2.0));
             let hide_tip = if is_hidden { "Unhide" } else { "Hide" };
             let hide_response = ui.interact(hide_rect, id.with(format!("hide_{}", idx)), egui::Sense::click()).on_hover_text(hide_tip);
             let hide_fill = if hide_response.hovered() { h_col.gamma_multiply(1.4) } else { h_col };
@@ -3793,7 +3805,7 @@ fn render_quote_card(
             // Delete button
             let del_col = Color32::from_rgb(200, 40, 60);
             let del_center = egui::pos2(button_x + button_radius, button_y);
-            let del_rect = egui::Rect::from_center_size(del_center, Vec2::splat(button_radius * 2.0));
+            let del_rect = egui::Rect::from_center_size(del_center, Vec2::splat(button_radius * 2.0 + hover_margin * 2.0));
             let del_response = ui.interact(del_rect, id.with(format!("del_{}", idx)), egui::Sense::click()).on_hover_text("Delete");
             let del_fill = if del_response.hovered() { del_col.gamma_multiply(1.4) } else { del_col };
             painter.circle_filled(del_center, button_radius, del_fill);
