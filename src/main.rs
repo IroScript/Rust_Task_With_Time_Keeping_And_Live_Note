@@ -1083,6 +1083,7 @@ pub struct AppState {
     // New card header widgets system
     pub root_cards: Vec<TaskCard>,
     pub next_card_id: u64,
+    pub show_new_card_system: bool,
 }
 
 /// Character selection state for formatting
@@ -1175,6 +1176,7 @@ impl Default for AppState {
                 pending_add_card: false,
                 root_cards: vec![TaskCard::new(0, 0)],
                 next_card_id: 1,
+                show_new_card_system: false,
             }
         } else {
             // Default initialization if no config found
@@ -1413,6 +1415,7 @@ impl Default for AppState {
                 pending_add_card: false,
                 root_cards: vec![TaskCard::new(0, 0)],
                 next_card_id: 1,
+                show_new_card_system: false,
             }
         }
     }
@@ -2373,6 +2376,14 @@ pub fn render_title_bar(
                         .on_hover_text("Card Size\nAdjust card height from 10% to 300%\nClick to open size adjustment popup");
                     if card_size_response.clicked() {
                         actions.push(TitleBarAction::CardSizeClicked);
+                    }
+                    
+                    // New Card System toggle button
+                    let new_card_color = if state.show_new_card_system { NEON_LIME } else { Color32::WHITE };
+                    let new_card_response = draw_icon_button(ui, &icons::ADD_CARD, Color32::TRANSPARENT, new_card_color, false)
+                        .on_hover_text("New Card System\nToggle the new TaskCard system with plus button and clock badges\nClick to switch between old and new card system");
+                    if new_card_response.clicked() {
+                        state.show_new_card_system = !state.show_new_card_system;
                     }
                     
                     ui.add_space(6.0);
@@ -4338,6 +4349,28 @@ pub fn render_main_content(
                     if state.single_quote_mode {
                         // Render only the first visible quote without card styling
                         render_single_quote_mode(ctx, ui, state, _window, shaper);
+                        return;
+                    }
+                    
+                    // NEW CARD SYSTEM: Show TaskCards with plus button and clock badges
+                    if state.show_new_card_system {
+                        let anim_time = ui.input(|i| i.time) as f32;
+                        let avail_w = ui.available_width();
+                        let next_id = &mut state.next_card_id;
+                        
+                        ui.vertical(|ui| {
+                            ui.label(
+                                RichText::new("📋 NEW CARD SYSTEM (Beta)")
+                                    .color(NEON_LIME)
+                                    .size(14.0),
+                            );
+                            ui.add_space(8.0);
+                            
+                            for card in state.root_cards.iter_mut() {
+                                card.draw_recursive(ui, avail_w, next_id, anim_time);
+                                ui.add_space(8.0);
+                            }
+                        });
                         return;
                     }
                     
