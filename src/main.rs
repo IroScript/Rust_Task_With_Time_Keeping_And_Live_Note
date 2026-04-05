@@ -3678,10 +3678,10 @@ fn render_quote_card(
         // Check hover state FRESH at button render time - not earlier
         let is_hovered_now = ui.rect_contains_pointer(card_rect);
         
-        // Define button area with 3px extra radius for hover detection
+        // Define button area with 6px extra radius for hover detection
         let button_radius = 8.0;  // Larger for central display
         let button_spacing = 6.0;
-        let hover_margin = 3.0;  // Extra hover area around buttons
+        let hover_margin = 6.0;  // Extra hover area around buttons
         let buttons_start_x = card_rect.right() - (button_radius * 2.0 * 7.0 + button_spacing * 6.0) - 20.0;
         let button_y = card_rect.top();
         
