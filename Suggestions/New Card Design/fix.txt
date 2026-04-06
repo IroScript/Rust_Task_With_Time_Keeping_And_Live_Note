@@ -1,0 +1,75 @@
+এখন পুরো সমস্যাটা পরিষ্কার। Root cause দুটো:
+
+**সমস্যা ১:** Plus button টা `show_new_card_system = true` হলেই দেখা যায় — কিন্তু default `false`, তাই user কখনো দেখে না।
+
+**সমস্যা ২:** `draw_recursive` এ `draw_plus_button` call হচ্ছে কিন্তু existing quote cards-এ কোনো `draw_card_header_row` নেই — দুটো সম্পূর্ণ আলাদা system।
+
+**আসল সমাধান:** Plus button এবং Clock badges সরাসরি existing quote card-এর header-এ inject করতে হবে। এটাই সঠিক prompt:
+
+---
+
+```
+You are working on a Rust egui desktop app. File: src/main.rs (8685 lines).
+There is already a module: src/card_header_widgets.rs with these public functions:
+  - draw_plus_button(ui, card_id: u64, anim_time: f32) -> bool
+  - draw_clock_badge(ui, badge: &mut ClockBadge, badge_idx: usize, anim_time: f32) -> bool
+  - draw_card_header_row(ui, card_id: u64, header: &mut CardHeaderState, anim_time: f32) -> (bool, bool)
+
+And these public types:
+  - CardHeaderState (already #[derive(Clone, Debug, Serialize, Deserialize, Default)])
+  - TaskCard { id, depth, content, header: CardHeaderState, children: Vec<TaskCard> }
+
+AppState already has:
+  pub root_cards: Vec<TaskCard>
+  pub next_card_id: u64
+  pub show_new_card_system: bool   ← DELETE THIS, it is wrong design
+
+THE BUG: The plus button and clocks are INVISIBLE because they only render
+inside show_new_card_system branch which is hidden by default.
+
+TASK — make exactly these 3 surgical changes, nothing else:
+
+━━━ CHANGE 1: Remove show_new_card_system ━━━
+In AppState struct (around line 1086), remove:
+  pub show_new_card_system: bool
+In both AppState::default() / from_config (lines ~1179, ~1418), remove:
+  show_new_card_system: false
+In title bar (around line 2382-2387), remove the entire new_card_color /
+new_card_response block that toggles show_new_card_system.
+
+━━━ CHANGE 2: Add CardHeaderState to Quote struct ━━━
+The Quote struct (around line 597) currently has fields like main_text,
+sub_text, is_hidden etc. Add ONE new field at the end:
+  #[serde(default)]
+  pub header: card_header_widgets::CardHeaderState,
+
+In Quote::default() add:
+  header: card_header_widgets::CardHeaderState::default(),
+
+━━━ CHANGE 3: Render header row inside existing quote cards ━━━
+Find the function render_quote_card (search for "fn render_quote_card").
+Inside it, find where the card Frame is shown — the frame.show(ui, |ui| { ... })
+block. At the very TOP of that inner closure body (before any text rendering),
+add these 4 lines:
+
+  let anim_time = ui.input(|i| i.time) as f32;
+  let card_id   = quote_index.unwrap_or(0) as u64;
+  let (plus_clicked, _) = card_header_widgets::draw_card_header_row(
+      ui, card_id, &mut state.quotes[quote_index.unwrap_or(0)].header, anim_time,
+  );
+  if plus_clicked {
+      let new_id = state.next_card_id;
+      state.next_card_id += 1;
+      // sub-cards attach to root_cards for now
+      state.root_cards.push(card_header_widgets::TaskCard::new(new_id, 1));
+  }
+
+IMPORTANT constraints:
+- Do NOT change any other rendering logic
+- Do NOT move or delete the root_cards ScrollArea rendering — just remove the
+  show_new_card_system gate so root_cards always render below the quote cards
+- The ScrollArea for root_cards (lines ~4361-4374) should render ALWAYS,
+  not conditionally — remove only the `if state.show_new_card_system` check
+- Build with `cargo build 2>&1 | head -40` after each change and fix errors
+- Do not reformat unrelated code
+```

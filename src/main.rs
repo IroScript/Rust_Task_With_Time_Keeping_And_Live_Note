@@ -630,6 +630,10 @@ pub struct Quote {
     pub main_text_formats: Vec<CharFormat>,
     #[serde(default)]
     pub sub_text_formats: Vec<CharFormat>,
+
+    // Card header widgets state (plus button and clock badges)
+    #[serde(default)]
+    pub header: card_header_widgets::CardHeaderState,
 }
 
 impl Default for Quote {
@@ -648,6 +652,7 @@ impl Default for Quote {
             interval_secs: None,
             main_text_formats: Vec::new(),
             sub_text_formats: Vec::new(),
+            header: card_header_widgets::CardHeaderState::default(),
         }
     }
 }
@@ -1083,7 +1088,6 @@ pub struct AppState {
     // New card header widgets system
     pub root_cards: Vec<TaskCard>,
     pub next_card_id: u64,
-    pub show_new_card_system: bool,
 }
 
 /// Character selection state for formatting
@@ -1176,7 +1180,6 @@ impl Default for AppState {
                 pending_add_card: false,
                 root_cards: vec![TaskCard::new(0, 0)],
                 next_card_id: 1,
-                show_new_card_system: false,
             }
         } else {
             // Default initialization if no config found
@@ -1201,6 +1204,7 @@ impl Default for AppState {
                         interval_secs: None,
                         main_text_formats: Vec::new(),
                         sub_text_formats: Vec::new(),
+                        header: card_header_widgets::CardHeaderState::default(),
                     },
                     Quote {
                         main_text: "প্রতিটি মুহূর্ত গুরুত্বপূর্ণ - কাজ চালিয়ে যাও".to_string(),
@@ -1216,6 +1220,7 @@ impl Default for AppState {
                         interval_secs: None,
                         main_text_formats: Vec::new(),
                         sub_text_formats: Vec::new(),
+                        header: card_header_widgets::CardHeaderState::default(),
                     },
                     Quote {
                         main_text: "সফলতা ধৈর্যের ফল - হার মানিও না".to_string(),
@@ -1231,6 +1236,7 @@ impl Default for AppState {
                         interval_secs: None,
                         main_text_formats: Vec::new(),
                         sub_text_formats: Vec::new(),
+                        header: card_header_widgets::CardHeaderState::default(),
                     },
                     Quote {
                         main_text: "Focus on the work - Success is near".to_string(),
@@ -1246,6 +1252,7 @@ impl Default for AppState {
                         interval_secs: None,
                         main_text_formats: Vec::new(),
                         sub_text_formats: Vec::new(),
+                        header: card_header_widgets::CardHeaderState::default(),
                     },
                     Quote {
                         main_text: "Stay disciplined - Great things take time".to_string(),
@@ -1261,6 +1268,7 @@ impl Default for AppState {
                         interval_secs: None,
                         main_text_formats: Vec::new(),
                         sub_text_formats: Vec::new(),
+                        header: card_header_widgets::CardHeaderState::default(),
                     },
                     Quote {
                         main_text: "তুমি পারবে - শুধু চেষ্টা চালিয়ে যাও".to_string(),
@@ -1276,6 +1284,7 @@ impl Default for AppState {
                         interval_secs: None,
                         main_text_formats: Vec::new(),
                         sub_text_formats: Vec::new(),
+                        header: card_header_widgets::CardHeaderState::default(),
                     },
                     Quote {
                         main_text: "Dreams need action - Start now".to_string(),
@@ -1291,6 +1300,7 @@ impl Default for AppState {
                         interval_secs: None,
                         main_text_formats: Vec::new(),
                         sub_text_formats: Vec::new(),
+                        header: card_header_widgets::CardHeaderState::default(),
                     },
                     Quote {
                         main_text: "প্রতিদিন একটু এগিয়ে যাও - লক্ষ্য কাছে".to_string(),
@@ -1306,6 +1316,7 @@ impl Default for AppState {
                         interval_secs: None,
                         main_text_formats: Vec::new(),
                         sub_text_formats: Vec::new(),
+                        header: card_header_widgets::CardHeaderState::default(),
                     },
                     Quote {
                         main_text: "Consistency beats talent - Keep going".to_string(),
@@ -1321,6 +1332,7 @@ impl Default for AppState {
                         interval_secs: None,
                         main_text_formats: Vec::new(),
                         sub_text_formats: Vec::new(),
+                        header: card_header_widgets::CardHeaderState::default(),
                     },
                     Quote {
                         main_text: "বিশ্রাম নাও কিন্তু হাল ছাড়ো না".to_string(),
@@ -1336,6 +1348,7 @@ impl Default for AppState {
                         interval_secs: None,
                         main_text_formats: Vec::new(),
                         sub_text_formats: Vec::new(),
+                        header: card_header_widgets::CardHeaderState::default(),
                     },
                 ],
                 current_quote_index: 0,
@@ -1415,7 +1428,6 @@ impl Default for AppState {
                 pending_add_card: false,
                 root_cards: vec![TaskCard::new(0, 0)],
                 next_card_id: 1,
-                show_new_card_system: false,
             }
         }
     }
@@ -1536,6 +1548,7 @@ impl AppState {
             interval_secs: None,
             main_text_formats: Vec::new(),
             sub_text_formats: Vec::new(),
+            header: card_header_widgets::CardHeaderState::default(),
         };
 
         // Reset staged formatting
@@ -2378,14 +2391,6 @@ pub fn render_title_bar(
                         actions.push(TitleBarAction::CardSizeClicked);
                     }
                     
-                    // New Card System toggle button
-                    let new_card_color = if state.show_new_card_system { NEON_LIME } else { Color32::WHITE };
-                    let new_card_response = draw_icon_button(ui, &icons::ADD_CARD, Color32::TRANSPARENT, new_card_color, false)
-                        .on_hover_text("New Card System\nToggle the new TaskCard system with plus button and clock badges\nClick to switch between old and new card system");
-                    if new_card_response.clicked() {
-                        state.show_new_card_system = !state.show_new_card_system;
-                    }
-                    
                     ui.add_space(6.0);
                     
                     // 4. Background & Animations
@@ -3146,6 +3151,20 @@ fn render_quote_card(
                 ui.set_width(card_width);
                 ui.set_max_height(card_max_height);
                 // No top padding - zero margin
+
+            // ── Card Header Row (Plus button + Clock badges) ──
+            let anim_time = ui.input(|i| i.time) as f32;
+            if let Some(quote_idx) = idx_opt {
+                let card_id = quote_idx as u64;
+                let (plus_clicked, _) = card_header_widgets::draw_card_header_row(
+                    ui, card_id, &mut state.quotes[quote_idx].header, anim_time,
+                );
+                if plus_clicked {
+                    let new_id = state.next_card_id;
+                    state.next_card_id += 1;
+                    state.root_cards.push(card_header_widgets::TaskCard::new(new_id, 1));
+                }
+            }
 
             // ── Main text ──
             let main_color = text_style.main_text_color;
@@ -4349,28 +4368,6 @@ pub fn render_main_content(
                     if state.single_quote_mode {
                         // Render only the first visible quote without card styling
                         render_single_quote_mode(ctx, ui, state, _window, shaper);
-                        return;
-                    }
-                    
-                    // NEW CARD SYSTEM: Show TaskCards with plus button and clock badges
-                    if state.show_new_card_system {
-                        let anim_time = ui.input(|i| i.time) as f32;
-                        let avail_w = ui.available_width();
-                        let next_id = &mut state.next_card_id;
-                        
-                        ui.vertical(|ui| {
-                            ui.label(
-                                RichText::new("📋 NEW CARD SYSTEM (Beta)")
-                                    .color(NEON_LIME)
-                                    .size(14.0),
-                            );
-                            ui.add_space(8.0);
-                            
-                            for card in state.root_cards.iter_mut() {
-                                card.draw_recursive(ui, avail_w, next_id, anim_time);
-                                ui.add_space(8.0);
-                            }
-                        });
                         return;
                     }
                     
@@ -7372,6 +7369,7 @@ impl AppRunner {
                     interval_secs: None,
                     main_text_formats: Vec::new(),
                     sub_text_formats: Vec::new(),
+                    header: card_header_widgets::CardHeaderState::default(),
                 };
                 app_state.quotes.insert(0, new_quote);
                 app_state.current_quote_index = 0;
@@ -7874,6 +7872,7 @@ impl AppRunner {
                             interval_secs: None,
                             main_text_formats: Vec::new(),
                             sub_text_formats: Vec::new(),
+                            header: card_header_widgets::CardHeaderState::default(),
                         };
                         app_state.quotes.insert(0, new_quote);
                         app_state.current_quote_index = 0;

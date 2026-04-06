@@ -1,4 +1,8 @@
 ### Never Gitpush from yourself until I tell it.
+### Never delete any old Git Commit
+### Always Check All files
+### Always verify those are 200% avilable in Gihub cloud
+### Let me know these above things are done, cross checked, and again verified those are done.
 
 # Git Push Verification Guide
 
