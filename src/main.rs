@@ -1085,6 +1085,9 @@ pub struct AppState {
     pub global_hotkey_registered: bool,
     pub pending_add_card: bool,
     
+    // Deferred card creation from plus button click (quote index to insert after)
+    pub pending_plus_insert_after: Option<usize>,
+    
     // New card header widgets system
     pub root_cards: Vec<TaskCard>,
     pub next_card_id: u64,
@@ -1178,6 +1181,7 @@ impl Default for AppState {
                 shift_pressed: false,
                 global_hotkey_registered: false,
                 pending_add_card: false,
+                pending_plus_insert_after: None,
                 root_cards: vec![TaskCard::new(0, 0)],
                 next_card_id: 1,
             }
@@ -1426,6 +1430,7 @@ impl Default for AppState {
                 shift_pressed: false,
                 global_hotkey_registered: false,
                 pending_add_card: false,
+                pending_plus_insert_after: None,
                 root_cards: vec![TaskCard::new(0, 0)],
                 next_card_id: 1,
             }
@@ -3160,9 +3165,9 @@ fn render_quote_card(
                     ui, card_id, &mut state.quotes[quote_idx].header, anim_time,
                 );
                 if plus_clicked {
-                    let new_id = state.next_card_id;
-                    state.next_card_id += 1;
-                    state.root_cards.push(card_header_widgets::TaskCard::new(new_id, 1));
+                    // Defer card creation until after the render loop to avoid borrow issues
+                    state.pending_plus_insert_after = Some(quote_idx);
+                    state.card_was_clicked = true; // Prevent card-level click from stealing this
                 }
             }
 
@@ -4422,8 +4427,20 @@ pub fn render_main_content(
                                     card_id,
                                 );
                                 
-                                // If card is clicked, load its text into input fields for editing
-                                if card_response.interact(egui::Sense::click()).clicked() {
+                                // If card area is clicked (but not via plus/clock header buttons),
+                                // load its text into input fields for editing.
+                                // NOTE: We use manual pointer detection instead of .interact(Sense::click())
+                                // because .interact() would register a click sensor covering the entire
+                                // card rect, which steals clicks from the plus button widget inside it.
+                                let card_clicked = !state.card_was_clicked
+                                    && state.pending_plus_insert_after.is_none()
+                                    && ui.input(|i| i.pointer.any_pressed())
+                                    && ui.input(|i| {
+                                        i.pointer.interact_pos()
+                                            .map(|p| card_response.rect.contains(p))
+                                            .unwrap_or(false)
+                                    });
+                                if card_clicked {
                                     // Save current editing if any
                                     if let Some(edit_idx) = state.editing_quote_index {
                                         if edit_idx != idx {
@@ -4461,12 +4478,46 @@ pub fn render_main_content(
                                 .size(10.0),
                         );
 
+                        // ── Render nested cards (root_cards) ──
+                        if !state.root_cards.is_empty() {
+                            ui.add_space(20.0);
+                            ui.label(
+                                RichText::new("Nested Cards")
+                                    .color(Color32::from_rgb(100, 200, 255))
+                                    .size(14.0),
+                            );
+                            ui.add_space(8.0);
+                            
+                            let anim_time = ui.input(|i| i.time) as f32;
+                            let avail_w = ui.available_width();
+                            let next_id = &mut state.next_card_id;
+                            
+                            for card in state.root_cards.iter_mut() {
+                                card.draw_recursive(ui, avail_w, next_id, anim_time);
+                                ui.add_space(8.0);
+                            }
+                        }
+
                         ui.add_space(60.0);
                                 }); // Close inner vertical
                             }); // Close horizontal (with left margin)
                         }); // Close outer vertical
                     
                 });
+
+            // ── Handle deferred plus-button card creation ──
+            // This runs AFTER the render loop so there are no borrow conflicts
+            if let Some(insert_after_idx) = state.pending_plus_insert_after.take() {
+                let insert_pos = (insert_after_idx + 1).min(state.quotes.len());
+                let new_quote = Quote::default();
+                state.quotes.insert(insert_pos, new_quote);
+                state.editing_quote_index = Some(insert_pos);
+                state.current_quote_index = insert_pos;
+                state.main_text_input.clear();
+                state.sub_text_input.clear();
+                state.request_main_text_focus = true;
+                state.save();
+            }
 
             // Render the compact Add Custom Text popup
             if state.small_window_custom_popup_open {
