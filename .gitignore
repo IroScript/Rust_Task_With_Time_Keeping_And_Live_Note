@@ -22,3 +22,4 @@ settings.json
 
 # Build artifacts
 Cargo.lock
+Cargo.toml

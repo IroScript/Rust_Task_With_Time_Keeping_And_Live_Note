@@ -7245,6 +7245,7 @@ impl ApplicationHandler for AppRunner {
                                 winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Space) => {
                                     app_state.active_animation = AppAnimation::None;
                                     // Reset common effects
+                                    #[cfg(windows)]
                                     if let Some(window) = &self.window {
                                         if let Ok(handle) = window.window_handle() {
                                             if let winit::raw_window_handle::RawWindowHandle::Win32(
@@ -7846,6 +7847,7 @@ impl AppRunner {
                             } else {
                                 AppAnimation::Dissolve
                             };
+                        #[cfg(windows)]
                         if app_state.active_animation == AppAnimation::None {
                             if let Ok(handle) = window.window_handle() {
                                 if let winit::raw_window_handle::RawWindowHandle::Win32(win32) =
@@ -7885,6 +7887,7 @@ impl AppRunner {
                     }
                     TitleBarAction::StopAnimations => {
                         app_state.active_animation = AppAnimation::None;
+                        #[cfg(windows)]
                         if let Ok(handle) = window.window_handle() {
                             if let winit::raw_window_handle::RawWindowHandle::Win32(win32) =
                                 handle.as_raw()
@@ -8009,6 +8012,7 @@ impl AppRunner {
                             }
                         }
                         AppAnimation::Dissolve => {
+                            #[cfg(windows)]
                             if let Ok(handle) = window.window_handle() {
                                 if let winit::raw_window_handle::RawWindowHandle::Win32(win32) =
                                     handle.as_raw()
@@ -8055,6 +8059,7 @@ impl AppRunner {
                 }
             } else {
                 if app_state.base_pos.is_some() {
+                    #[cfg(windows)]
                     if let Ok(handle) = window.window_handle() {
                         if let winit::raw_window_handle::RawWindowHandle::Win32(win32) =
                             handle.as_raw()
