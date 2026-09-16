@@ -27,6 +27,12 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Configure Android SDK
+        run: |
+          echo "ANDROID_HOME: $ANDROID_HOME"
+          flutter config --android-sdk "$ANDROID_HOME"
+          yes | flutter doctor --android-licenses || true
+
       - name: Verify Flutter Doctor
         run: flutter doctor -v
 
@@ -49,3 +55,13 @@ jobs:
           path: mobile/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Upload Build Reports on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-failure-reports
+          path: |
+            mobile/build/app/reports
+            mobile/build/app/outputs/logs
+          if-no-files-found: ignore
