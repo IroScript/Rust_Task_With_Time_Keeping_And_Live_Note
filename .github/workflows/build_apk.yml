@@ -27,10 +27,12 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Configure Android SDK
+      - name: Configure Android SDK and JDK 21
         run: |
           echo "ANDROID_HOME: $ANDROID_HOME"
+          echo "JAVA_HOME: $JAVA_HOME"
           flutter config --android-sdk "$ANDROID_HOME"
+          flutter config --jdk-dir "$JAVA_HOME"
           yes | flutter doctor --android-licenses || true
 
       - name: Verify Flutter Doctor
@@ -46,7 +48,8 @@ jobs:
 
       - name: Build Android Release APK
         working-directory: mobile
-        run: flutter build apk --release --verbose
+        run: |
+          flutter build apk --release --verbose 2>&1 | tee ../build.log
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
@@ -56,12 +59,10 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload Build Reports on Failure
-        if: failure()
+      - name: Upload Build Log Artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-failure-reports
-          path: |
-            mobile/build/app/reports
-            mobile/build/app/outputs/logs
+          name: build-log
+          path: build.log
           if-no-files-found: ignore
