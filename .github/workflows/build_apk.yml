@@ -51,16 +51,20 @@ jobs:
         run: |
           flutter build apk --release --verbose 2>&1 | tee ../build.log
 
-      - name: List Generated APK Files
+      - name: Locate and Prepare Release APK
         run: |
           echo "=== Searching for generated APK files in entire workspace ==="
           find . -name "*.apk" -ls
+          mkdir -p release-apk
+          find . -name "*.apk" -exec cp {} release-apk/app-release.apk \;
+          echo "=== Release APK prepared ==="
+          ls -lh release-apk/
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
           name: task-note-cyberpunk-release-apk
-          path: "**/*.apk"
+          path: release-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
 
