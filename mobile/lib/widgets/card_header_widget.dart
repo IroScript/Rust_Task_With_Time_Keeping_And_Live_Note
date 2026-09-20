@@ -10,6 +10,7 @@ class CardHeaderWidget extends StatelessWidget {
   final VoidCallback onSelectDeadline;
   final VoidCallback onSelectSubTaskTime;
   final VoidCallback onCycleMode;
+  final VoidCallback? onOpenNote;
 
   const CardHeaderWidget({
     super.key,
@@ -19,6 +20,7 @@ class CardHeaderWidget extends StatelessWidget {
     required this.onSelectDeadline,
     required this.onSelectSubTaskTime,
     required this.onCycleMode,
+    this.onOpenNote,
   });
 
   @override
@@ -26,8 +28,10 @@ class CardHeaderWidget extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
           children: [
             // [+] Plus Button: 22x22 px, thin green border, bold crimson red plus
             InkWell(
@@ -85,9 +89,22 @@ class CardHeaderWidget extends StatelessWidget {
               isPulsing: card.isStopwatchRunning,
               onTap: onToggleStopwatch,
             ),
+
+            if (onOpenNote != null) ...[
+              const SizedBox(width: 4),
+              _buildBadge(
+                text: '📝',
+                textColor: (card.liveNote.isNotEmpty || card.totalLines > 0)
+                    ? CyberTheme.neonCyan
+                    : CyberTheme.textMuted,
+                borderColor: CyberTheme.greenBorder,
+                onTap: onOpenNote!,
+              ),
+            ],
           ],
         ),
-        const SizedBox(height: 3),
+      ),
+      const SizedBox(height: 3),
 
         // Sub-task time guide hint
         GestureDetector(

@@ -45,11 +45,11 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final List list = data['cards'] ?? [];
+        final List list = data is Map ? (data['cards'] ?? []) : (data is List ? data : []);
         return list.map((c) => TaskCard.fromAxumJson(c)).toList();
       }
     } catch (e) {
-      // Fallback handled in provider
+      // Handled in caller
     }
     return [];
   }
@@ -65,7 +65,7 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 4));
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
         return TaskCard.fromAxumJson(data);
       }
@@ -73,8 +73,22 @@ class ApiService {
     return null;
   }
 
+  /// Fetch card metadata (/api/cards/:id/meta)
+  Future<Map<String, dynamic>?> fetchCardMetadata(String cardId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/cards/$cardId/meta'))
+          .timeout(const Duration(seconds: 4));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   /// Get lines for virtual scrolling from Axum
-  Future<List<String>> fetchCardLines(
+  Future<List<Map<String, dynamic>>> fetchCardLineEntries(
     String cardId, {
     int startLine = 1,
     int limit = 50,
@@ -87,14 +101,17 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final List lines = data['lines'] ?? [];
-        return lines.map((l) => l['line_text'].toString()).toList();
+        final List list = data is List ? data : (data is Map ? (data['lines'] ?? []) : []);
+        return list.map((l) => {
+          'line_number': l['line_number'] ?? 0,
+          'line_text': l['line_text']?.toString() ?? '',
+        }).toList();
       }
     } catch (_) {}
     return [];
   }
 
-  /// Update single line in card
+  /// Update single line in card (/api/cards/:id/lines/:line_number)
   Future<bool> updateLine(
     String cardId,
     int lineNumber,
@@ -115,7 +132,7 @@ class ApiService {
     }
   }
 
-  /// Local Storage persistence
+  /// Local Storage persistence for cards
   Future<void> saveLocalCards(List<TaskCard> cards) async {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = cards.map((c) => c.toLocalJson()).toList();
@@ -132,5 +149,58 @@ class ApiService {
       } catch (_) {}
     }
     return [];
+  }
+
+  /// Save App Settings (local cache + Axum cloud upsert)
+  Future<void> saveAppSettings(
+    Map<String, dynamic> settings, {
+    String userId = '9969c846e8e1642bcefa356398644f3b',
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('app_settings', jsonEncode(settings));
+
+    // Also sync to Axum backend: /api/users/{user_id}/settings
+    try {
+      await http
+          .post(
+            Uri.parse('$baseUrl/api/users/$userId/settings'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'settings_data': settings}),
+          )
+          .timeout(const Duration(seconds: 3));
+    } catch (_) {}
+  }
+
+  /// Load App Settings (Axum cloud with local fallback)
+  Future<Map<String, dynamic>> loadAppSettings({
+    String userId = '9969c846e8e1642bcefa356398644f3b',
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final str = prefs.getString('app_settings');
+    Map<String, dynamic> local = {};
+    if (str != null && str.isNotEmpty) {
+      try {
+        local = jsonDecode(str);
+      } catch (_) {}
+    }
+
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/users/$userId/settings'))
+          .timeout(const Duration(seconds: 3));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map && data['settings_data'] != null) {
+          final settingsData = data['settings_data'];
+          if (settingsData is String) {
+            return jsonDecode(settingsData);
+          } else if (settingsData is Map) {
+            return Map<String, dynamic>.from(settingsData);
+          }
+        }
+      }
+    } catch (_) {}
+
+    return local;
   }
 }

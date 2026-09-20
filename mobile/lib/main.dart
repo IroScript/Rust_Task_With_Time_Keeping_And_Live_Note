@@ -2,6 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'theme/cyber_theme.dart';
 import 'screens/home_screen.dart';
+import 'widgets/floating_overlay_widget.dart';
+
+/// Entry point for the floating overlay window
+@pragma("vm:entry-point")
+void overlayMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(
+    const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: FloatingOverlayWidget(),
+    ),
+  );
+}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

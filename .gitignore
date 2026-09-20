@@ -23,3 +23,4 @@ settings.json
 # Build artifacts
 Cargo.lock
 Cargo.toml
+.agy_evidence/

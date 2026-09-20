@@ -30,7 +30,7 @@ pub async fn upsert_user_settings(
         ON CONFLICT (user_id) 
         DO UPDATE SET 
             settings_data = EXCLUDED.settings_data,
-            updated_at = NOW()
+            updated_at = datetime('now')
         RETURNING id, user_id, settings_data, created_at, updated_at
         "#,
     )
@@ -83,7 +83,7 @@ pub async fn update_user_settings(
     let settings = sqlx::query_as::<_, UserSettings>(
         r#"
         UPDATE user_settings
-        SET settings_data = $1, updated_at = NOW()
+        SET settings_data = $1, updated_at = datetime('now')
         WHERE user_id = $2
         RETURNING id, user_id, settings_data, created_at, updated_at
         "#,
