@@ -360,10 +360,17 @@ class _HomeScreenState extends State<HomeScreen>
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Overlay permission needed to float on top of other apps'),
-              duration: Duration(seconds: 3),
-              backgroundColor: Colors.redAccent,
+            SnackBar(
+              content: const Text(
+                'Please toggle ON "Display over other apps" and tap here again',
+              ),
+              duration: const Duration(seconds: 4),
+              backgroundColor: Colors.amber.shade900,
+              action: SnackBarAction(
+                label: 'SETTINGS',
+                textColor: Colors.white,
+                onPressed: () => overlay.openAppDetailsSettings(),
+              ),
             ),
           );
         }

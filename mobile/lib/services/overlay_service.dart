@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import '../models/task_card.dart';
 
@@ -8,26 +9,57 @@ class OverlayService {
   static final OverlayService instance = OverlayService._internal();
   OverlayService._internal();
 
+  static const MethodChannel _nativeChannel =
+      MethodChannel('com.tasknote.task_note_mobile/overlay_permission');
+
   bool _isOverlayActive = false;
   bool get isOverlayActive => _isOverlayActive;
 
   /// Check if the SYSTEM_ALERT_WINDOW permission is granted
   Future<bool> isPermissionGranted() async {
     try {
+      final bool? nativeGranted =
+          await _nativeChannel.invokeMethod<bool>('isOverlayPermissionGranted');
+      if (nativeGranted != null) {
+        return nativeGranted;
+      }
+    } catch (e) {
+      debugPrint('[OverlayService] Native permission check error: $e');
+    }
+    try {
       final granted = await FlutterOverlayWindow.isPermissionGranted();
       return granted;
     } catch (e) {
-      debugPrint('[OverlayService] Error checking permission: $e');
+      debugPrint('[OverlayService] FlutterOverlayWindow permission check error: $e');
       return false;
     }
   }
 
-  /// Open system settings to request "Display over other apps" permission
+  /// Open system settings to request "Display over other apps" permission with 3-tier fallback
   Future<bool?> requestPermission() async {
+    try {
+      final bool? nativeSuccess =
+          await _nativeChannel.invokeMethod<bool>('requestOverlayPermission');
+      if (nativeSuccess == true) {
+        return true;
+      }
+    } catch (e) {
+      debugPrint('[OverlayService] Native permission request error: $e');
+    }
     try {
       return await FlutterOverlayWindow.requestPermission();
     } catch (e) {
       debugPrint('[OverlayService] Error requesting permission: $e');
+      return false;
+    }
+  }
+
+  /// Open App Details Settings directly (fallback for restricted settings)
+  Future<bool?> openAppDetailsSettings() async {
+    try {
+      return await _nativeChannel.invokeMethod<bool>('openAppDetailsSettings');
+    } catch (e) {
+      debugPrint('[OverlayService] Error opening app details: $e');
       return false;
     }
   }
@@ -37,9 +69,10 @@ class OverlayService {
     try {
       final granted = await isPermissionGranted();
       if (!granted) {
-        final requested = await requestPermission();
-        if (requested != true) {
-          debugPrint('[OverlayService] Permission not granted by user');
+        await requestPermission();
+        final recheck = await isPermissionGranted();
+        if (!recheck) {
+          debugPrint('[OverlayService] Permission not granted yet');
           return false;
         }
       }
