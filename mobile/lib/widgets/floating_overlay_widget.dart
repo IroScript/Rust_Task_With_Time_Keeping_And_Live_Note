@@ -94,11 +94,11 @@ class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget> {
 
     try {
       if (nextState) {
-        // Expand to floating card size (320 x 240)
-        await FlutterOverlayWindow.resizeOverlay(320, 240, true);
+        // Expand to floating card size (950 x 750 px)
+        await FlutterOverlayWindow.resizeOverlay(950, 750, true);
       } else {
-        // Collapse back to compact floating pill (180 x 180)
-        await FlutterOverlayWindow.resizeOverlay(180, 180, true);
+        // Collapse back to compact floating pill (540 x 260 px)
+        await FlutterOverlayWindow.resizeOverlay(540, 260, true);
       }
     } catch (e) {
       debugPrint('[FloatingOverlayWidget] resizeOverlay error: $e');

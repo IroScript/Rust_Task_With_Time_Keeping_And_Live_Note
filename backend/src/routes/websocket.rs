@@ -282,30 +282,25 @@ async fn send_message_to_websocket(
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use dashmap::DashMap;
-    use tokio::sync::broadcast;
+    use uuid::Uuid;
 
     fn create_test_state() -> Arc<AppState> {
-        Arc::new(AppState {
-            db_pool: sqlx::PgPool::connect_lazy("postgres://test:test@localhost/test").unwrap(),
-            crdt_docs: Arc::new(DashMap::new()),
-            connections: Arc::new(DashMap::new()),
-            doc_channels: Arc::new(DashMap::new()),
-        })
+        let pool = sqlx::SqlitePool::connect_lazy("sqlite::memory:").unwrap();
+        AppState::new(pool)
     }
 
     #[tokio::test]
     async fn test_ws_handler_creates_channel() {
         let state = create_test_state();
-        let doc_id = Uuid::new_v4();
+        let doc_id = Uuid::new_v4().to_string();
 
         // Verify no channel exists initially
         assert!(state.doc_channels.get(&doc_id).is_none());
 
         // Create channel by subscribing
         let _receiver = state.doc_channels
-            .entry(doc_id)
-            .or_insert_with(|| broadcast::channel(1000).0)
+            .entry(doc_id.clone())
+            .or_insert_with(|| tokio::sync::broadcast::channel(1000).0)
             .subscribe();
 
         // Channel should now exist
@@ -315,30 +310,30 @@ mod tests {
     #[tokio::test]
     async fn test_process_delta_message() {
         let state = create_test_state();
-        let doc_id = Uuid::new_v4();
-        let author_id = Uuid::new_v4();
+        let doc_id = Uuid::new_v4().to_string();
+        let author_id = Uuid::new_v4().to_string();
 
         // Create channel and subscribe
         let sender = state.doc_channels
-            .entry(doc_id)
-            .or_insert_with(|| broadcast::channel(1000).0)
+            .entry(doc_id.clone())
+            .or_insert_with(|| tokio::sync::broadcast::channel(1000).0)
             .clone();
 
         let mut receiver = sender.subscribe();
 
         // Create delta message
         let message = SyncMessage::Delta {
-            doc_id,
+            doc_id: doc_id.clone(),
             version: 1,
             update: vec![1, 2, 3],
-            author_id,
+            author_id: author_id.clone(),
         };
 
         // Process the message
         let json = serde_json::to_string(&message).unwrap();
         let ws_message = Message::Text(json.into());
 
-        let result = process_websocket_message(&ws_message, &state, doc_id).await;
+        let result = process_websocket_message(&ws_message, &state, &doc_id).await;
         assert!(result.is_ok());
 
         // Verify broadcast was sent
@@ -362,22 +357,22 @@ mod tests {
     #[tokio::test]
     async fn test_process_presence_message() {
         let state = create_test_state();
-        let doc_id = Uuid::new_v4();
-        let user_id = Uuid::new_v4();
+        let doc_id = Uuid::new_v4().to_string();
+        let user_id = Uuid::new_v4().to_string();
 
         // Create channel and subscribe
         let sender = state.doc_channels
-            .entry(doc_id)
-            .or_insert_with(|| broadcast::channel(1000).0)
+            .entry(doc_id.clone())
+            .or_insert_with(|| tokio::sync::broadcast::channel(1000).0)
             .clone();
 
         let mut receiver = sender.subscribe();
 
         // Create presence message
         let message = SyncMessage::Presence(shared::PresenceInfo {
-            user_id,
+            user_id: user_id.clone(),
             user_name: "Test User".to_string(),
-            doc_id,
+            doc_id: doc_id.clone(),
             cursor_position: Some(100),
             is_typing: true,
             last_active: chrono::Utc::now(),
@@ -387,7 +382,7 @@ mod tests {
         let json = serde_json::to_string(&message).unwrap();
         let ws_message = Message::Text(json.into());
 
-        let result = process_websocket_message(&ws_message, &state, doc_id).await;
+        let result = process_websocket_message(&ws_message, &state, &doc_id).await;
         assert!(result.is_ok());
 
         // Verify broadcast was sent
@@ -404,7 +399,7 @@ mod tests {
     #[tokio::test]
     async fn test_process_ack_message() {
         let state = create_test_state();
-        let doc_id = Uuid::new_v4();
+        let doc_id = Uuid::new_v4().to_string();
 
         // Create ack message
         let message = SyncMessage::Ack { sequence: 42 };
@@ -412,19 +407,19 @@ mod tests {
         let ws_message = Message::Text(json.into());
 
         // Ack messages should be processed without broadcasting
-        let result = process_websocket_message(&ws_message, &state, doc_id).await;
+        let result = process_websocket_message(&ws_message, &state, &doc_id).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn test_process_invalid_message() {
         let state = create_test_state();
-        let doc_id = Uuid::new_v4();
+        let doc_id = Uuid::new_v4().to_string();
 
         // Send invalid JSON
         let ws_message = Message::Text("invalid json".to_string().into());
 
-        let result = process_websocket_message(&ws_message, &state, doc_id).await;
+        let result = process_websocket_message(&ws_message, &state, &doc_id).await;
         assert!(result.is_err());
     }
 }

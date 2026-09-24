@@ -80,6 +80,7 @@ pub fn create_router(state: Arc<AppState>, config: &Config) -> Router {
         .route("/api/cards/{card_id}/meta", get(lines::get_card_metadata))
         .route("/api/cards/{card_id}/lines/batch", post(lines::batch_insert_lines))
         
+
         // WebSocket route
         .route("/ws/{document_id}", get(websocket::ws_handler))
         

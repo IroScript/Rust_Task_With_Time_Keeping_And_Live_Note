@@ -25,7 +25,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final ApiService _apiService = ApiService();
   final List<TaskCard> _cards = [];
   int _selectedCardIndex = 0;
@@ -66,6 +66,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
@@ -78,10 +79,38 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _animController.dispose();
     _stopwatchTicker?.cancel();
     _quoteRotationTicker?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkAndAutoLaunchOverlay();
+    }
+  }
+
+  Future<void> _checkAndAutoLaunchOverlay() async {
+    final overlay = OverlayService.instance;
+    final isGranted = await overlay.isPermissionGranted();
+    final isActive = await overlay.checkActualOverlayActive();
+    if (isGranted && !isActive && mounted) {
+      final currentCard = _cards.isNotEmpty ? _cards[_selectedCardIndex] : null;
+      final success = await overlay.showFloatingOverlay(activeCard: currentCard);
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🎉 পারমিশন সক্রিয় হয়েছে! ফ্লোটিং উইন্ডো স্ক্রিনে ভেসে উঠেছে।'),
+            backgroundColor: CyberTheme.bgCardActive,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        setState(() {});
+      }
+    }
   }
 
   Future<void> _initializeApp() async {
@@ -335,48 +364,221 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _toggleFloatingOverlay() async {
     final overlay = OverlayService.instance;
-    if (overlay.isOverlayActive) {
+    final isActive = await overlay.checkActualOverlayActive();
+    if (isActive) {
       await overlay.closeFloatingOverlay();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Floating Widget Closed'),
+            content: Text('ফ্লোটিং উইন্ডো বন্ধ করা হয়েছে'),
             duration: Duration(seconds: 2),
           ),
         );
         setState(() {});
       }
     } else {
+      final isGranted = await overlay.isPermissionGranted();
+      if (!isGranted) {
+        if (mounted) {
+          _showOverlayPermissionGuidanceModal();
+        }
+        return;
+      }
+
       final currentCard = _cards.isNotEmpty ? _cards[_selectedCardIndex] : null;
       final success = await overlay.showFloatingOverlay(activeCard: currentCard);
       if (mounted) {
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Floating Widget Active! Drag anywhere on screen'),
+              content: Text('🎉 ফ্লোটিং উইন্ডো স্ক্রিনে চালু হয়েছে! আঙুল দিয়ে যেকোনো জায়গায় সরাতে পারেন।'),
               duration: Duration(seconds: 3),
               backgroundColor: CyberTheme.bgCardActive,
             ),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                'Please toggle ON "Display over other apps" and tap here again',
-              ),
-              duration: const Duration(seconds: 4),
-              backgroundColor: Colors.amber.shade900,
-              action: SnackBarAction(
-                label: 'SETTINGS',
-                textColor: Colors.white,
-                onPressed: () => overlay.openAppDetailsSettings(),
-              ),
-            ),
-          );
+          _showOverlayPermissionGuidanceModal();
         }
         setState(() {});
       }
     }
+  }
+
+  void _showOverlayPermissionGuidanceModal() {
+    final overlay = OverlayService.instance;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (modalContext) {
+        return Container(
+          decoration: BoxDecoration(
+            color: CyberTheme.bgPanel,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            border: Border.all(color: CyberTheme.neonCyan.withValues(alpha: 0.4), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: CyberTheme.neonCyan.withValues(alpha: 0.2),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: const [
+                  Icon(Icons.security, color: CyberTheme.neonSolar, size: 24),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Pixel / Android 13+ পারমিশন গাইড',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Pixel ও নতুন Android ডিভাইসে সাইডলোডেড অ্যাপের ক্ষেত্রে '
+                      '"Display over other apps" অপশনটি শুরুতে '
+                      '"Disallowed" বা ধূসর (Restricted) থাকে।',
+                      style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      'সক্রিয় করার সহজ ৩টি ধাপ:',
+                      style: TextStyle(
+                        color: CyberTheme.neonCyan,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      '১. নিচে "অ্যাপ ইনফো (৩-ডট)" চাপুন।\n'
+                      '২. ওপরের ডানদিকের ৩টি ডট (⋮) এ ট্যাপ করে "Allow restricted settings" নির্বাচন করুন এবং ফোনের পিন দিন।\n'
+                      '৩. এরপর "ওভারলে সেটিংস" এ চাপ দিয়ে "Display over other apps" টগলটি ON করুন।',
+                      style: TextStyle(color: Colors.white, fontSize: 13, height: 1.5),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        await overlay.openAppDetailsSettings();
+                      },
+                      icon: const Icon(Icons.info_outline, size: 18, color: Colors.black),
+                      label: const Text(
+                        '১. অ্যাপ ইনফো (৩-ডট)',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: CyberTheme.neonSolar,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        await overlay.openOverlaySettings();
+                      },
+                      icon: const Icon(Icons.layers, size: 18, color: Colors.black),
+                      label: const Text(
+                        '২. ওভারলে সেটিংস',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: CyberTheme.neonCyan,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(modalContext);
+                    final granted = await overlay.isPermissionGranted();
+                    if (granted) {
+                      final currentCard = _cards.isNotEmpty ? _cards[_selectedCardIndex] : null;
+                      await overlay.showFloatingOverlay(activeCard: currentCard);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('উইজেট সফলভাবে চালু হয়েছে!'),
+                            backgroundColor: CyberTheme.bgCardActive,
+                          ),
+                        );
+                        setState(() {});
+                      }
+                    } else {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('পারমিশন এখনও বন্ধ আছে। অনুগ্রহ করে ধাপ ১ ও ২ সম্পন্ন করুন।'),
+                            backgroundColor: Colors.redAccent.shade700,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.check_circle_outline, color: CyberTheme.neonLime),
+                  label: const Text(
+                    'অনুমতি সম্পন্ন হয়েছে — উইজেট চালু করুন',
+                    style: TextStyle(color: CyberTheme.neonLime, fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: CyberTheme.neonLime),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -549,6 +751,29 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _toggleFloatingOverlay,
+        backgroundColor: OverlayService.instance.isOverlayActive
+            ? CyberTheme.neonLime
+            : CyberTheme.bgCardActive,
+        icon: Icon(
+          Icons.picture_in_picture_alt_rounded,
+          color: OverlayService.instance.isOverlayActive
+              ? Colors.black
+              : CyberTheme.neonCyan,
+        ),
+        label: Text(
+          OverlayService.instance.isOverlayActive
+              ? 'উইজেট চালু আছে'
+              : '🪟 ফ্লোটিং উইজেট',
+          style: TextStyle(
+            color: OverlayService.instance.isOverlayActive
+                ? Colors.black
+                : Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }

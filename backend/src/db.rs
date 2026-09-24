@@ -128,7 +128,8 @@ pub async fn init_db(database_url: &str) -> Result<DbPool, String> {
     )
     .execute(&pool)
     .await
-    .map_err(|e| format!("Failed to create index: {}", e))?;
+    .map_err(|e| format!("Failed to create card_chunks index: {}", e))?;
+
     
     tracing::info!("✅ Database schema applied successfully");
 

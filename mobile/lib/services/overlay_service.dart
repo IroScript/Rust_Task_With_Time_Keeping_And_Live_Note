@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
@@ -64,6 +63,29 @@ class OverlayService {
     }
   }
 
+  /// Open Overlay / Special App Access settings directly
+  Future<bool?> openOverlaySettings() async {
+    try {
+      return await _nativeChannel.invokeMethod<bool>('openOverlaySettings');
+    } catch (e) {
+      debugPrint('[OverlayService] Error opening overlay settings: $e');
+      return false;
+    }
+  }
+
+  /// Check if the floating window is currently alive and active
+  Future<bool> checkActualOverlayActive() async {
+    try {
+      final bool? active =
+          await _nativeChannel.invokeMethod<bool>('isNativeFloatingWindowActive');
+      if (active != null) {
+        _isOverlayActive = active;
+        return active;
+      }
+    } catch (_) {}
+    return _isOverlayActive;
+  }
+
   /// Launch the Floating Overlay Window with the given active card
   Future<bool> showFloatingOverlay({TaskCard? activeCard}) async {
     try {
@@ -77,28 +99,27 @@ class OverlayService {
         }
       }
 
-      await FlutterOverlayWindow.showOverlay(
-        height: 180, // Compact collapsed floating pill
-        width: 180,
-        alignment: OverlayAlignment.topRight,
-        visibility: NotificationVisibility.visibilityPublic,
-        flag: OverlayFlag.defaultFlag,
-        overlayTitle: "Task & Note Widget",
-        overlayContent: activeCard?.mainText ?? "Floating Task & Live Note Active",
-        enableDrag: true,
-        positionGravity: PositionGravity.auto,
+      final title = activeCard?.mainText ?? "Daily Motivation Task & Note";
+      final subtitle = activeCard?.subText ?? "Keep pushing forward! ✨";
+      final note = activeCard?.liveNote ?? "";
+      final seconds = activeCard?.stopwatchSeconds ?? 0;
+      final running = activeCard?.isStopwatchRunning ?? true;
+
+      final bool? success = await _nativeChannel.invokeMethod<bool>(
+        'showNativeFloatingWindow',
+        {
+          'title': title,
+          'subtitle': subtitle,
+          'note': note,
+          'seconds': seconds,
+          'isRunning': running,
+        },
       );
 
-      _isOverlayActive = true;
-
-      // Share current card data to overlay
-      if (activeCard != null) {
-        await syncCardData(activeCard);
-      }
-
-      return true;
+      _isOverlayActive = success ?? true;
+      return _isOverlayActive;
     } catch (e) {
-      debugPrint('[OverlayService] Error launching overlay: $e');
+      debugPrint('[OverlayService] Error launching native floating overlay: $e');
       return false;
     }
   }
@@ -106,30 +127,25 @@ class OverlayService {
   /// Close / dismiss the floating overlay window
   Future<void> closeFloatingOverlay() async {
     try {
-      await FlutterOverlayWindow.closeOverlay();
+      await _nativeChannel.invokeMethod('closeNativeFloatingWindow');
       _isOverlayActive = false;
     } catch (e) {
-      debugPrint('[OverlayService] Error closing overlay: $e');
+      debugPrint('[OverlayService] Error closing native floating overlay: $e');
     }
   }
 
   /// Sync active TaskCard details into the floating window
   Future<void> syncCardData(TaskCard card) async {
     try {
-      final payload = jsonEncode({
-        'type': 'CARD_UPDATE',
-        'id': card.id,
+      await _nativeChannel.invokeMethod('updateFloatingWindowData', {
         'title': card.mainText,
         'subtitle': card.subText,
-        'liveNote': card.liveNote,
-        'stopwatchSeconds': card.stopwatchSeconds,
-        'isStopwatchRunning': card.isStopwatchRunning,
-        'clockMode': card.clockMode.label,
-        'depth': card.depth,
+        'note': card.liveNote,
+        'seconds': card.stopwatchSeconds,
+        'isRunning': card.isStopwatchRunning,
       });
-      await FlutterOverlayWindow.shareData(payload);
     } catch (e) {
-      debugPrint('[OverlayService] Error sharing data to overlay: $e');
+      debugPrint('[OverlayService] Error updating floating window data: $e');
     }
   }
 

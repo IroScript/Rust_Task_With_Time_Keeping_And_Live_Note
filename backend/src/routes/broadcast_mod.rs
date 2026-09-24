@@ -176,28 +176,23 @@ fn subscriber_count(state: &Arc<AppState>, doc_id: String) -> usize {
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use dashmap::DashMap;
-    use tokio::sync::broadcast;
+    use uuid::Uuid;
 
     fn create_test_state() -> Arc<AppState> {
-        Arc::new(AppState {
-            db_pool: sqlx::PgPool::connect_lazy("postgres://test:test@localhost/test").unwrap(),
-            crdt_docs: Arc::new(DashMap::new()),
-            connections: Arc::new(DashMap::new()),
-            doc_channels: Arc::new(DashMap::new()),
-        })
+        let pool = sqlx::SqlitePool::connect_lazy("sqlite::memory:").unwrap();
+        AppState::new(pool)
     }
 
     #[tokio::test]
     async fn test_channel_creation() {
         let state = create_test_state();
-        let doc_id = Uuid::new_v4();
+        let doc_id = Uuid::new_v4().to_string();
 
         // Channel should not exist yet
-        assert_eq!(subscriber_count(&state, doc_id), 0);
+        assert_eq!(subscriber_count(&state, doc_id.clone()), 0);
 
         // Create channel
-        let sender = get_or_create_channel(&state, doc_id);
+        let sender = get_or_create_channel(&state, doc_id.clone());
         assert_eq!(sender.receiver_count(), 0);
 
         // Subscribe a receiver
@@ -208,15 +203,15 @@ mod tests {
     #[tokio::test]
     async fn test_broadcast_to_single_subscriber() {
         let state = create_test_state();
-        let doc_id = Uuid::new_v4();
+        let doc_id = Uuid::new_v4().to_string();
 
         // Create channel and subscribe
-        let _sender = get_or_create_channel(&state, doc_id);
-        let mut receiver = subscribe(&state, doc_id);
+        let _sender = get_or_create_channel(&state, doc_id.clone());
+        let mut receiver = subscribe(&state, doc_id.clone());
 
         // Broadcast a message
         let message = SyncMessage::Ack { sequence: 42 };
-        let count = broadcast(&state, doc_id, message.clone());
+        let count = broadcast(&state, doc_id.clone(), message.clone());
         assert_eq!(count, 1);
 
         // Receiver should get the message
@@ -230,13 +225,13 @@ mod tests {
     #[tokio::test]
     async fn test_broadcast_to_multiple_subscribers() {
         let state = create_test_state();
-        let doc_id = Uuid::new_v4();
+        let doc_id = Uuid::new_v4().to_string();
 
         // Create channel and subscribe multiple receivers
-        let _sender = get_or_create_channel(&state, doc_id);
-        let mut receiver1 = subscribe(&state, doc_id);
-        let mut receiver2 = subscribe(&state, doc_id);
-        let mut receiver3 = subscribe(&state, doc_id);
+        let _sender = get_or_create_channel(&state, doc_id.clone());
+        let mut receiver1 = subscribe(&state, doc_id.clone());
+        let mut receiver2 = subscribe(&state, doc_id.clone());
+        let mut receiver3 = subscribe(&state, doc_id.clone());
 
         // Broadcast a message
         let message = SyncMessage::Ack { sequence: 100 };
@@ -252,10 +247,10 @@ mod tests {
     #[tokio::test]
     async fn test_broadcast_no_subscribers() {
         let state = create_test_state();
-        let doc_id = Uuid::new_v4();
+        let doc_id = Uuid::new_v4().to_string();
 
         // Create channel but don't subscribe
-        let _sender = get_or_create_channel(&state, doc_id);
+        let _sender = get_or_create_channel(&state, doc_id.clone());
 
         // Broadcast should return 0 (no active subscribers)
         let message = SyncMessage::Ack { sequence: 1 };
@@ -266,7 +261,7 @@ mod tests {
     #[tokio::test]
     async fn test_broadcast_no_channel() {
         let state = create_test_state();
-        let doc_id = Uuid::new_v4();
+        let doc_id = Uuid::new_v4().to_string();
 
         // Broadcast without creating a channel first
         let message = SyncMessage::Ack { sequence: 1 };
@@ -277,14 +272,14 @@ mod tests {
     #[tokio::test]
     async fn test_remove_channel() {
         let state = create_test_state();
-        let doc_id = Uuid::new_v4();
+        let doc_id = Uuid::new_v4().to_string();
 
         // Create channel
-        get_or_create_channel(&state, doc_id);
+        get_or_create_channel(&state, doc_id.clone());
         assert!(state.doc_channels.get(&doc_id).is_some());
 
         // Remove channel
-        let removed = remove_channel(&state, doc_id);
+        let removed = remove_channel(&state, doc_id.clone());
         assert!(removed);
         assert!(state.doc_channels.get(&doc_id).is_none());
 
@@ -297,16 +292,16 @@ mod tests {
     #[tokio::test]
     async fn test_broadcast_delta() {
         let state = create_test_state();
-        let doc_id = Uuid::new_v4();
-        let author_id = Uuid::new_v4();
+        let doc_id = Uuid::new_v4().to_string();
+        let author_id = Uuid::new_v4().to_string();
 
         // Create channel and subscribe
-        let _sender = get_or_create_channel(&state, doc_id);
-        let mut receiver = subscribe(&state, doc_id);
+        let _sender = get_or_create_channel(&state, doc_id.clone());
+        let mut receiver = subscribe(&state, doc_id.clone());
 
         // Broadcast delta
         let update = vec![1, 2, 3, 4];
-        let count = broadcast_delta(&state, doc_id, 5, update.clone(), author_id);
+        let count = broadcast_delta(&state, doc_id.clone(), 5, update.clone(), author_id.clone());
         assert_eq!(count, 1);
 
         // Verify received message

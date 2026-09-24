@@ -9,6 +9,7 @@ mod models;
 mod routes;
 mod crdt;
 
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize tracing
@@ -36,6 +37,7 @@ async fn main() -> Result<()> {
 
     // Create application state (already returns Arc<AppState>)
     let app_state = routes::AppState::new(db_pool);
+
 
     // Build router
     let app = routes::create_router(app_state, &config);
