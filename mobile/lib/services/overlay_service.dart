@@ -104,6 +104,10 @@ class OverlayService {
       final note = activeCard?.liveNote ?? "";
       final seconds = activeCard?.stopwatchSeconds ?? 0;
       final running = activeCard?.isStopwatchRunning ?? true;
+      final deadline = activeCard?.endTime ?? "12.10 PM";
+      final subTask = activeCard?.startTime ?? "12.10 PM";
+      final cardId = activeCard?.id ?? "1";
+      final depth = activeCard?.depth ?? 0;
 
       final bool? success = await _nativeChannel.invokeMethod<bool>(
         'showNativeFloatingWindow',
@@ -113,6 +117,10 @@ class OverlayService {
           'note': note,
           'seconds': seconds,
           'isRunning': running,
+          'cardId': cardId,
+          'depth': depth,
+          'deadline': deadline,
+          'subTaskTime': subTask,
         },
       );
 
@@ -143,6 +151,10 @@ class OverlayService {
         'note': card.liveNote,
         'seconds': card.stopwatchSeconds,
         'isRunning': card.isStopwatchRunning,
+        'cardId': card.id,
+        'depth': card.depth,
+        'deadline': card.endTime,
+        'subTaskTime': card.startTime,
       });
     } catch (e) {
       debugPrint('[OverlayService] Error updating floating window data: $e');
