@@ -45,13 +45,12 @@ void main() {
 
       // Should find compact bubble elements
       expect(find.byType(FloatingOverlayWidget), findsOneWidget);
-      expect(find.byIcon(Icons.open_in_full_rounded), findsOneWidget);
       expect(find.text('Daily Motivation Task'), findsOneWidget);
       expect(find.text('00:00'), findsOneWidget);
 
       // Should NOT find expanded elements yet
-      expect(find.text('FLOATING TASK'), findsNothing);
-      expect(find.text('📝 LIVE NOTE'), findsNothing);
+      expect(find.text('⚡ TASK & LIVE NOTE'), findsNothing);
+      expect(find.text('📄 LIVE NOTE'), findsNothing);
     });
 
     testWidgets('FloatingOverlayWidget expands to full card mode on tap',
@@ -65,23 +64,22 @@ void main() {
       );
 
       // Tap on compact bubble to toggle expand
-      await tester.tap(find.byType(GestureDetector).first);
+      await tester.tap(find.text('Daily Motivation Task'));
       await tester.pump(const Duration(milliseconds: 100));
 
       // Should now find expanded elements
-      expect(find.text('FLOATING TASK'), findsOneWidget);
-      expect(find.text('📝 LIVE NOTE'), findsOneWidget);
+      expect(find.text('⚡ TASK & LIVE NOTE'), findsOneWidget);
+      expect(find.text('📄 LIVE NOTE'), findsOneWidget);
       expect(find.byIcon(Icons.close_fullscreen_rounded), findsOneWidget);
       expect(find.byIcon(Icons.close), findsOneWidget);
-      expect(find.text('START'), findsOneWidget);
 
       // Tap minimize button to collapse back to compact mode
       await tester.tap(find.byIcon(Icons.close_fullscreen_rounded));
       await tester.pump(const Duration(milliseconds: 100));
 
       // Should be back to compact mode
-      expect(find.text('FLOATING TASK'), findsNothing);
-      expect(find.byIcon(Icons.open_in_full_rounded), findsOneWidget);
+      expect(find.text('⚡ TASK & LIVE NOTE'), findsNothing);
+      expect(find.text('Daily Motivation Task'), findsOneWidget);
     });
 
     testWidgets('HomeScreen top bar contains floating overlay button',

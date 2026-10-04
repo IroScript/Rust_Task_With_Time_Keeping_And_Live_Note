@@ -28,7 +28,7 @@ void main() {
       expect(find.text('+'), findsOneWidget, reason: 'Plus button exists in compact mode');
 
       // Expand to card view
-      await tester.tap(find.byType(GestureDetector).first);
+      await tester.tap(find.text('Daily Motivation Task'));
       await tester.pump(const Duration(milliseconds: 100));
 
       // Plus button exists in expanded header row
@@ -52,7 +52,7 @@ void main() {
       );
 
       // Expand to card view
-      await tester.tap(find.byType(GestureDetector).first);
+      await tester.tap(find.text('Daily Motivation Task'));
       await tester.pump(const Duration(milliseconds: 100));
 
       // Check badge 0 (Deadline 12.10 PM)
@@ -80,7 +80,7 @@ void main() {
       );
 
       // Expand
-      await tester.tap(find.byType(GestureDetector).first);
+      await tester.tap(find.text('Daily Motivation Task'));
       await tester.pump(const Duration(milliseconds: 100));
 
       // Check Sandwich ☰ icon
@@ -102,7 +102,7 @@ void main() {
       );
 
       // Expand
-      await tester.tap(find.byType(GestureDetector).first);
+      await tester.tap(find.text('Daily Motivation Task'));
       await tester.pump(const Duration(milliseconds: 100));
 
       // Check Live Note header
@@ -139,7 +139,7 @@ void main() {
       expect(find.text('Daily Motivation Task'), findsOneWidget);
 
       // Expand
-      await tester.tap(find.byType(GestureDetector).first);
+      await tester.tap(find.text('Daily Motivation Task'));
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.text('⚡ TASK & LIVE NOTE'), findsOneWidget);
 
