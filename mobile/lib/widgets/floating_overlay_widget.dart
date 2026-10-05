@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import '../theme/cyber_theme.dart';
@@ -31,8 +32,12 @@ class FloatingOverlayWidget extends StatefulWidget {
 }
 
 class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   bool _isExpanded = false;
+
+  // Title Bar & Animations (src/main.rs:2414 AppAnimation::Dance)
+  bool _isDancing = false;
+  late AnimationController _danceController;
 
   // Task & Card State (faithful to Quote / TaskCard in Rust)
   String _cardId = '1';
@@ -85,6 +90,11 @@ class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget>
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
 
+    _danceController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    );
+
     _startLocalTicker();
     _resetInactivityTimer();
     _listenToMainApp();
@@ -97,6 +107,7 @@ class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget>
     _overlaySub?.cancel();
     _noteEditController.dispose();
     _animController.dispose();
+    _danceController.dispose();
     super.dispose();
   }
 
@@ -408,7 +419,7 @@ class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget>
   Widget _buildExpandedCard() {
     final isLargeText = _liveNote.length > 10240;
 
-    return Container(
+    final cardContent = Container(
       width: 320,
       constraints: const BoxConstraints(maxHeight: 520),
       padding: const EdgeInsets.all(12),
@@ -433,7 +444,7 @@ class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget>
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
                     color: CyberTheme.greenBorder.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(4),
@@ -443,7 +454,7 @@ class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget>
                     '⚡ TASK & LIVE NOTE',
                     style: TextStyle(
                       color: CyberTheme.greenBorder,
-                      fontSize: 9,
+                      fontSize: 8.5,
                       fontWeight: FontWeight.bold,
                       fontFamily: 'monospace',
                     ),
@@ -457,6 +468,60 @@ class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Dance Animation Button (💃 src/main.rs:2414 icons::ANIM_DANCE)
+                      if (_isControlPanelVisible) ...[
+                        InkWell(
+                          onTap: () {
+                            _recordInteraction();
+                            setState(() {
+                              _isDancing = !_isDancing;
+                              if (_isDancing) {
+                                _danceController.repeat();
+                              } else {
+                                _danceController.stop();
+                                _danceController.reset();
+                              }
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              color: _isDancing ? CyberTheme.neonLime.withValues(alpha: 0.25) : Colors.white12,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              '💃',
+                              style: TextStyle(fontSize: 10),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        // Hide Header Button (▲ src/main.rs:2343 icons::HIDE_HEADER)
+                        InkWell(
+                          onTap: () {
+                            _recordInteraction();
+                            setState(() {
+                              _isHeaderVisible = false;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.white12,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              '▲',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
                       // Toggle Control Panel / Header (Sandwich ☰ when visible, ✕ when hidden)
                       InkWell(
                         onTap: () {
@@ -466,7 +531,7 @@ class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget>
                           });
                         },
                         child: Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
                           decoration: BoxDecoration(
                             color: Colors.white12,
                             borderRadius: BorderRadius.circular(4),
@@ -475,18 +540,18 @@ class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget>
                             _isControlPanelVisible ? '☰' : '✕',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 11,
+                              fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       // Minimize to pill
                       InkWell(
                         onTap: _toggleExpand,
                         child: Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
                             color: Colors.white12,
                             borderRadius: BorderRadius.circular(4),
@@ -494,16 +559,16 @@ class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget>
                           child: const Icon(
                             Icons.close_fullscreen_rounded,
                             color: CyberTheme.neonYellow,
-                            size: 13,
+                            size: 12,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       // Close overlay
                       InkWell(
                         onTap: _closeOverlay,
                         child: Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
                             color: Colors.red.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(4),
@@ -511,7 +576,7 @@ class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget>
                           child: const Icon(
                             Icons.close,
                             color: Colors.redAccent,
-                            size: 13,
+                            size: 12,
                           ),
                         ),
                       ),
@@ -587,6 +652,21 @@ class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget>
           ],
         ],
       ),
+    );
+
+    return AnimatedBuilder(
+      animation: _danceController,
+      builder: (context, child) {
+        if (!_isDancing) return child!;
+        final p = _danceController.value * 2.0 * math.pi;
+        final danceX = math.sin(p * 4.0) * 16.0;
+        final danceY = math.cos(p * 2.5) * 12.0;
+        return Transform.translate(
+          offset: Offset(danceX, danceY),
+          child: child,
+        );
+      },
+      child: cardContent,
     );
   }
 
@@ -858,6 +938,7 @@ class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget>
           if (_isEditingNote)
             TextField(
               controller: _noteEditController,
+              autofocus: true,
               maxLines: 3,
               style: TextStyle(
                 color: Colors.white,

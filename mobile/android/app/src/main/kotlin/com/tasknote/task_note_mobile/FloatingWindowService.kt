@@ -1,5 +1,6 @@
 package com.tasknote.task_note_mobile
 
+import android.animation.ValueAnimator
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -15,16 +16,21 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.LinearInterpolator
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
+import kotlin.math.cos
+import kotlin.math.sin
 
 /// 100% Rust-Parity Android Native Draggable Floating Window Service
 ///
@@ -35,11 +41,13 @@ import androidx.core.app.NotificationCompat
 ///         - Badge 0: Deadline (#A51616 Crimson Red, "12.10 PM")
 ///         - Badge 1: Sub-Task (#B95F0F Amber, "12.10 PM")
 ///         - Badge 2: Stopwatch (#1C76B9 Steel-Blue, "MM:SS", pulsing dot #28C8FF)
-/// - Rust src/main.rs:2450-2540:
+/// - Rust src/main.rs:2240-2540:
+///     * Plus icon (+) for new note/card in title bar (src/main.rs:2258 icons::ADD_CARD)
+///     * Hide window title bar (src/main.rs:2343 icons::HIDE_HEADER) & Show header (src/main.rs:2529 icons::SHOW_HEADER)
+///     * Dance animation button (src/main.rs:2414 icons::ANIM_DANCE, AppAnimation::Dance)
 ///     * Title bar auto-hide after 5.0s inactivity
-///     * Toggle Panel / Close actions
 /// - Rust src/views/live_note.rs:
-///     * In-place Live Note viewing & quick writing
+///     * In-place Live Note viewing & quick writing with IME Soft Keyboard support
 ///     * Virtual scrolling indicator (>10 KB badge)
 class FloatingWindowService : Service() {
 
@@ -53,7 +61,21 @@ class FloatingWindowService : Service() {
     private var liveNoteTextView: TextView? = null
     private var liveNoteEditLayout: LinearLayout? = null
     private var liveNoteEditText: EditText? = null
+    private var editToggleBtn: TextView? = null
     private var virtualScrollBadge: TextView? = null
+
+    // Title Bar State & Controls (Rust main.rs:2240-2540)
+    private var headerLayout: LinearLayout? = null
+    private var showHeaderBtn: TextView? = null
+    private var addCardTitleBtn: TextView? = null
+    private var danceBtn: TextView? = null
+    private var isHeaderVisible = true
+
+    // Dance Animation State (Rust AppAnimation::Dance, src/main.rs:8000-8007)
+    private var isDancing = false
+    private var danceAnimator: ValueAnimator? = null
+    private var danceBaseX = 0
+    private var danceBaseY = 0
 
     // 3 Clock Badges
     private var badgeDeadlineTextView: TextView? = null
@@ -184,6 +206,93 @@ class FloatingWindowService : Service() {
         mainHandler.postDelayed(inactivityRunnable, 5000)
     }
 
+    private fun showKeyboardAndFocus() {
+        val params = layoutParams ?: return
+        // Remove FLAG_NOT_FOCUSABLE so that this window can receive keyboard input
+        params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE or WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        try {
+            windowManager?.updateViewLayout(floatingView, params)
+        } catch (_: Exception) {}
+
+        liveNoteEditText?.isFocusable = true
+        liveNoteEditText?.isFocusableInTouchMode = true
+        liveNoteEditText?.requestFocus()
+
+        liveNoteEditText?.postDelayed({
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.showSoftInput(liveNoteEditText, InputMethodManager.SHOW_IMPLICIT)
+        }, 150)
+    }
+
+    private fun hideKeyboardAndUnfocus() {
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(liveNoteEditText?.windowToken, 0)
+
+        val params = layoutParams ?: return
+        // Restore FLAG_NOT_FOCUSABLE so touches outside the window pass through to underlying apps
+        params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED
+        try {
+            windowManager?.updateViewLayout(floatingView, params)
+        } catch (_: Exception) {}
+        liveNoteEditText?.clearFocus()
+    }
+
+    private fun toggleDance() {
+        recordInteraction()
+        if (isDancing) {
+            stopDance()
+        } else {
+            startDance()
+        }
+    }
+
+    private fun startDance() {
+        val params = layoutParams ?: return
+        danceBaseX = params.x
+        danceBaseY = params.y
+        isDancing = true
+        danceBtn?.setTextColor(Color.parseColor("#3CB450")) // Exact NEON_LIME from Rust
+        Toast.makeText(this, "Dancing window active", Toast.LENGTH_SHORT).show()
+
+        val startTime = SystemClock.uptimeMillis()
+        val radius = dpToPx(35).toFloat()
+
+        danceAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 10000L
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = LinearInterpolator()
+            addUpdateListener {
+                if (!isDancing) return@addUpdateListener
+                val p = (SystemClock.uptimeMillis() - startTime) / 1000f
+                // Exact Rust Lissajous formula: (anim_progress * 4.0).sin() * radius, (anim_progress * 2.5).cos() * radius
+                val offsetX = (sin(p * 4.0) * radius).toInt()
+                val offsetY = (cos(p * 2.5) * radius).toInt()
+                params.x = danceBaseX + offsetX
+                params.y = danceBaseY + offsetY
+                try {
+                    windowManager?.updateViewLayout(floatingView, params)
+                } catch (_: Exception) {}
+            }
+            start()
+        }
+    }
+
+    private fun stopDance() {
+        if (!isDancing && danceAnimator == null) return
+        isDancing = false
+        danceAnimator?.cancel()
+        danceAnimator = null
+        danceBtn?.setTextColor(Color.WHITE)
+        val params = layoutParams ?: return
+        params.x = danceBaseX
+        params.y = danceBaseY
+        try {
+            windowManager?.updateViewLayout(floatingView, params)
+        } catch (_: Exception) {}
+    }
+
     private fun createFloatingWindow() {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
@@ -224,8 +333,30 @@ class FloatingWindowService : Service() {
             elevation = dpToPx(10).toFloat()
         }
 
-        // ── 1. Top Bar: Glowing Indicator + Header Title + Auto-Hide Action Buttons ──
-        val headerLayout = LinearLayout(this).apply {
+        // ── 0. Floating Show Header Button (src/main.rs:2529 icons::SHOW_HEADER) ──
+        showHeaderBtn = TextView(this).apply {
+            text = "🔼 Show Header"
+            textSize = 9.5f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.parseColor("#3CB450"))
+            background = GradientDrawable().apply {
+                cornerRadius = dpToPx(4).toFloat()
+                setStroke(dpToPx(1), Color.parseColor("#3CB450"))
+                setColor(Color.parseColor("#90080B10"))
+            }
+            setPadding(dpToPx(8), dpToPx(2), dpToPx(8), dpToPx(2))
+            visibility = View.GONE
+            setOnClickListener {
+                recordInteraction()
+                isHeaderVisible = true
+                headerLayout?.visibility = View.VISIBLE
+                visibility = View.GONE
+            }
+        }
+        cardLayout.addView(showHeaderBtn)
+
+        // ── 1. Top Bar: Glowing Indicator + [+] Add Card + Header Title + Auto-Hide Action Buttons ──
+        headerLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
@@ -237,7 +368,26 @@ class FloatingWindowService : Service() {
             }
             background = indicatorBg
             layoutParams = LinearLayout.LayoutParams(dpToPx(8), dpToPx(8)).apply {
-                marginEnd = dpToPx(6)
+                marginEnd = dpToPx(5)
+            }
+        }
+
+        // [+] Add Card / Note in Title Bar (src/main.rs:2258 icons::ADD_CARD)
+        addCardTitleBtn = TextView(this).apply {
+            text = "+"
+            textSize = 15f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.parseColor("#3CB450")) // Exact NEON_LIME from Rust
+            setPadding(dpToPx(3), dpToPx(0), dpToPx(5), dpToPx(0))
+            setOnClickListener {
+                recordInteraction()
+                liveNoteEditText?.setText("")
+                liveNoteTextView?.visibility = View.GONE
+                liveNoteEditLayout?.visibility = View.VISIBLE
+                editToggleBtn?.text = "SAVE"
+                showKeyboardAndFocus()
+                Toast.makeText(this@FloatingWindowService, "New note ready (type & click SAVE)", Toast.LENGTH_SHORT).show()
+                sendBroadcast(Intent("com.tasknote.ACTION_ADD_CARD"))
             }
         }
 
@@ -255,13 +405,40 @@ class FloatingWindowService : Service() {
             gravity = Gravity.CENTER_VERTICAL
         }
 
+        // Dance Animation Button (💃 src/main.rs:2414 icons::ANIM_DANCE)
+        danceBtn = TextView(this).apply {
+            text = "💃"
+            textSize = 12f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.WHITE)
+            setPadding(dpToPx(5), dpToPx(2), dpToPx(5), dpToPx(2))
+            setOnClickListener {
+                toggleDance()
+            }
+        }
+
+        // Hide Header Button (▲ src/main.rs:2343 icons::HIDE_HEADER)
+        val hideHeaderBtn = TextView(this).apply {
+            text = "▲"
+            textSize = 11f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.WHITE)
+            setPadding(dpToPx(5), dpToPx(2), dpToPx(5), dpToPx(2))
+            setOnClickListener {
+                recordInteraction()
+                isHeaderVisible = false
+                headerLayout?.visibility = View.GONE
+                showHeaderBtn?.visibility = View.VISIBLE
+            }
+        }
+
         // Open App Button (↗)
         val openAppBtn = TextView(this).apply {
             text = "↗"
             textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.parseColor("#39FF14"))
-            setPadding(dpToPx(6), dpToPx(2), dpToPx(6), dpToPx(2))
+            setPadding(dpToPx(5), dpToPx(2), dpToPx(5), dpToPx(2))
             setOnClickListener {
                 recordInteraction()
                 val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
@@ -279,18 +456,21 @@ class FloatingWindowService : Service() {
             textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.parseColor("#FF007F"))
-            setPadding(dpToPx(6), dpToPx(2), dpToPx(2), dpToPx(2))
+            setPadding(dpToPx(5), dpToPx(2), dpToPx(2), dpToPx(2))
             setOnClickListener {
                 stopSelf()
             }
         }
 
+        actionButtonsLayout?.addView(danceBtn)
+        actionButtonsLayout?.addView(hideHeaderBtn)
         actionButtonsLayout?.addView(openAppBtn)
         actionButtonsLayout?.addView(closeBtn)
 
-        headerLayout.addView(glowIndicator)
-        headerLayout.addView(headerTitle)
-        headerLayout.addView(actionButtonsLayout)
+        headerLayout?.addView(glowIndicator)
+        headerLayout?.addView(addCardTitleBtn)
+        headerLayout?.addView(headerTitle)
+        headerLayout?.addView(actionButtonsLayout)
         cardLayout.addView(headerLayout)
 
         // ── 2. The Holographic Header Row: [+] Plus Button + 3 Clock Badges ──
@@ -496,7 +676,7 @@ class FloatingWindowService : Service() {
             }
         }
 
-        val editToggleBtn = TextView(this).apply {
+        editToggleBtn = TextView(this).apply {
             text = "EDIT"
             textSize = 8.5f
             typeface = Typeface.DEFAULT_BOLD
@@ -510,7 +690,8 @@ class FloatingWindowService : Service() {
                 recordInteraction()
                 val isEditing = liveNoteEditLayout?.visibility == View.VISIBLE
                 if (isEditing) {
-                    // Save note
+                    // Save note & hide soft keyboard
+                    hideKeyboardAndUnfocus()
                     val updated = liveNoteEditText?.text?.toString()?.trim() ?: ""
                     liveNoteText = if (updated.isNotBlank()) updated else "No notes recorded."
                     liveNoteTextView?.text = liveNoteText
@@ -520,11 +701,12 @@ class FloatingWindowService : Service() {
                     virtualScrollBadge?.visibility = if (liveNoteText.length > 10240) View.VISIBLE else View.GONE
                     Toast.makeText(this@FloatingWindowService, "Live note saved", Toast.LENGTH_SHORT).show()
                 } else {
-                    // Open inline editor
-                    liveNoteEditText?.setText(if (liveNoteText == "No notes recorded.") "" else liveNoteText)
+                    // Open inline editor & show soft keyboard
+                    liveNoteEditText?.setText(if (liveNoteText == "No notes recorded." || liveNoteText == "No notes recorded yet.") "" else liveNoteText)
                     liveNoteTextView?.visibility = View.GONE
                     liveNoteEditLayout?.visibility = View.VISIBLE
                     text = "SAVE"
+                    showKeyboardAndFocus()
                 }
             }
         }
@@ -556,9 +738,11 @@ class FloatingWindowService : Service() {
             setHintTextColor(Color.parseColor("#555555"))
             setTextColor(Color.WHITE)
             textSize = noteTextSizeSp
-            maxLines = 3
+            maxLines = 4
             background = null
-            setPadding(0, 0, 0, 0)
+            setPadding(dpToPx(2), dpToPx(2), dpToPx(2), dpToPx(2))
+            isFocusable = true
+            isFocusableInTouchMode = true
         }
         liveNoteEditLayout?.addView(liveNoteEditText)
         liveNoteBox.addView(liveNoteEditLayout)
@@ -574,6 +758,9 @@ class FloatingWindowService : Service() {
 
         cardLayout.setOnTouchListener { _, event ->
             recordInteraction()
+            if (isDancing) {
+                stopDance()
+            }
             val params = layoutParams ?: return@setOnTouchListener false
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -665,6 +852,8 @@ class FloatingWindowService : Service() {
     override fun onDestroy() {
         isRunning = false
         currentInstance = null
+        stopDance()
+        hideKeyboardAndUnfocus()
         mainHandler.removeCallbacks(tickerRunnable)
         mainHandler.removeCallbacks(inactivityRunnable)
         if (floatingView != null) {
