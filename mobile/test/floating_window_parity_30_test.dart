@@ -107,23 +107,19 @@ void main() {
 
       // Check Live Note header
       expect(find.text('📄 LIVE NOTE'), findsOneWidget, reason: 'Live Note section present');
-      expect(find.text('EDIT'), findsOneWidget, reason: 'EDIT button present');
       expect(find.text(' A+ '), findsOneWidget, reason: 'A+ font button present');
       expect(find.text(' A- '), findsOneWidget, reason: 'A- font button present');
 
-      // Tap EDIT to open in-place editor
-      await tester.tap(find.text('EDIT'));
-      await tester.pump(const Duration(milliseconds: 50));
+      // Google Keep Parity: Note field is always visible and editable without EDIT or SAVE buttons
+      expect(find.text('EDIT'), findsNothing, reason: 'No EDIT button in Google Keep mode');
+      expect(find.text('SAVE'), findsNothing, reason: 'No SAVE button in Google Keep mode');
+      expect(find.byType(TextField), findsOneWidget, reason: 'Always-open editable TextField visible');
 
-      expect(find.text('SAVE'), findsOneWidget, reason: 'Button changes to SAVE');
-      expect(find.byType(TextField), findsOneWidget, reason: 'In-place TextField visible');
-
-      // Enter new note
+      // Enter new note directly
       await tester.enterText(find.byType(TextField), 'Test live note text input');
-      await tester.tap(find.text('SAVE'));
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text('Test live note text input'), findsOneWidget, reason: 'Saved note displayed');
+      expect(find.text('Test live note text input'), findsOneWidget, reason: 'Directly edited note present');
     });
 
     testWidgets('Test 25-30: Window modes, styling, and sync', (tester) async {

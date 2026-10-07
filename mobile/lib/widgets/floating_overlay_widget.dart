@@ -880,37 +880,6 @@ class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget>
                 },
                 child: const Text(' A- ', style: TextStyle(color: Colors.white70, fontSize: 10)),
               ),
-              const SizedBox(width: 4),
-              // Edit / Save Toggle
-              InkWell(
-                onTap: () {
-                  _recordInteraction();
-                  if (_isEditingNote) {
-                    _saveLiveNote();
-                  } else {
-                    setState(() => _isEditingNote = true);
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                  decoration: BoxDecoration(
-                    color: _isEditingNote ? CyberTheme.neonLime.withValues(alpha: 0.2) : Colors.white12,
-                    borderRadius: BorderRadius.circular(3),
-                    border: Border.all(
-                      color: _isEditingNote ? CyberTheme.neonLime : Colors.white38,
-                      width: 0.7,
-                    ),
-                  ),
-                  child: Text(
-                    _isEditingNote ? 'SAVE' : 'EDIT',
-                    style: TextStyle(
-                      color: _isEditingNote ? CyberTheme.neonLime : Colors.white70,
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
 
@@ -934,35 +903,27 @@ class _FloatingOverlayWidgetState extends State<FloatingOverlayWidget>
 
           const SizedBox(height: 4),
 
-          // Live Note Content or Editable TextField
-          if (_isEditingNote)
-            TextField(
-              controller: _noteEditController,
-              autofocus: true,
-              maxLines: 3,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: _noteTextSize,
-              ),
-              decoration: const InputDecoration(
-                hintText: 'Type new live note here...',
-                hintStyle: TextStyle(color: Colors.white30, fontSize: 11),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            )
-          else
-            Text(
-              _liveNote.isEmpty ? 'No notes recorded.' : _liveNote,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: CyberTheme.textPrimary,
-                fontSize: _noteTextSize,
-                fontStyle: FontStyle.italic,
-              ),
+          // Google Keep Parity: Always-open editable TextField (auto-saved on keypress)
+          TextField(
+            controller: _noteEditController,
+            maxLines: 4,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: _noteTextSize,
             ),
+            onChanged: (text) {
+              _recordInteraction();
+              _liveNote = text;
+              _saveLiveNote();
+            },
+            decoration: const InputDecoration(
+              hintText: 'Write note here... (auto-saved)',
+              hintStyle: TextStyle(color: Colors.white30, fontSize: 11),
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
         ],
       ),
     );

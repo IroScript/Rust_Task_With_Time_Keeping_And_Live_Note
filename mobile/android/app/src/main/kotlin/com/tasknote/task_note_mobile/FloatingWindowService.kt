@@ -17,6 +17,8 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -29,25 +31,45 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.math.cos
 import kotlin.math.sin
+
+/// 1:1 Parity Task Card Data Model for Floating Overlay
+data class TaskCardData(
+    var id: String = "1",
+    var mainText: String = "Focus on the work - Success is near",
+    var subText: String = "Keep pushing forward! ✨",
+    var liveNote: String = "",
+    var deadlineTime: String = "12.10 PM",
+    var subTaskTime: String = "12.10 PM",
+    var stopwatchSeconds: Int = 0,
+    var isStopwatchRunning: Boolean = false,
+    var depth: Int = 0
+)
 
 /// 100% Rust-Parity Android Native Draggable Floating Window Service
 ///
 /// Implements 1:1 parity with:
 /// - Rust card_header_widgets.rs:
 ///     * [+] Plus Button (22x22 dp, #3CB450 green border, #B21C1C red plus)
-///     * 3 Clock Badges:
+///     * 3 Independent Clock Badges per card:
 ///         - Badge 0: Deadline (#A51616 Crimson Red, "12.10 PM")
 ///         - Badge 1: Sub-Task (#B95F0F Amber, "12.10 PM")
 ///         - Badge 2: Stopwatch (#1C76B9 Steel-Blue, "MM:SS", pulsing dot #28C8FF)
 /// - Rust src/main.rs:2240-2540:
-///     * Plus icon (+) for new note/card in title bar (src/main.rs:2258 icons::ADD_CARD)
+///     * Add Card button (+) in title bar (src/main.rs:2258 icons::ADD_CARD)
+///     * Title "DAILY MOTIVATION" (src/main.rs:2267)
+///     * Quote counter [ disp_idx / disp_total ] (src/main.rs:2308)
+///     * Navigation buttons ◀ and ▶ (src/main.rs:4135)
 ///     * Hide window title bar (src/main.rs:2343 icons::HIDE_HEADER) & Show header (src/main.rs:2529 icons::SHOW_HEADER)
 ///     * Dance animation button (src/main.rs:2414 icons::ANIM_DANCE, AppAnimation::Dance)
 ///     * Title bar auto-hide after 5.0s inactivity
-/// - Rust src/views/live_note.rs:
-///     * In-place Live Note viewing & quick writing with IME Soft Keyboard support
+/// - Google Keep-Style Live Note (src/views/live_note.rs & src/main.rs:3188, 3242):
+///     * Always-open editable EditText (NO "EDIT" / "SAVE" button needed)
+///     * Auto-save to SharedPreferences ('cached_cards') on every keypress
+///     * Soft keyboard (IME) input enabled
 ///     * Virtual scrolling indicator (>10 KB badge)
 class FloatingWindowService : Service() {
 
@@ -55,20 +77,25 @@ class FloatingWindowService : Service() {
     private var floatingView: View? = null
     private var layoutParams: WindowManager.LayoutParams? = null
 
+    // Multi-Card State List
+    private val cardsList = ArrayList<TaskCardData>()
+    private var currentCardIndex = 0
+    private var isUpdatingUiFromModel = false
+
     // UI Elements
     private var titleTextView: TextView? = null
     private var subtitleTextView: TextView? = null
-    private var liveNoteTextView: TextView? = null
-    private var liveNoteEditLayout: LinearLayout? = null
     private var liveNoteEditText: EditText? = null
-    private var editToggleBtn: TextView? = null
     private var virtualScrollBadge: TextView? = null
+    private var quoteCounterTextView: TextView? = null
 
     // Title Bar State & Controls (Rust main.rs:2240-2540)
     private var headerLayout: LinearLayout? = null
     private var showHeaderBtn: TextView? = null
     private var addCardTitleBtn: TextView? = null
     private var danceBtn: TextView? = null
+    private var prevCardBtn: TextView? = null
+    private var nextCardBtn: TextView? = null
     private var isHeaderVisible = true
 
     // Dance Animation State (Rust AppAnimation::Dance, src/main.rs:8000-8007)
@@ -86,22 +113,20 @@ class FloatingWindowService : Service() {
     // Action buttons & Auto-hide
     private var actionButtonsLayout: LinearLayout? = null
     private var floatingButtonOpacity = 1.0f
-
-    private var cardId = "1"
-    private var depth = 0
-    private var deadlineTime = "12.10 PM"
-    private var subTaskTime = "12.10 PM"
-    private var liveNoteText = ""
     private var noteTextSizeSp = 11.5f
 
-    private var stopwatchSeconds = 0
-    private var isStopwatchRunning = false
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private val tickerRunnable = object : Runnable {
         override fun run() {
-            if (isStopwatchRunning) {
-                stopwatchSeconds++
+            var anyRunning = false
+            for (card in cardsList) {
+                if (card.isStopwatchRunning) {
+                    card.stopwatchSeconds++
+                    anyRunning = true
+                }
+            }
+            if (anyRunning) {
                 updateStopwatchDisplay()
             }
             mainHandler.postDelayed(this, 1000)
@@ -160,7 +185,11 @@ class FloatingWindowService : Service() {
         createNotificationChannel()
         val notification = createNotification("Task & Live Note Overlay", "Overlay is active")
         startForeground(NOTIFICATION_ID, notification)
+
+        loadCardsFromPreferences()
         createFloatingWindow()
+        displayCurrentCard()
+
         mainHandler.post(tickerRunnable)
         resetInactivityTimer()
     }
@@ -173,20 +202,146 @@ class FloatingWindowService : Service() {
                     return START_NOT_STICKY
                 }
                 ACTION_UPDATE -> {
-                    val title = intent.getStringExtra(EXTRA_TITLE) ?: "Task & Note"
-                    val subtitle = intent.getStringExtra(EXTRA_SUBTITLE) ?: ""
-                    val note = intent.getStringExtra(EXTRA_NOTE) ?: ""
-                    val seconds = intent.getIntExtra(EXTRA_SECONDS, stopwatchSeconds)
-                    val running = intent.getBooleanExtra(EXTRA_IS_RUNNING, isStopwatchRunning)
-                    cardId = intent.getStringExtra(EXTRA_CARD_ID) ?: cardId
-                    depth = intent.getIntExtra(EXTRA_DEPTH, depth)
-                    deadlineTime = intent.getStringExtra(EXTRA_DEADLINE) ?: deadlineTime
-                    subTaskTime = intent.getStringExtra(EXTRA_SUBTASK_TIME) ?: subTaskTime
-                    applyData(title, subtitle, note, seconds, running)
+                    val title = intent.getStringExtra(EXTRA_TITLE)
+                    val subtitle = intent.getStringExtra(EXTRA_SUBTITLE)
+                    val note = intent.getStringExtra(EXTRA_NOTE)
+                    val seconds = intent.getIntExtra(EXTRA_SECONDS, -1)
+                    val hasRunning = intent.hasExtra(EXTRA_IS_RUNNING)
+                    val running = intent.getBooleanExtra(EXTRA_IS_RUNNING, false)
+                    val incomingId = intent.getStringExtra(EXTRA_CARD_ID)
+                    val depth = intent.getIntExtra(EXTRA_DEPTH, 0)
+                    val deadline = intent.getStringExtra(EXTRA_DEADLINE)
+                    val subtask = intent.getStringExtra(EXTRA_SUBTASK_TIME)
+
+                    if (cardsList.isEmpty()) {
+                        loadCardsFromPreferences()
+                    }
+
+                    // Update or insert matching card
+                    val card = if (incomingId != null) {
+                        cardsList.find { it.id == incomingId } ?: TaskCardData(id = incomingId).also { cardsList.add(it) }
+                    } else {
+                        getCurrentCard()
+                    }
+
+                    if (title != null) card.mainText = title
+                    if (subtitle != null) card.subText = subtitle
+                    if (note != null) card.liveNote = note
+                    if (seconds >= 0) card.stopwatchSeconds = seconds
+                    if (hasRunning) card.isStopwatchRunning = running
+                    if (deadline != null) card.deadlineTime = deadline
+                    if (subtask != null) card.subTaskTime = subtask
+                    card.depth = depth
+
+                    displayCurrentCard()
                 }
             }
         }
         return START_STICKY
+    }
+
+    private fun getCurrentCard(): TaskCardData {
+        if (cardsList.isEmpty()) {
+            cardsList.add(TaskCardData())
+            currentCardIndex = 0
+        }
+        if (currentCardIndex < 0 || currentCardIndex >= cardsList.size) {
+            currentCardIndex = 0
+        }
+        return cardsList[currentCardIndex]
+    }
+
+    private fun loadCardsFromPreferences() {
+        cardsList.clear()
+        try {
+            val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            val jsonStr = prefs.getString("flutter.cached_cards", null)
+            if (!jsonStr.isNullOrBlank()) {
+                val array = JSONArray(jsonStr)
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val c = TaskCardData(
+                        id = obj.optString("id", "${i + 1}"),
+                        mainText = obj.optString("mainText", "Focus on the work - Success is near"),
+                        subText = obj.optString("subText", "Keep pushing forward! ✨"),
+                        liveNote = obj.optString("liveNote", ""),
+                        deadlineTime = if (obj.has("endTime")) obj.optString("endTime", "12.10 PM") else obj.optString("deadlineTime", "12.10 PM"),
+                        subTaskTime = if (obj.has("startTime")) obj.optString("startTime", "12.10 PM") else obj.optString("subTaskTime", "12.10 PM"),
+                        stopwatchSeconds = obj.optInt("stopwatchSeconds", 0),
+                        isStopwatchRunning = obj.optBoolean("isStopwatchRunning", false),
+                        depth = obj.optInt("depth", 0)
+                    )
+                    cardsList.add(c)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        if (cardsList.isEmpty()) {
+            cardsList.add(TaskCardData("1", "Focus on the work - Success is near", "Keep pushing forward! ✨", "", "12.10 PM", "12.10 PM", 0, false, 0))
+            cardsList.add(TaskCardData("2", "Plan the next iteration carefully", "Precision over haste", "", "01.00 PM", "12.30 PM", 0, false, 0))
+        }
+        currentCardIndex = 0
+    }
+
+    private fun saveCardsToPreferences() {
+        try {
+            val array = JSONArray()
+            for (c in cardsList) {
+                val obj = JSONObject().apply {
+                    put("id", c.id)
+                    put("mainText", c.mainText)
+                    put("subText", c.subText)
+                    put("liveNote", c.liveNote)
+                    put("startTime", c.subTaskTime)
+                    put("endTime", c.deadlineTime)
+                    put("stopwatchSeconds", c.stopwatchSeconds)
+                    put("isStopwatchRunning", c.isStopwatchRunning)
+                    put("depth", c.depth)
+                }
+                array.put(obj)
+            }
+            val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            prefs.edit().putString("flutter.cached_cards", array.toString()).apply()
+
+            // Broadcast notification for Flutter listeners
+            val intent = Intent("com.tasknote.ACTION_CARD_UPDATED").apply {
+                val card = getCurrentCard()
+                putExtra("cardId", card.id)
+                putExtra("note", card.liveNote)
+                putExtra("seconds", card.stopwatchSeconds)
+                putExtra("running", card.isStopwatchRunning)
+            }
+            sendBroadcast(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun displayCurrentCard() {
+        val card = getCurrentCard()
+        mainHandler.post {
+            isUpdatingUiFromModel = true
+            titleTextView?.text = card.mainText
+            subtitleTextView?.text = if (card.depth > 0) "[Sub-card depth: ${card.depth}] ${card.subText}" else card.subText
+
+            // Google Keep style: always editable, preserve text cursor
+            if (liveNoteEditText?.text?.toString() != card.liveNote) {
+                liveNoteEditText?.setText(card.liveNote)
+                liveNoteEditText?.setSelection(card.liveNote.length)
+            }
+
+            badgeDeadlineTextView?.text = card.deadlineTime
+            badgeSubTaskTextView?.text = card.subTaskTime
+            pulsingDot?.visibility = if (card.isStopwatchRunning) View.VISIBLE else View.GONE
+            virtualScrollBadge?.visibility = if (card.liveNote.length > 10240) View.VISIBLE else View.GONE
+
+            quoteCounterTextView?.text = "[ ${currentCardIndex + 1} / ${cardsList.size} ]"
+
+            updateStopwatchDisplay()
+            isUpdatingUiFromModel = false
+        }
     }
 
     private fun dpToPx(dp: Int): Int {
@@ -381,22 +536,75 @@ class FloatingWindowService : Service() {
             setPadding(dpToPx(3), dpToPx(0), dpToPx(5), dpToPx(0))
             setOnClickListener {
                 recordInteraction()
-                liveNoteEditText?.setText("")
-                liveNoteTextView?.visibility = View.GONE
-                liveNoteEditLayout?.visibility = View.VISIBLE
-                editToggleBtn?.text = "SAVE"
+                val newId = System.currentTimeMillis().toString()
+                val newCard = TaskCardData(
+                    id = newId,
+                    mainText = "Daily Note ${cardsList.size + 1}",
+                    subText = "Keep pushing forward! ✨",
+                    liveNote = "",
+                    deadlineTime = "12.10 PM",
+                    subTaskTime = "12.10 PM",
+                    stopwatchSeconds = 0,
+                    isStopwatchRunning = false,
+                    depth = 0
+                )
+                cardsList.add(0, newCard)
+                currentCardIndex = 0
+                displayCurrentCard()
+                saveCardsToPreferences()
                 showKeyboardAndFocus()
-                Toast.makeText(this@FloatingWindowService, "New note ready (type & click SAVE)", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@FloatingWindowService, "New note ready (type directly, auto-saved)", Toast.LENGTH_SHORT).show()
                 sendBroadcast(Intent("com.tasknote.ACTION_ADD_CARD"))
             }
         }
 
         val headerTitle = TextView(this).apply {
-            text = "⚡ TASK & LIVE NOTE"
+            text = "DAILY MOTIVATION"
             textSize = 9.5f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.parseColor("#3CB450"))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f)
+        }
+
+        // Quote Counter [ disp_idx / disp_total ] (src/main.rs:2308)
+        quoteCounterTextView = TextView(this).apply {
+            text = "[ 1 / 1 ]"
+            textSize = 9f
+            typeface = Typeface.MONOSPACE
+            setTextColor(Color.parseColor("#3CB450"))
+            setPadding(dpToPx(2), dpToPx(0), dpToPx(4), dpToPx(0))
+        }
+
+        // Carousel Navigation: ◀ Previous Card (src/main.rs:4135)
+        prevCardBtn = TextView(this).apply {
+            text = "◀"
+            textSize = 11f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.parseColor("#00FFFF"))
+            setPadding(dpToPx(3), dpToPx(0), dpToPx(3), dpToPx(0))
+            setOnClickListener {
+                recordInteraction()
+                if (cardsList.isNotEmpty()) {
+                    currentCardIndex = if (currentCardIndex > 0) currentCardIndex - 1 else cardsList.size - 1
+                    displayCurrentCard()
+                }
+            }
+        }
+
+        // Carousel Navigation: ▶ Next Card (src/main.rs:4141)
+        nextCardBtn = TextView(this).apply {
+            text = "▶"
+            textSize = 11f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.parseColor("#00FFFF"))
+            setPadding(dpToPx(3), dpToPx(0), dpToPx(5), dpToPx(0))
+            setOnClickListener {
+                recordInteraction()
+                if (cardsList.isNotEmpty()) {
+                    currentCardIndex = (currentCardIndex + 1) % cardsList.size
+                    displayCurrentCard()
+                }
+            }
         }
 
         // Floating Action Buttons (with 5.0s Auto-Hide Opacity Animation)
@@ -411,7 +619,7 @@ class FloatingWindowService : Service() {
             textSize = 12f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.WHITE)
-            setPadding(dpToPx(5), dpToPx(2), dpToPx(5), dpToPx(2))
+            setPadding(dpToPx(4), dpToPx(2), dpToPx(4), dpToPx(2))
             setOnClickListener {
                 toggleDance()
             }
@@ -423,7 +631,7 @@ class FloatingWindowService : Service() {
             textSize = 11f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.WHITE)
-            setPadding(dpToPx(5), dpToPx(2), dpToPx(5), dpToPx(2))
+            setPadding(dpToPx(4), dpToPx(2), dpToPx(4), dpToPx(2))
             setOnClickListener {
                 recordInteraction()
                 isHeaderVisible = false
@@ -438,7 +646,7 @@ class FloatingWindowService : Service() {
             textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.parseColor("#39FF14"))
-            setPadding(dpToPx(5), dpToPx(2), dpToPx(5), dpToPx(2))
+            setPadding(dpToPx(4), dpToPx(2), dpToPx(4), dpToPx(2))
             setOnClickListener {
                 recordInteraction()
                 val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
@@ -456,7 +664,7 @@ class FloatingWindowService : Service() {
             textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.parseColor("#FF007F"))
-            setPadding(dpToPx(5), dpToPx(2), dpToPx(2), dpToPx(2))
+            setPadding(dpToPx(4), dpToPx(2), dpToPx(2), dpToPx(2))
             setOnClickListener {
                 stopSelf()
             }
@@ -470,6 +678,9 @@ class FloatingWindowService : Service() {
         headerLayout?.addView(glowIndicator)
         headerLayout?.addView(addCardTitleBtn)
         headerLayout?.addView(headerTitle)
+        headerLayout?.addView(quoteCounterTextView)
+        headerLayout?.addView(prevCardBtn)
+        headerLayout?.addView(nextCardBtn)
         headerLayout?.addView(actionButtonsLayout)
         cardLayout.addView(headerLayout)
 
@@ -496,11 +707,28 @@ class FloatingWindowService : Service() {
             }
             setOnClickListener {
                 recordInteraction()
-                val newDepth = depth + 1
+                val curCard = getCurrentCard()
+                val newDepth = curCard.depth + 1
+                val newId = System.currentTimeMillis().toString()
+                val subCard = TaskCardData(
+                    id = newId,
+                    mainText = "Sub-task for ${curCard.mainText}",
+                    subText = "Depth $newDepth",
+                    liveNote = "",
+                    deadlineTime = curCard.deadlineTime,
+                    subTaskTime = curCard.subTaskTime,
+                    stopwatchSeconds = 0,
+                    isStopwatchRunning = false,
+                    depth = newDepth
+                )
+                cardsList.add(currentCardIndex + 1, subCard)
+                currentCardIndex++
+                displayCurrentCard()
+                saveCardsToPreferences()
+                showKeyboardAndFocus()
                 Toast.makeText(this@FloatingWindowService, "Sub-card created (depth $newDepth, scale 95%)", Toast.LENGTH_SHORT).show()
-                // Broadcast to Flutter app
                 sendBroadcast(Intent("com.tasknote.ACTION_ADD_SUBCARD").apply {
-                    putExtra("cardId", cardId)
+                    putExtra("cardId", subCard.id)
                     putExtra("depth", newDepth)
                 })
             }
@@ -527,19 +755,21 @@ class FloatingWindowService : Service() {
         }
 
         // 2b. Badge 0: Deadline (#A51616 Crimson Red)
-        badgeDeadlineTextView = createClockChip(deadlineTime, "#A51616").apply {
+        badgeDeadlineTextView = createClockChip("12.10 PM", "#A51616").apply {
             setOnClickListener {
                 recordInteraction()
-                Toast.makeText(this@FloatingWindowService, "Deadline: $deadlineTime", Toast.LENGTH_SHORT).show()
+                val card = getCurrentCard()
+                Toast.makeText(this@FloatingWindowService, "Deadline: ${card.deadlineTime}", Toast.LENGTH_SHORT).show()
             }
         }
         headerRowLayout.addView(badgeDeadlineTextView)
 
         // 2c. Badge 1: Sub-Task Time (#B95F0F Amber)
-        badgeSubTaskTextView = createClockChip(subTaskTime, "#B95F0F").apply {
+        badgeSubTaskTextView = createClockChip("12.10 PM", "#B95F0F").apply {
             setOnClickListener {
                 recordInteraction()
-                Toast.makeText(this@FloatingWindowService, "Sub-task: $subTaskTime", Toast.LENGTH_SHORT).show()
+                val card = getCurrentCard()
+                Toast.makeText(this@FloatingWindowService, "Sub-task: ${card.subTaskTime}", Toast.LENGTH_SHORT).show()
             }
         }
         headerRowLayout.addView(badgeSubTaskTextView)
@@ -579,17 +809,21 @@ class FloatingWindowService : Service() {
 
         stopwatchBadgeContainer.setOnClickListener {
             recordInteraction()
-            isStopwatchRunning = !isStopwatchRunning
-            pulsingDot?.visibility = if (isStopwatchRunning) View.VISIBLE else View.GONE
+            val card = getCurrentCard()
+            card.isStopwatchRunning = !card.isStopwatchRunning
+            pulsingDot?.visibility = if (card.isStopwatchRunning) View.VISIBLE else View.GONE
             updateStopwatchDisplay()
+            saveCardsToPreferences()
         }
 
         stopwatchBadgeContainer.setOnLongClickListener {
             recordInteraction()
-            isStopwatchRunning = false
-            stopwatchSeconds = 0
+            val card = getCurrentCard()
+            card.isStopwatchRunning = false
+            card.stopwatchSeconds = 0
             pulsingDot?.visibility = View.GONE
             updateStopwatchDisplay()
+            saveCardsToPreferences()
             Toast.makeText(this@FloatingWindowService, "Stopwatch reset to 00:00", Toast.LENGTH_SHORT).show()
             true
         }
@@ -628,7 +862,7 @@ class FloatingWindowService : Service() {
         }
         cardLayout.addView(virtualScrollBadge)
 
-        // ── 5. Live Note Box & In-Place Writing (src/views/live_note.rs) ──
+        // ── 5. Google Keep-Style Live Note Box & In-Place Writing (ALWAYS EDITABLE) ──
         val liveNoteBox = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
@@ -659,7 +893,6 @@ class FloatingWindowService : Service() {
             setOnClickListener {
                 recordInteraction()
                 noteTextSizeSp = (noteTextSizeSp + 1f).coerceIn(9f, 18f)
-                liveNoteTextView?.textSize = noteTextSizeSp
                 liveNoteEditText?.textSize = noteTextSizeSp
             }
         }
@@ -671,81 +904,58 @@ class FloatingWindowService : Service() {
             setOnClickListener {
                 recordInteraction()
                 noteTextSizeSp = (noteTextSizeSp - 1f).coerceIn(9f, 18f)
-                liveNoteTextView?.textSize = noteTextSizeSp
                 liveNoteEditText?.textSize = noteTextSizeSp
-            }
-        }
-
-        editToggleBtn = TextView(this).apply {
-            text = "EDIT"
-            textSize = 8.5f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(Color.parseColor("#39FF14"))
-            setPadding(dpToPx(6), dpToPx(1), dpToPx(6), dpToPx(1))
-            background = GradientDrawable().apply {
-                cornerRadius = dpToPx(3).toFloat()
-                setStroke(dpToPx(1), Color.parseColor("#39FF14"))
-            }
-            setOnClickListener {
-                recordInteraction()
-                val isEditing = liveNoteEditLayout?.visibility == View.VISIBLE
-                if (isEditing) {
-                    // Save note & hide soft keyboard
-                    hideKeyboardAndUnfocus()
-                    val updated = liveNoteEditText?.text?.toString()?.trim() ?: ""
-                    liveNoteText = if (updated.isNotBlank()) updated else "No notes recorded."
-                    liveNoteTextView?.text = liveNoteText
-                    liveNoteEditLayout?.visibility = View.GONE
-                    liveNoteTextView?.visibility = View.VISIBLE
-                    text = "EDIT"
-                    virtualScrollBadge?.visibility = if (liveNoteText.length > 10240) View.VISIBLE else View.GONE
-                    Toast.makeText(this@FloatingWindowService, "Live note saved", Toast.LENGTH_SHORT).show()
-                } else {
-                    // Open inline editor & show soft keyboard
-                    liveNoteEditText?.setText(if (liveNoteText == "No notes recorded." || liveNoteText == "No notes recorded yet.") "" else liveNoteText)
-                    liveNoteTextView?.visibility = View.GONE
-                    liveNoteEditLayout?.visibility = View.VISIBLE
-                    text = "SAVE"
-                    showKeyboardAndFocus()
-                }
             }
         }
 
         noteHeader.addView(noteTitle)
         noteHeader.addView(fontPlusBtn)
         noteHeader.addView(fontMinusBtn)
-        noteHeader.addView(editToggleBtn)
         liveNoteBox.addView(noteHeader)
 
-        liveNoteTextView = TextView(this).apply {
-            text = "No notes recorded yet."
-            textSize = noteTextSizeSp
-            setTextColor(Color.parseColor("#E6EDF3"))
-            maxLines = 3
-            setPadding(0, dpToPx(4), 0, 0)
-        }
-        liveNoteBox.addView(liveNoteTextView)
-
-        // In-line Edit layout
-        liveNoteEditLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            visibility = View.GONE
-            setPadding(0, dpToPx(4), 0, 0)
-        }
-
+        // Google Keep Parity: Live Note EditText is ALWAYS visible and directly editable.
+        // No EDIT button, No SAVE button. Auto-saves to SharedPreferences on every keypress!
         liveNoteEditText = EditText(this).apply {
-            hint = "Type new live note..."
-            setHintTextColor(Color.parseColor("#555555"))
+            hint = "Write note here... (auto-saved)"
+            setHintTextColor(Color.parseColor("#556677"))
             setTextColor(Color.WHITE)
             textSize = noteTextSizeSp
-            maxLines = 4
+            minLines = 2
+            maxLines = 5
             background = null
-            setPadding(dpToPx(2), dpToPx(2), dpToPx(2), dpToPx(2))
+            setPadding(dpToPx(2), dpToPx(4), dpToPx(2), dpToPx(4))
             isFocusable = true
             isFocusableInTouchMode = true
+
+            setOnClickListener {
+                recordInteraction()
+                showKeyboardAndFocus()
+            }
+
+            setOnFocusChangeListener { _, hasFocus ->
+                if (hasFocus) {
+                    recordInteraction()
+                    showKeyboardAndFocus()
+                }
+            }
+
+            // Auto-save on every single keypress
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: Editable?) {
+                    if (isUpdatingUiFromModel) return
+                    val newText = s?.toString() ?: ""
+                    val card = getCurrentCard()
+                    if (card.liveNote != newText) {
+                        card.liveNote = newText
+                        virtualScrollBadge?.visibility = if (newText.length > 10240) View.VISIBLE else View.GONE
+                        saveCardsToPreferences()
+                    }
+                }
+            })
         }
-        liveNoteEditLayout?.addView(liveNoteEditText)
-        liveNoteBox.addView(liveNoteEditLayout)
+        liveNoteBox.addView(liveNoteEditText)
 
         cardLayout.addView(liveNoteBox)
         rootLayout.addView(cardLayout)
@@ -790,26 +1000,11 @@ class FloatingWindowService : Service() {
         }
     }
 
-    fun applyData(title: String, subtitle: String, note: String, seconds: Int, running: Boolean) {
-        mainHandler.post {
-            titleTextView?.text = title
-            subtitleTextView?.text = subtitle
-            liveNoteText = if (note.isNotBlank()) note else "No notes recorded yet."
-            liveNoteTextView?.text = liveNoteText
-            stopwatchSeconds = seconds
-            isStopwatchRunning = running
-            pulsingDot?.visibility = if (running) View.VISIBLE else View.GONE
-            virtualScrollBadge?.visibility = if (liveNoteText.length > 10240) View.VISIBLE else View.GONE
-            badgeDeadlineTextView?.text = deadlineTime
-            badgeSubTaskTextView?.text = subTaskTime
-            updateStopwatchDisplay()
-        }
-    }
-
     private fun updateStopwatchDisplay() {
-        val h = stopwatchSeconds / 3600
-        val m = (stopwatchSeconds % 3600) / 60
-        val s = stopwatchSeconds % 60
+        val card = getCurrentCard()
+        val h = card.stopwatchSeconds / 3600
+        val m = (card.stopwatchSeconds % 3600) / 60
+        val s = card.stopwatchSeconds % 60
         val str = if (h > 0) {
             String.format("%02d:%02d:%02d", h, m, s)
         } else {

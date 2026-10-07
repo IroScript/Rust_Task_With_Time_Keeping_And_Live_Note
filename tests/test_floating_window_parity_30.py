@@ -160,7 +160,7 @@ def run_tests():
     # Test 21: Live note Save action updates state and triggers persistence
     t21 = ("save_current_input" in rust_main or "state.save()" in rust_main) and \
           ("_saveLiveNote" in flt_ov and "UPDATE_NOTE" in flt_ov) and \
-          ("liveNoteText = if (updated.isNotBlank())" in kt_ov)
+          ("saveCardsToPreferences" in kt_ov)
     tests.append(("Test 21: Live Note Save Action & Persistence Sync", t21, "Note saving and broadcast sync confirmed"))
 
     # Test 22: Large text (>10 KB) virtual scrolling active indicator badge
