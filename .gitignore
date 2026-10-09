@@ -24,3 +24,5 @@ settings.json
 Cargo.lock
 Cargo.toml
 .agy_evidence/
+output_apk/
+*.apk
